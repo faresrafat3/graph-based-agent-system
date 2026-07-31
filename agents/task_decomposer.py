@@ -3,6 +3,7 @@ Task Decomposer Agent - First of 8 Karpathy Agents
 """
 
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List
 import json
 from datetime import datetime
@@ -384,15 +385,17 @@ workflow.add_edge("refine", "propose")
 # End after commit
 workflow.add_edge("commit", END)
 
-# Compile
-task_decomposer_graph = workflow.compile()
+# Compile with Checkpointer (State Persistence - Article III, Section 1)
+checkpointer = MemorySaver()
+task_decomposer_graph = workflow.compile(checkpointer=checkpointer)
 
 
 # Main function
 def decompose_requirements(
     requirements: str,
     project_context: str = "",
-    constraints: str = ""
+    constraints: str = "",
+    thread_id: str = "default_session"
 ) -> dict:
     """
     Decompose requirements into structured tasks
@@ -401,25 +404,29 @@ def decompose_requirements(
         requirements: Natural language requirements
         project_context: Project context (optional)
         constraints: Constraints (optional)
+        thread_id: Session thread ID for state persistence
     
     Returns:
         Dict with tasks, metadata, clarifications_needed
     """
     
-    result = task_decomposer_graph.invoke({
-        "requirements": requirements,
-        "project_context": project_context,
-        "constraints": constraints,
-        "retry_count": 0,
-        "success": False,
-        "tasks": [],
-        "metadata": {},
-        "clarifications_needed": [],
-        "similar_past_decompositions": [],
-        "coverage": 0.0,
-        "has_circular": False,
-        "valid_assignments": False
-    })
+    result = task_decomposer_graph.invoke(
+        {
+            "requirements": requirements,
+            "project_context": project_context,
+            "constraints": constraints,
+            "retry_count": 0,
+            "success": False,
+            "tasks": [],
+            "metadata": {},
+            "clarifications_needed": [],
+            "similar_past_decompositions": [],
+            "coverage": 0.0,
+            "has_circular": False,
+            "valid_assignments": False
+        },
+        config={"configurable": {"thread_id": thread_id}}
+    )
     
     return {
         "tasks": result.get("tasks", []),
