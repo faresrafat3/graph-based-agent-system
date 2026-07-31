@@ -161,12 +161,25 @@ Output:
 """
 
 
+# Permission Boundaries (Law 2 & Constitution Article I, Section 2)
+TASK_DECOMPOSER_PERMISSIONS = {
+    "READ": ["requirements", "project_context", "constraints"],
+    "WRITE": ["tasks", "metadata", "clarifications_needed"],
+    "NEVER": ["code", "architecture_design", "deployment", "credentials"],
+    "HUMAN_CHECKPOINT": ["vague_requirements", "ambiguous_scope"]
+}
+
+
 # Karpathy Loop Implementation
 
 def propose(state: TaskDecomposerState) -> dict:
     """Step 1: Propose - Analyze requirements and check memory"""
     
     requirements = state["requirements"]
+    
+    # Enforce Permission Boundaries Check
+    if any(forbidden in requirements.lower() for forbidden in ["deploy to production", "delete production database"]):
+        raise PermissionError("Task Decomposer Agent attempted an action listed in NEVER permissions.")
     
     # Check memory for similar past decompositions
     similar = memory.find_similar(requirements, threshold=0.8)
@@ -214,16 +227,9 @@ Decompose these requirements into structured tasks following the JSON format spe
     try:
         result = json.loads(response)
         
-        # Use MCP tools to enhance tasks
+        # Use MCP tools to analyze dependencies for circular loops
         if result.get("tasks"):
-            # Analyze dependencies
             dep_analysis = mcp_tools.dependency_analyzer(result["tasks"])
-            
-            # Update tasks with dependencies
-            for task in result["tasks"]:
-                task_id = task.get("id")
-                if task_id and task_id in dep_analysis["dependencies"]:
-                    task["dependencies"] = dep_analysis["dependencies"][task_id]
             
             # Check for circular dependencies
             if dep_analysis["circular_dependencies"]:

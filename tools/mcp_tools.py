@@ -77,52 +77,34 @@ class MCPTools:
         dependencies = {}
         circular = []
         
-        # Build dependency graph based on task types
+        # Build dependency graph from explicit task dependencies
         for task in tasks:
             task_id = task.get("id")
-            task_type = task.get("type", "")
-            
-            if not task_id:
-                continue
-            
-            deps = []
-            
-            # Architecture tasks have no dependencies
-            if task_type == "architecture":
-                deps = []
-            
-            # Feature tasks depend on architecture
-            elif task_type == "feature":
-                arch_tasks = [
-                    t["id"] for t in tasks
-                    if t.get("type") == "architecture"
-                ]
-                deps = arch_tasks
-            
-            # Testing tasks depend on features
-            elif task_type == "testing":
-                feat_tasks = [
-                    t["id"] for t in tasks
-                    if t.get("type") == "feature"
-                ]
-                deps = feat_tasks
-            
-            # Requirements tasks have no dependencies
-            elif task_type == "requirements":
-                deps = []
-            
-            # Default: no dependencies
-            else:
-                deps = []
-            
-            dependencies[task_id] = deps
+            if task_id:
+                # Respect dependencies provided in the task specification
+                dependencies[task_id] = task.get("dependencies", [])
         
-        # Check for circular dependencies (simple check)
-        # In reality, this would be more sophisticated
-        for task_id, deps in dependencies.items():
-            for dep in deps:
-                if task_id in dependencies.get(dep, []):
-                    circular.append([task_id, dep, task_id])
+        # Check for circular dependencies using DFS graph cycle detection
+        circular = []
+        visited = {}  # 0: unvisited, 1: visiting (in current DFS stack), 2: visited
+        
+        def dfs(node, path):
+            visited[node] = 1
+            path.append(node)
+            
+            for neighbor in dependencies.get(node, []):
+                if visited.get(neighbor, 0) == 1:
+                    cycle_start = path.index(neighbor)
+                    circular.append(path[cycle_start:] + [neighbor])
+                elif visited.get(neighbor, 0) == 0:
+                    dfs(neighbor, path)
+            
+            path.pop()
+            visited[node] = 2
+
+        for task_id in dependencies:
+            if visited.get(task_id, 0) == 0:
+                dfs(task_id, [])
         
         return {
             "dependencies": dependencies,
