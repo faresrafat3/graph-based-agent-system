@@ -218,6 +218,8 @@ print(result['metadata'])
 - [LAWS.md](LAWS.md) - 10 Laws governing implementation
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Detailed architecture documentation
 - [docs/RESEARCH.md](docs/RESEARCH.md) - Research foundation and references
+- [docs/KARPATHY-AGENTS.md](docs/KARPATHY-AGENTS.md) - Specifications for the 8 Karpathy Meta-Agents
+- [docs/SOFTWARE-AGENTS.md](docs/SOFTWARE-AGENTS.md) - Specifications for the 7 Software Domain Agents
 
 ---
 
