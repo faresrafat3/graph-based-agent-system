@@ -45,3 +45,9 @@ def test_priority_assigner():
     tasks = [{"id": "task_1", "type": "architecture"}]
     priorities = mcp_tools.priority_assigner(tasks)
     assert priorities["priorities"].get("task_1") == "high"
+
+
+def test_requirements_parser_detects_lowercase_api_ui():
+    parsed = mcp_tools.requirements_parser("Build api routes and ui dashboard")
+    assert "Requires API" in parsed["features"]
+    assert "Requires UI" in parsed["features"]

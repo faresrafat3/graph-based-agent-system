@@ -54,6 +54,7 @@ def test_create_and_restore_snapshot(temp_merger):
     assert res["success"] is True
     assert "task_1" in res["merged_state"]["completed_tasks"]
     assert "task_3" in res["merged_state"]["completed_tasks"]
+    assert res["merged_state"]["code_modules"]["auth.py"] == code
     assert res["merged_state"]["restored_from_session"] == session_id
 
 

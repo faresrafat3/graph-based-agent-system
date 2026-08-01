@@ -41,6 +41,7 @@ class TaskDecomposerState(TypedDict):
     coverage: float
     has_circular: bool
     valid_assignments: bool
+    use_cached: bool
 
 
 # System Prompt
@@ -187,10 +188,14 @@ def propose(state: TaskDecomposerState) -> dict:
     
     if similar and similar[0]["similarity"] > 0.9:
         # Use past decomposition as reference
-        past_tasks = similar[0]["entry"]["data"].get("tasks", [])
+        past_data = similar[0]["entry"]["data"]
+        past_tasks = past_data.get("tasks", [])
         return {
             "tasks": past_tasks,
-            "similar_past_decompositions": similar
+            "metadata": past_data.get("metadata", {}),
+            "clarifications_needed": past_data.get("clarifications_needed", []),
+            "similar_past_decompositions": similar,
+            "use_cached": True
         }
     
     # Use MCP tools to parse requirements
@@ -198,7 +203,8 @@ def propose(state: TaskDecomposerState) -> dict:
     
     return {
         "parsed_requirements": parsed,
-        "similar_past_decompositions": similar
+        "similar_past_decompositions": similar,
+        "use_cached": False
     }
 
 
@@ -206,6 +212,13 @@ def execute(state: TaskDecomposerState) -> dict:
     """Step 2: Execute - Create structured tasks using LLM"""
     import re
     
+    if state.get("use_cached") and state.get("tasks"):
+        return {
+            "tasks": state.get("tasks", []),
+            "metadata": state.get("metadata", {}),
+            "clarifications_needed": state.get("clarifications_needed", [])
+        }
+
     requirements = state["requirements"]
     project_context = state.get("project_context", "")
     constraints = state.get("constraints", "")
@@ -366,7 +379,8 @@ def refine(state: TaskDecomposerState) -> dict:
     return {
         "retry_count": retry_count,
         "tasks": [],
-        "success": False
+        "success": False,
+        "use_cached": False
     }
 
 
@@ -456,7 +470,8 @@ def decompose_requirements(
             "similar_past_decompositions": [],
             "coverage": 0.0,
             "has_circular": False,
-            "valid_assignments": False
+            "valid_assignments": False,
+            "use_cached": False
         },
         config={"configurable": {"thread_id": thread_id}}
     )

@@ -78,6 +78,7 @@ class SessionStateMerger:
             "session_id": session_id,
             "timestamp": datetime.now().isoformat(),
             "completed_tasks": state.get("completed_tasks", []),
+            "code_modules": code_modules,
             "module_hashes": module_hashes,
             "ast_summaries": ast_summaries,
             "metadata": state.get("metadata", {})

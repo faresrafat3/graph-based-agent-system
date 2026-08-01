@@ -15,6 +15,7 @@ import re
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from llm.llm_integration import call_llm
+from tools.json_output_parser import parse_json_object_response
 
 
 # Permission Boundaries (Law 2)
@@ -145,18 +146,9 @@ def extract_code_from_response(llm_response: str) -> dict:
     """
     raw = llm_response.strip()
     
-    # Strip markdown fences
-    if "```" in raw:
-        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
-        raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE).strip()
-    
-    # Extract JSON object
-    json_match = re.search(r"(\{.*\})", raw, re.DOTALL)
-    if json_match:
-        raw = json_match.group(1)
-    
-    try:
-        result = json.loads(raw)
+    parsed = parse_json_object_response(raw)
+    if parsed["success"]:
+        result = parsed["data"]
         return {
             "success": True,
             "filename": result.get("filename", "generated_module.py"),
@@ -166,16 +158,53 @@ def extract_code_from_response(llm_response: str) -> dict:
             "imports_required": result.get("imports_required", []),
             "description": result.get("description", "")
         }
-    except json.JSONDecodeError:
-        return {
-            "success": False,
-            "filename": "",
-            "code": "",
-            "test_filename": "",
-            "test_code": "",
-            "imports_required": [],
-            "description": "Failed to parse LLM code generation response"
-        }
+
+    return {
+        "success": False,
+        "filename": "",
+        "code": "",
+        "test_filename": "",
+        "test_code": "",
+        "imports_required": [],
+        "description": "Failed to parse LLM code generation response"
+    }
+
+
+def _validate_generated_filenames(extracted: dict) -> list:
+    """Validate generated filenames before downstream file writes or execution."""
+    violations = []
+    source = extracted.get("filename", "")
+    test = extracted.get("test_filename", "")
+
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\.py", str(source)):
+        violations.append(f"Unsafe source filename: {source!r}")
+
+    if test and not re.fullmatch(r"test_[A-Za-z0-9_]+\.py", str(test)):
+        violations.append(f"Unsafe test filename: {test!r}")
+
+    return violations
+
+
+def _validate_extracted_code_package(extracted: dict) -> tuple:
+    """Validate generated code, test code, and filenames as one package."""
+    filename_violations = _validate_generated_filenames(extracted)
+    code_validation = validate_python_syntax(extracted.get("code", ""))
+    test_code = extracted.get("test_code", "")
+    test_validation = {"success": True, "violations": [], "metrics": {}}
+    if test_code:
+        test_validation = validate_python_syntax(test_code)
+
+    combined_violations = []
+    combined_violations.extend(filename_violations)
+    combined_violations.extend(code_validation["violations"])
+    combined_violations.extend([f"Test code: {v}" for v in test_validation["violations"]])
+
+    success = (
+        not filename_violations
+        and code_validation["success"]
+        and test_validation["success"]
+    )
+    return success, code_validation, test_validation, combined_violations
 
 
 def execute_task(task: dict, project_context: str = "", max_retries: int = 3) -> dict:
@@ -240,41 +269,38 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
             "violations": ["JSON extraction failed"]
         }
     
-    # === Stage 4: Evaluate — AST Deterministic Validation (Zero-LLM) ===
-    code = extracted["code"]
-    validation = validate_python_syntax(code)
-    
+    # === Stage 4: Evaluate package — code, tests, filenames (Zero-LLM) ===
+    package_success, validation, test_validation, combined_violations = _validate_extracted_code_package(extracted)
+
     # === Stage 5: Surgical Refinement Loop ===
     attempt = 0
-    while not validation["success"] and attempt < max_retries:
+    while not package_success and attempt < max_retries:
         attempt += 1
-        
+
         fix_prompt = (
-            f"SURGICAL CORRECTION REQUIRED.\n"
-            f"The following violations were found in your generated code:\n"
-            + "\n".join(f"- {v}" for v in validation["violations"]) +
+            "SURGICAL CORRECTION REQUIRED.\n"
+            "The following deterministic violations were found in the generated package:\n"
+            + "\n".join(f"- {v}" for v in combined_violations) +
             f"\n\nOriginal task: {task.get('title')}\n"
-            f"Fix ONLY the violations listed above. Do NOT regenerate unchanged parts.\n"
-            f"Output ONLY valid JSON with the corrected code."
+            "Fix ONLY the violations listed above. Preserve unchanged correct code and tests.\n"
+            "Output ONLY valid JSON with filename, code, test_filename, test_code, imports_required, and description."
         )
-        
+
         llm_response = call_llm(fix_prompt, CODE_GENERATION_PROMPT)
-        extracted = extract_code_from_response(llm_response)
-        
-        if extracted["success"]:
-            code = extracted["code"]
-            validation = validate_python_syntax(code)
-    
-    # === Stage 6: Validate test code too ===
+        refined = extract_code_from_response(llm_response)
+
+        if refined["success"]:
+            extracted = refined
+            package_success, validation, test_validation, combined_violations = _validate_extracted_code_package(extracted)
+        else:
+            combined_violations = ["JSON extraction failed during surgical refinement"]
+
     test_code = extracted.get("test_code", "")
-    test_validation = {"success": True, "violations": [], "metrics": {}}
-    if test_code:
-        test_validation = validate_python_syntax(test_code)
-    
+
     return {
-        "success": validation["success"],
+        "success": package_success,
         "filename": extracted["filename"],
-        "code": code,
+        "code": extracted.get("code", ""),
         "test_filename": extracted["test_filename"],
         "test_code": test_code,
         "imports_required": extracted["imports_required"],
@@ -282,5 +308,7 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
         "code_metrics": validation["metrics"],
         "code_violations": validation["violations"],
         "test_valid": test_validation["success"],
+        "test_violations": test_validation["violations"],
+        "violations": combined_violations,
         "refinement_attempts": attempt
     }

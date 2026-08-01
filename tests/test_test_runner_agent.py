@@ -1,5 +1,10 @@
 import pytest
-from agents.test_runner_agent import run_code_and_tests, TEST_RUNNER_PERMISSIONS
+from agents.test_runner_agent import (
+    run_code_and_tests,
+    validate_sandbox_filename,
+    scan_code_for_risky_patterns,
+    TEST_RUNNER_PERMISSIONS,
+)
 
 
 def test_permissions_matrix():
@@ -85,3 +90,46 @@ def test_run_invalid_syntax_code():
     assert res["success"] is False
     assert res["stage"] == "compilation"
     assert "Syntax" in res["error"]
+
+
+def test_reject_path_traversal_filename():
+    """Generated filenames cannot escape the sandbox directory."""
+    res = run_code_and_tests(
+        filename="../escape.py",
+        code="def safe() -> bool:\n    return True\n",
+        test_filename="",
+        test_code="",
+    )
+
+    assert res["success"] is False
+    assert res["stage"] == "preflight"
+    assert "path traversal" in res["error"].lower()
+
+
+def test_reject_unsafe_runtime_patterns():
+    """Generated code that tries to read environment secrets is blocked pre-execution."""
+    source_code = '''
+import os
+
+def leak() -> str:
+    """Attempt to read environment."""
+    return os.environ.get("STEPFUN_API_KEY", "")
+'''
+    violations = scan_code_for_risky_patterns(source_code, "source_code")
+    assert any("environment_access" in v for v in violations)
+
+    res = run_code_and_tests(
+        filename="leaker.py",
+        code=source_code,
+        test_filename="test_leaker.py",
+        test_code="from leaker import leak\n\ndef test_leak():\n    assert leak() == ''\n",
+    )
+
+    assert res["success"] is False
+    assert res["stage"] == "preflight"
+    assert any("environment_access" in v for v in res["violations"])
+
+
+def test_validate_sandbox_filename_accepts_safe_names():
+    assert validate_sandbox_filename("calculator.py") == "calculator.py"
+    assert validate_sandbox_filename("test_calculator.py", is_test=True) == "test_calculator.py"

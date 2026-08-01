@@ -1,232 +1,299 @@
 """
-LLM Integration - Direct access to LLM providers (OpenAI, Anthropic, Stepfun, with Native REST & Mock/Dry-Run Support)
+Stepfun-only LLM integration.
+
+This module intentionally supports only Stepfun at the moment. Alternate
+provider adapters and dry-run response fallbacks are not available here by
+design: missing credentials or API failures must fail loudly so production
+quality issues cannot be hidden by synthetic responses.
 """
 
-import os
 import json
+import logging
+import os
+import re
+import socket
+import time
+import urllib.error
 import urllib.request
-from dotenv import load_dotenv
+from typing import Optional
 
-# Load environment variables
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - exercised only in minimal runtimes
+    def load_dotenv(*args, **kwargs):
+        """No-op fallback when python-dotenv is not installed."""
+        return False
+
+# Load environment variables once at import time. Runtime tests may still
+# override os.environ directly via monkeypatch before calling functions.
 load_dotenv()
 
 
-def call_stepfun_native(prompt: str, system_prompt: str = "", model: str = None, temperature: float = 0.0) -> str:
+DEFAULT_STEPFUN_BASE_URL = "https://api.stepfun.ai/step_plan/v1"
+DEFAULT_STEPFUN_MODEL = "step-3.7-flash"
+_RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
+logger = logging.getLogger(__name__)
+
+
+class StepfunConfigurationError(RuntimeError):
+    """Raised when Stepfun credentials or endpoint settings are missing."""
+
+
+class StepfunAPIError(RuntimeError):
+    """Raised when the Stepfun API request fails or returns an invalid payload."""
+
+
+def _is_configured_api_key(api_key: Optional[str]) -> bool:
+    """Return True only for a non-placeholder Stepfun API key value."""
+    if not api_key:
+        return False
+
+    normalized = api_key.strip()
+    if not normalized:
+        return False
+
+    placeholder_fragments = (
+        "your-stepfun-api-key",
+        "replace-me",
+        "placeholder",
+        "changeme",
+    )
+    lowered = normalized.lower()
+    return not any(fragment in lowered for fragment in placeholder_fragments)
+
+
+def sanitize_llm_text(text: str) -> str:
     """
-    Calls Stepfun REST API natively using urllib.request (zero third-party dependencies required).
+    Apply lightweight context sanitation at the LLM gateway.
+
+    This central guard complements Context Curator agents and protects direct
+    LLM callers from sending obvious tracebacks or excessive whitespace.
+    """
+    if not isinstance(text, str):
+        raise ValueError("LLM text payload must be a string.")
+
+    sanitized = re.sub(
+        r"Traceback \(most recent call last\):.*?(?=\n\n|\Z)",
+        "[Traceback Omitted for Context Hygiene]",
+        text,
+        flags=re.DOTALL,
+    )
+    sanitized = re.sub(r"\n{3,}", "\n\n", sanitized)
+    return sanitized.strip()
+
+
+def get_stepfun_config(model: Optional[str] = None) -> dict:
+    """
+    Read and validate Stepfun configuration from environment variables.
+
+    Args:
+        model: Optional model override. If omitted, STEPFUN_MODEL is used.
+
+    Returns:
+        Dictionary containing ``api_key``, ``base_url``, and ``model``.
+
+    Raises:
+        StepfunConfigurationError: If STEPFUN_API_KEY is missing/placeholder.
     """
     api_key = os.getenv("STEPFUN_API_KEY")
-    base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/step_plan/v1").rstrip('/')
-    target_model = model or os.getenv("STEPFUN_MODEL", "step-3.7-flash")
-    
-    if not api_key:
-        raise ValueError("STEPFUN_API_KEY is not configured.")
-        
-    url = f"{base_url}/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
-    
-    data = {
+    if not _is_configured_api_key(api_key):
+        raise StepfunConfigurationError(
+            "STEPFUN_API_KEY is required and must not be a placeholder. "
+            "Configure it in the environment or .env file."
+        )
+
+    base_url = os.getenv("STEPFUN_BASE_URL", DEFAULT_STEPFUN_BASE_URL).strip().rstrip("/")
+    target_model = (model or os.getenv("STEPFUN_MODEL", DEFAULT_STEPFUN_MODEL)).strip()
+
+    if not base_url:
+        raise StepfunConfigurationError("STEPFUN_BASE_URL must not be empty.")
+    if not target_model:
+        raise StepfunConfigurationError("STEPFUN_MODEL must not be empty.")
+
+    return {
+        "api_key": api_key.strip(),
+        "base_url": base_url,
         "model": target_model,
-        "messages": messages,
-        "temperature": temperature
     }
-    
-    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        res_data = json.loads(resp.read().decode("utf-8"))
-        return res_data["choices"][0]["message"]["content"]
 
 
-def get_llm(provider="stepfun", model=None, temperature=0):
+def _extract_http_error_body(exc: urllib.error.HTTPError) -> str:
+    """Extract a bounded, safe HTTP error body for diagnostics."""
+    try:
+        return exc.read().decode("utf-8", errors="replace")[:1000]
+    except Exception:
+        return str(getattr(exc, "reason", "no response body"))
+
+
+def _retry_after_seconds(exc: urllib.error.HTTPError, default_delay: float) -> float:
+    """Read Retry-After header if present, otherwise use exponential default."""
+    try:
+        retry_after = exc.headers.get("Retry-After") if exc.headers else None
+        if retry_after:
+            return min(float(retry_after), 10.0)
+    except Exception:
+        pass
+    return default_delay
+
+
+def call_stepfun_native(
+    prompt: str,
+    system_prompt: str = "",
+    model: Optional[str] = None,
+    temperature: float = 0.0,
+    timeout: int = 30,
+    max_retries: int = 2,
+    backoff_seconds: float = 0.5,
+) -> str:
     """
-    Get LLM instance
-    
+    Call Stepfun's chat completions endpoint using stdlib HTTP.
+
     Args:
-        provider: "stepfun", "openai", or "anthropic"
-        model: Model name (defaults to STEPFUN_MODEL env or step-3.7-flash)
-        temperature: Temperature for generation
-    
+        prompt: User message content sent to the model.
+        system_prompt: Optional system message content.
+        model: Optional Stepfun model override.
+        temperature: Sampling temperature.
+        timeout: HTTP request timeout in seconds.
+        max_retries: Retry count for transient 429/5xx/network failures.
+        backoff_seconds: Initial exponential-backoff delay.
+
     Returns:
-        LLM instance
+        Assistant message content from the Stepfun response.
+
+    Raises:
+        ValueError: If ``prompt`` is empty.
+        StepfunConfigurationError: If required Stepfun config is missing.
+        StepfunAPIError: If the HTTP call or response parsing fails.
     """
-    
-    if provider == "stepfun":
-        api_key = os.getenv("STEPFUN_API_KEY")
-        base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/v1")
-        env_model = os.getenv("STEPFUN_MODEL", "step-3.7-flash")
-        
-        if not api_key:
-            raise ValueError("STEPFUN_API_KEY not found in environment variables")
-        try:
-            from langchain_openai import ChatOpenAI
-            target_model = model if (model and model not in ["gpt-4", "gpt-4o"]) else env_model
-            return ChatOpenAI(
-                model=target_model,
-                temperature=temperature,
-                api_key=api_key,
-                base_url=base_url
-            )
-        except ImportError:
-            # Fallback to direct native caller wrapper
-            return None
-        
-    elif provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        try:
-            from langchain_openai import ChatOpenAI
-            return ChatOpenAI(
-                model=model,
-                temperature=temperature,
-                api_key=api_key
-            )
-        except ImportError:
-            return None
-    
-    elif provider == "anthropic":
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
-        try:
-            from langchain_anthropic import ChatAnthropic
-            return ChatAnthropic(
-                model=model,
-                temperature=temperature,
-                api_key=api_key
-            )
-        except ImportError:
-            return None
-    
-    else:
-        raise ValueError(f"Unknown provider: {provider}. Use 'stepfun', 'openai', or 'anthropic'")
+    sanitized_prompt = sanitize_llm_text(prompt)
+    sanitized_system_prompt = sanitize_llm_text(system_prompt) if system_prompt else ""
+    if not sanitized_prompt:
+        raise ValueError("prompt must be a non-empty string after sanitation.")
 
+    config = get_stepfun_config(model=model)
+    base_url = config["base_url"]
+    url = (
+        base_url
+        if base_url.endswith("/chat/completions")
+        else f"{base_url}/chat/completions"
+    )
 
-def call_llm(prompt: str, system_prompt: str = "", provider="stepfun", model="step-3.7-flash", allow_mock: bool = True) -> str:
-    """
-    Call LLM directly. Supports Stepfun native REST calls, LangChain integration, and Mock fallback.
-    
-    Args:
-        prompt: User prompt
-        system_prompt: System prompt (optional)
-        provider: LLM provider ("stepfun", "openai", "anthropic")
-        model: Model name
-        allow_mock: Allow dry-run fallback if no active API keys / quota exist
-    
-    Returns:
-        LLM response as string
-    """
-    
-    stepfun_key = os.getenv("STEPFUN_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-
-    def has_stepfun():
-        return bool(stepfun_key and len(stepfun_key) > 10)
-
-    def has_openai():
-        return bool(openai_key and openai_key.startswith("sk-"))
-
-    def has_anthropic():
-        return bool(anthropic_key and anthropic_key.startswith("sk-ant-"))
-
-    # Attempt Live Native Stepfun Call if configured
-    if provider == "stepfun" and has_stepfun():
-        try:
-            return call_stepfun_native(prompt=prompt, system_prompt=system_prompt, model=model)
-        except Exception as e:
-            # If HTTP Error 402 (quota exceeded) or connection error, allow fallback if allowed
-            if not allow_mock:
-                raise e
-
-    # Fallback to Mock response if offline or quota exceeded
-    if not has_openai() and not has_anthropic() and allow_mock:
-        mock_response = {
-            "tasks": [
-                {
-                    "id": "task_1",
-                    "title": "Design System Architecture",
-                    "description": "Create architectural diagram and define component boundaries",
-                    "type": "architecture",
-                    "priority": "high",
-                    "dependencies": [],
-                    "estimated_effort": "medium",
-                    "assigned_system": "architect",
-                    "acceptance_criteria": ["Architecture document created", "Component interfaces defined"]
-                },
-                {
-                    "id": "task_2",
-                    "title": "Implement Feature Core",
-                    "description": "Implement essential feature logic based on architecture",
-                    "type": "feature",
-                    "priority": "high",
-                    "dependencies": ["task_1"],
-                    "estimated_effort": "large",
-                    "assigned_system": "developer",
-                    "acceptance_criteria": ["Feature logic working", "Unit tests passing"]
-                },
-                {
-                    "id": "task_3",
-                    "title": "Run Quality & Integration Tests",
-                    "description": "Execute full test suite and verify test coverage",
-                    "type": "testing",
-                    "priority": "medium",
-                    "dependencies": ["task_2"],
-                    "estimated_effort": "medium",
-                    "assigned_system": "tester",
-                    "acceptance_criteria": ["Integration tests passing", "Coverage >= 80%"]
-                }
-            ],
-            "metadata": {
-                "total_tasks": 3,
-                "high_priority": 2,
-                "medium_priority": 1,
-                "low_priority": 0,
-                "estimated_total_effort": "large"
-            },
-            "clarifications_needed": []
-        }
-        return json.dumps(mock_response)
-    
-    # Get LLM instance for OpenAI or Anthropic
-    llm = get_llm(provider=provider, model=model)
-    if llm is None:
-        if allow_mock:
-            return json.dumps(mock_response)
-        raise ImportError(f"Required LangChain package for {provider} is missing.")
-        
-    from langchain_core.messages import HumanMessage, SystemMessage
     messages = []
-    if system_prompt:
-        messages.append(SystemMessage(content=system_prompt))
-    messages.append(HumanMessage(content=prompt))
-    
-    response = llm.invoke(messages)
-    return response.content
+    if sanitized_system_prompt:
+        messages.append({"role": "system", "content": sanitized_system_prompt})
+    messages.append({"role": "user", "content": sanitized_prompt})
+
+    payload = {
+        "model": config["model"],
+        "messages": messages,
+        "temperature": temperature,
+    }
+
+    last_error = None
+    attempts = max(0, int(max_retries)) + 1
+    for attempt in range(attempts):
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {config['api_key']}",
+            },
+            method="POST",
+        )
+
+        start_time = time.monotonic()
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                body = response.read().decode("utf-8")
+            duration_ms = round((time.monotonic() - start_time) * 1000, 2)
+            logger.info(
+                "Stepfun request succeeded model=%s duration_ms=%s attempt=%s",
+                config["model"],
+                duration_ms,
+                attempt + 1,
+            )
+        except urllib.error.HTTPError as exc:
+            error_body = _extract_http_error_body(exc)
+            last_error = StepfunAPIError(f"Stepfun API returned HTTP {exc.code}: {error_body}")
+            if exc.code in _RETRYABLE_HTTP_STATUS and attempt < attempts - 1:
+                delay = _retry_after_seconds(exc, backoff_seconds * (2 ** attempt))
+                logger.warning(
+                    "Stepfun retryable HTTP error status=%s attempt=%s/%s delay=%s",
+                    exc.code,
+                    attempt + 1,
+                    attempts,
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+            raise last_error from exc
+        except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+            last_error = StepfunAPIError(f"Stepfun API request failed: {exc}")
+            if attempt < attempts - 1:
+                delay = backoff_seconds * (2 ** attempt)
+                logger.warning(
+                    "Stepfun retryable transport error attempt=%s/%s delay=%s error=%s",
+                    attempt + 1,
+                    attempts,
+                    delay,
+                    exc,
+                )
+                time.sleep(delay)
+                continue
+            raise last_error from exc
+
+        try:
+            data = json.loads(body)
+            return data["choices"][0]["message"]["content"]
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+            raise StepfunAPIError(
+                f"Stepfun API returned an invalid chat-completions payload: {body[:500]}"
+            ) from exc
+
+    raise last_error or StepfunAPIError("Stepfun API request failed without a captured error.")
 
 
-# Test function
-def test_llm():
-    """Test LLM integration"""
-    print("Testing LLM integration...")
+def call_llm(
+    prompt: str,
+    system_prompt: str = "",
+    model: Optional[str] = None,
+    temperature: float = 0.0,
+    timeout: int = 30,
+    max_retries: int = 2,
+    backoff_seconds: float = 0.5,
+) -> str:
+    """
+    Call the configured Stepfun model.
+
+    This is the single public LLM entry point for the project. It has no
+    alternate-provider routing and no fallback response path. All callers
+    therefore get real Stepfun output or a loud exception.
+    """
+    return call_stepfun_native(
+        prompt=prompt,
+        system_prompt=system_prompt,
+        model=model,
+        temperature=temperature,
+        timeout=timeout,
+        max_retries=max_retries,
+        backoff_seconds=backoff_seconds,
+    )
+
+
+# Manual smoke test helper. Requires a real STEPFUN_API_KEY.
+def test_llm() -> bool:
+    """Run a manual Stepfun connectivity smoke test."""
+    print("Testing Stepfun LLM integration...")
     try:
         response = call_llm(
             prompt="Say 'Hello from Stepfun REST API!'",
             system_prompt="You are a helpful assistant.",
-            allow_mock=True
         )
-        print(f"✓ LLM response: {response[:100]}...")
+        print(f"✓ Stepfun response: {response[:100]}...")
         return True
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    except Exception as exc:  # pragma: no cover - manual helper
+        print(f"✗ Error: {exc}")
         return False
 
 
