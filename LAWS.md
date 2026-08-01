@@ -713,7 +713,45 @@ feedback = "The output was wrong. Please try again from scratch."
 ### Penalties
 - First violation: Mandatory refactoring to surgical refinement
 - Second violation: Code review rejection
-- Third violation: Agent disabled
+---
+
+## Law 17: The Law of Subsystem Context Isolation
+
+### Statement
+**No squad agent MUST receive context from an unrelated subsystem. Cross-domain context MUST be filtered by the Domain Context Manager before prompt assembly.**
+
+### Rationale
+Context Rot and token dilution occur when unrelated subsystem details (such as HTML/CSS styling or database indexes) are fed into specialized backend or authentication prompts. Subsystem isolation preserves maximum reasoning capability.
+
+---
+
+## Law 18: The Law of Architectural Blueprint Precedence
+
+### Statement
+**No Code Agent MAY generate source code until the Architect Planner and DB Squad have committed verified AST blueprints.**
+
+### Rationale
+Generating isolated code modules without an overarching architectural blueprint leads to disjointed code, conflicting function signatures, and integration failures.
+
+---
+
+## Law 19: The Law of Session Handoff Grounding
+
+### Statement
+**Session handoffs MUST be validated against physical file checksums and AST hashes on disk. Restoring session state based on unverified LLM summaries is STRICTLY PROHIBITED.**
+
+### Rationale
+LLM summaries of past session states introduce cumulative hallucination across long development sessions. Only cryptographic SHA-256 code hashes and AST structural summaries provide empirical Ground Truth.
+
+---
+
+## Law 20: The Law of Squad Specialization
+
+### Statement
+**An agent assigned to a domain squad MUST NOT perform tasks belonging to another squad. Cross-domain execution attempts MUST trigger an instant permission exception.**
+
+### Rationale
+Strict permission boundaries prevent agent scope creep and enforce single-responsibility governance across the hierarchical architecture.
 
 ---
 
