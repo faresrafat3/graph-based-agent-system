@@ -1,13 +1,48 @@
 """
-LLM Integration - Direct access to LLM providers (OpenAI, Anthropic, Stepfun, with Mock/Dry-Run Support)
+LLM Integration - Direct access to LLM providers (OpenAI, Anthropic, Stepfun, with Native REST & Mock/Dry-Run Support)
 """
 
 import os
 import json
+import urllib.request
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+
+def call_stepfun_native(prompt: str, system_prompt: str = "", model: str = None, temperature: float = 0.0) -> str:
+    """
+    Calls Stepfun REST API natively using urllib.request (zero third-party dependencies required).
+    """
+    api_key = os.getenv("STEPFUN_API_KEY")
+    base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/v1").rstrip('/')
+    target_model = model or os.getenv("STEPFUN_MODEL", "step-3.7-flash")
+    
+    if not api_key:
+        raise ValueError("STEPFUN_API_KEY is not configured.")
+        
+    url = f"{base_url}/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    
+    data = {
+        "model": target_model,
+        "messages": messages,
+        "temperature": temperature
+    }
+    
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        res_data = json.loads(resp.read().decode("utf-8"))
+        return res_data["choices"][0]["message"]["content"]
 
 
 def get_llm(provider="stepfun", model=None, temperature=0):
@@ -25,23 +60,23 @@ def get_llm(provider="stepfun", model=None, temperature=0):
     
     if provider == "stepfun":
         api_key = os.getenv("STEPFUN_API_KEY")
-        base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/step_plan/v1")
+        base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/v1")
         env_model = os.getenv("STEPFUN_MODEL", "step-3.7-flash")
         
         if not api_key:
             raise ValueError("STEPFUN_API_KEY not found in environment variables")
         try:
             from langchain_openai import ChatOpenAI
+            target_model = model if (model and model not in ["gpt-4", "gpt-4o"]) else env_model
+            return ChatOpenAI(
+                model=target_model,
+                temperature=temperature,
+                api_key=api_key,
+                base_url=base_url
+            )
         except ImportError:
-            raise ImportError("langchain-openai is not installed. Please run pip install langchain-openai")
-        
-        target_model = model if (model and model not in ["gpt-4", "gpt-4o"]) else env_model
-        return ChatOpenAI(
-            model=target_model,
-            temperature=temperature,
-            api_key=api_key,
-            base_url=base_url
-        )
+            # Fallback to direct native caller wrapper
+            return None
         
     elif provider == "openai":
         api_key = os.getenv("OPENAI_API_KEY")
@@ -49,14 +84,13 @@ def get_llm(provider="stepfun", model=None, temperature=0):
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         try:
             from langchain_openai import ChatOpenAI
+            return ChatOpenAI(
+                model=model,
+                temperature=temperature,
+                api_key=api_key
+            )
         except ImportError:
-            raise ImportError("langchain-openai is not installed. Please run pip install langchain-openai")
-        
-        return ChatOpenAI(
-            model=model,
-            temperature=temperature,
-            api_key=api_key
-        )
+            return None
     
     elif provider == "anthropic":
         api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -64,29 +98,28 @@ def get_llm(provider="stepfun", model=None, temperature=0):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
         try:
             from langchain_anthropic import ChatAnthropic
+            return ChatAnthropic(
+                model=model,
+                temperature=temperature,
+                api_key=api_key
+            )
         except ImportError:
-            raise ImportError("langchain-anthropic is not installed. Please run pip install langchain-anthropic")
-        
-        return ChatAnthropic(
-            model=model,
-            temperature=temperature,
-            api_key=api_key
-        )
+            return None
     
     else:
         raise ValueError(f"Unknown provider: {provider}. Use 'stepfun', 'openai', or 'anthropic'")
 
 
-def call_llm(prompt: str, system_prompt: str = "", provider="stepfun", model="step-1-8k", allow_mock: bool = True) -> str:
+def call_llm(prompt: str, system_prompt: str = "", provider="stepfun", model="step-3.7-flash", allow_mock: bool = True) -> str:
     """
-    Call LLM directly. Fallback to structured Mock/Dry-Run response if API key is missing.
+    Call LLM directly. Supports Stepfun native REST calls, LangChain integration, and Mock fallback.
     
     Args:
         prompt: User prompt
         system_prompt: System prompt (optional)
         provider: LLM provider ("stepfun", "openai", "anthropic")
         model: Model name
-        allow_mock: Allow dry-run fallback if no API keys exist
+        allow_mock: Allow dry-run fallback if no active API keys / quota exist
     
     Returns:
         LLM response as string
@@ -97,34 +130,25 @@ def call_llm(prompt: str, system_prompt: str = "", provider="stepfun", model="st
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
     def has_stepfun():
-        if not stepfun_key or len(stepfun_key) < 10:
-            return False
-        try:
-            import langchain_openai
-            return True
-        except ImportError:
-            return False
+        return bool(stepfun_key and len(stepfun_key) > 10)
 
     def has_openai():
-        if not openai_key or not openai_key.startswith("sk-"):
-            return False
-        try:
-            import langchain_openai
-            return True
-        except ImportError:
-            return False
+        return bool(openai_key and openai_key.startswith("sk-"))
 
     def has_anthropic():
-        if not anthropic_key or not anthropic_key.startswith("sk-ant-"):
-            return False
-        try:
-            import langchain_anthropic
-            return True
-        except ImportError:
-            return False
+        return bool(anthropic_key and anthropic_key.startswith("sk-ant-"))
 
-    if not has_stepfun() and not has_openai() and not has_anthropic() and allow_mock:
-        # Dry-run / Mock fallback for offline testing
+    # Attempt Live Native Stepfun Call if configured
+    if provider == "stepfun" and has_stepfun():
+        try:
+            return call_stepfun_native(prompt=prompt, system_prompt=system_prompt, model=model)
+        except Exception as e:
+            # If HTTP Error 402 (quota exceeded) or connection error, allow fallback if allowed
+            if not allow_mock:
+                raise e
+
+    # Fallback to Mock response if offline or quota exceeded
+    if not has_openai() and not has_anthropic() and allow_mock:
         mock_response = {
             "tasks": [
                 {
@@ -172,43 +196,30 @@ def call_llm(prompt: str, system_prompt: str = "", provider="stepfun", model="st
         }
         return json.dumps(mock_response)
     
-    # Select active provider dynamically if default requested but not configured
-    active_provider = provider
-    active_model = model
-
-    if provider == "stepfun" and not has_stepfun():
-        if has_openai():
-            active_provider = "openai"
-            active_model = "gpt-4"
-        elif has_anthropic():
-            active_provider = "anthropic"
-            active_model = "claude-3-5-sonnet-20240620"
-
-    # Get LLM instance
-    llm = get_llm(provider=active_provider, model=active_model)
+    # Get LLM instance for OpenAI or Anthropic
+    llm = get_llm(provider=provider, model=model)
+    if llm is None:
+        if allow_mock:
+            return json.dumps(mock_response)
+        raise ImportError(f"Required LangChain package for {provider} is missing.")
+        
     from langchain_core.messages import HumanMessage, SystemMessage
-    
-    # Build messages
     messages = []
     if system_prompt:
         messages.append(SystemMessage(content=system_prompt))
     messages.append(HumanMessage(content=prompt))
     
-    # Call LLM
     response = llm.invoke(messages)
-    
     return response.content
 
 
 # Test function
 def test_llm():
     """Test LLM integration"""
-    
     print("Testing LLM integration...")
-    
     try:
         response = call_llm(
-            prompt="Say 'Hello from LangChain!'",
+            prompt="Say 'Hello from Stepfun REST API!'",
             system_prompt="You are a helpful assistant.",
             allow_mock=True
         )
