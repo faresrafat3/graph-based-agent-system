@@ -19,7 +19,7 @@
 | **HumanEval pass@1 (baseline / single LLM call)** | **97.56%** (160/164) raw · **98.77%** (160/162) infra-adjusted |
 | **Delta attributable to the agent scaffold** | **+0.61 pp raw · +0.61 pp adjusted** |
 | **Internal 4-scenario governance suite** | 100% (4/4) |
-| **Unit + integration tests** | 66/66 passing |
+| **Unit + integration tests** | 144/144 passing (post-merge with `origin/main`) |
 | **Law-3 violations found and fixed** | 3 (all real bugs, all in the failure-handling path) |
 
 **Headline finding:** on HumanEval the agent scaffold is **statistically indistinguishable
@@ -307,7 +307,7 @@ export PYTHONPATH=                                   # mandatory — see §2.5
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt pytest
 
-.venv/bin/python -m pytest tests/ -q                 # 66 passing
+.venv/bin/python -m pytest tests/ -q                 # 144 passing
 
 .venv/bin/python benchmarks/humaneval_harness.py --mode agent    --limit 164 --workers 3
 .venv/bin/python benchmarks/humaneval_harness.py --mode baseline --limit 164 --workers 2
