@@ -203,23 +203,23 @@ The system **MUST** use LangGraph for orchestration:
 
 ### Section 2: LLM Integration
 
-The system **MUST** use LangChain for LLM integration:
+The system **MUST** use Stepfun as the only active LLM provider in the current production path:
 
-#### Provider Agnostic
-- **Requirement**: System MUST support multiple LLM providers
-- **Implementation**: Use LangChain LLM abstraction
-- **Validation**: System MUST be tested with multiple providers
-- **Violation**: Provider-specific code MUST be abstracted
+#### Stepfun-Only Provider Policy
+- **Requirement**: System MUST route all LLM calls through the Stepfun native REST integration
+- **Implementation**: Use `llm.llm_integration.call_llm`, backed only by Stepfun chat completions
+- **Validation**: Tests MUST monkeypatch the Stepfun HTTP boundary rather than using production fallback responses
+- **Violation**: Adding alternate provider routing or silent dry-run fallbacks MUST be rejected
 
-#### Error Handling
-- **Requirement**: System MUST handle LLM errors gracefully
-- **Implementation**: Implement retry logic with exponential backoff
-- **Validation**: Error handling MUST be tested
-- **Violation**: Unhandled errors MUST be fixed
+#### Fail-Loud Error Handling
+- **Requirement**: System MUST fail loudly when Stepfun credentials, quota, network, or response payloads are invalid
+- **Implementation**: Raise typed configuration/API exceptions with actionable messages
+- **Validation**: Error paths MUST be covered by tests
+- **Violation**: Silent fallback responses MUST be removed immediately
 
 #### Rate Limiting
-- **Requirement**: System MUST respect rate limits
-- **Implementation**: Implement rate limiting
+- **Requirement**: System MUST respect Stepfun rate limits
+- **Implementation**: Implement rate limiting/retry controls before high-volume usage
 - **Validation**: Rate limiting MUST be tested
 - **Violation**: Rate limit violations MUST be fixed
 
@@ -474,8 +474,8 @@ Explicit declarations of what an agent can READ, WRITE, NEVER do, and when it ne
 ### LangGraph
 A framework for building stateful, multi-agent applications.
 
-### LangChain
-A framework for building applications powered by large language models.
+### Stepfun
+The single supported LLM provider for current production execution.
 
 ### MCP Tools
 Model Context Protocol tools for interacting with external systems.
@@ -498,7 +498,6 @@ Agent in the graph.
 
 1. Karpathy, A. (2024). "Agentic Engineering". Sequoia Capital.
 2. LangChain Team. (2024). "LangGraph Documentation".
-3. LangChain Team. (2023). "LangChain Documentation".
 4. MAAD Framework. (2024). "Multi-Agent Architecture Design".
 5. MetaGPT. (2023). "Meta-Programming for Multi-Agent Collaborative Framework".
 6. AutoGen. (2024). "Microsoft Research".

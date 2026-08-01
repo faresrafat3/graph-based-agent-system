@@ -118,3 +118,56 @@ def test_execute_task_credentials_blocked():
     result = execute_task(task)
     assert result["success"] is False
     assert "credentials" in result["error"].lower()
+
+
+def test_execute_task_fails_when_test_code_invalid(monkeypatch):
+    """Package success requires both generated code and generated tests to validate."""
+    import agents.code_executor as code_executor_module
+
+    response = {
+        "filename": "calculator.py",
+        "code": "def add(a: int, b: int) -> int:\n    \"\"\"Add numbers.\"\"\"\n    return a + b\n",
+        "test_filename": "test_calculator.py",
+        "test_code": "def broken(:\n    pass",
+        "imports_required": [],
+        "description": "Calculator module",
+    }
+    monkeypatch.setattr(code_executor_module, "call_llm", lambda *args, **kwargs: __import__("json").dumps(response))
+
+    task = {
+        "title": "Implement add function",
+        "description": "Create a safe arithmetic helper",
+        "type": "feature",
+        "acceptance_criteria": ["Adds two numbers"],
+    }
+
+    result = execute_task(task, max_retries=0)
+    assert result["success"] is False
+    assert result["test_valid"] is False
+    assert any("SyntaxError" in v for v in result["test_violations"])
+
+
+def test_execute_task_rejects_unsafe_filenames(monkeypatch):
+    """Generated files must be safe module filenames before execution."""
+    import agents.code_executor as code_executor_module
+
+    response = {
+        "filename": "../escape.py",
+        "code": "def safe() -> bool:\n    \"\"\"Safe function.\"\"\"\n    return True\n",
+        "test_filename": "test_escape.py",
+        "test_code": "",
+        "imports_required": [],
+        "description": "Unsafe filename",
+    }
+    monkeypatch.setattr(code_executor_module, "call_llm", lambda *args, **kwargs: __import__("json").dumps(response))
+
+    task = {
+        "title": "Implement safe helper",
+        "description": "Create a safe helper",
+        "type": "feature",
+        "acceptance_criteria": ["Helper exists"],
+    }
+
+    result = execute_task(task, max_retries=0)
+    assert result["success"] is False
+    assert any("Unsafe source filename" in v for v in result["violations"])

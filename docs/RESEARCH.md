@@ -10,7 +10,7 @@ This document provides the research foundation for the Software Builder Agents s
 
 ### Source
 
-**Andrej Karpathy** - Former Director of AI at Tesla, Co-founder of OpenAI
+**Andrej Karpathy** - AI researcher and educator
 
 **Talks and Writings:**
 - "Agentic Engineering" - Sequoia Capital, 2024
@@ -145,7 +145,7 @@ This document provides the research foundation for the Software Builder Agents s
 
 ---
 
-## 3. LangGraph and LangChain
+## 3. LangGraph and Stepfun
 
 ### 3.1 LangGraph
 
@@ -172,26 +172,25 @@ This document provides the research foundation for the Software Builder Agents s
 - We use conditional routing for the Karpathy Loop
 - We use state management for agent communication
 
-### 3.2 LangChain
+### 3.2 Stepfun Native REST Integration
 
-**Source:** LangChain Team (2023-2024)
+**Source:** Stepfun chat completions API
 
 **Key Features:**
-- LLM integration
-- Tool use
-- Memory management
-- Chain composition
+- Single-provider production path
+- Chat completions payload shape
+- Native stdlib HTTP integration via `urllib.request`
+- Fail-loud behavior for missing credentials or invalid API payloads
 
-**Why We Chose LangChain:**
-- Easy LLM integration (OpenAI, Anthropic)
-- Tool use support
-- Memory management primitives
-- Active community
+**Why We Chose Stepfun-Only Integration:**
+- The current quality target favors one controlled provider path over broad provider abstraction
+- Removing synthetic fallback responses prevents hidden quality regressions
+- Native REST keeps the LLM boundary simple, inspectable, and dependency-light
 
 **Application:**
-- We use LangChain for LLM integration
-- We implement custom memory (not using LangChain memory for full control)
-- We implement custom tools (not using LangChain tools for full control)
+- We use Stepfun for all production LLM calls
+- Tests monkeypatch the HTTP boundary or imported `call_llm` symbol explicitly
+- We implement custom memory and custom tools for full control
 
 ---
 
@@ -250,12 +249,10 @@ This document provides the research foundation for the Software Builder Agents s
 
 ### 5.1 Large Language Models
 
-**Source:** OpenAI, Anthropic, Google (2023-2025)
+**Source:** Stepfun and contemporary large language model research (2023-2026)
 
-**Key Models:**
-- GPT-4 (OpenAI)
-- Claude 3.5 Sonnet (Anthropic)
-- Gemini (Google)
+**Key Production Model:**
+- Stepfun model configured by `STEPFUN_MODEL` (default: `step-3.7-flash`)
 
 **Application:**
 - We use LLMs for natural language understanding
@@ -476,7 +473,7 @@ The Software Builder Agents system is built on a solid research foundation, incl
 
 1. **Karpathy's Agentic Engineering** - Core principles for building reliable AI agents
 2. **Multi-Agent Systems Research** - MAAD, MetaGPT, AutoGen, CrewAI
-3. **LangGraph and LangChain** - Production-ready orchestration and LLM integration
+3. **LangGraph and Stepfun** - Production-ready orchestration and Stepfun-only LLM integration
 4. **Software Engineering Methodologies** - Agile, DDD, Clean Architecture
 5. **AI and Machine Learning** - LLMs, prompt engineering, reinforcement learning
 6. **Software Quality** - TDD, code review, CI/CD
@@ -499,12 +496,9 @@ Our design decisions are informed by this research and optimized for:
 5. Wu, Q., et al. (2024). "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation". Microsoft Research.
 6. CrewAI. (2024). "Role-Based Agent Crews". GitHub.
 7. LangChain Team. (2024). "LangGraph Documentation". langchain.com.
-8. LangChain Team. (2023). "LangChain Documentation". langchain.com.
 9. Beck, K. (2001). "Manifesto for Agile Software Development". agilemanifesto.org.
 10. Evans, E. (2003). "Domain-Driven Design". Addison-Wesley.
 11. Martin, R. C. (2017). "Clean Architecture". Prentice Hall.
-12. OpenAI. (2023). "GPT-4 Technical Report". arXiv.
-13. Anthropic. (2024). "Claude 3.5 Sonnet". anthropic.com.
 14. Sutton, R. S., & Barto, A. G. (2018). "Reinforcement Learning: An Introduction". MIT Press.
 15. Beck, K. (2003). "Test-Driven Development". Addison-Wesley.
 16. Fowler, M. (2006). "Continuous Integration". martinfowler.com.

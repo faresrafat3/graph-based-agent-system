@@ -50,14 +50,15 @@ PERMISSIONS = {
 
 ---
 
-### 2. Agent Assigner Agent (⏳ Meta-Agent 2)
+### 2. Agent Assigner Agent (✅ Active & Implemented)
 
-**Role:** Maps structured tasks to the appropriate Software Agents based on domain specialization and dependencies.
+**Role:** Maps validated structured tasks to the appropriate Software/Domain Agents based on specialization, permissions, and dependencies.
 
 **Responsibilities:**
-- Analyze task metadata and type (`feature`, `architecture`, `testing`, `security`, `devops`).
-- Assign tasks to specific Software Agents (`Product Manager`, `Architect`, `Developer`, `Tester`, `DevOps`, `Security`).
-- Order task execution graph according to Directed Acyclic Graph (DAG) constraints.
+- Analyze task metadata, type, domain keywords, and explicit dependencies.
+- Assign tasks to deterministic targets (`ProductManagerAgent`, `ArchitectAgent`, `CodeExecutorAgent`, `AuthSquadAgent`, `DatabaseSquadAgent`, `APISquadAgent`, `UISquadAgent`, `TestRunnerAgent`, `ReviewerAgent`).
+- Build a Directed Acyclic Graph (DAG) execution plan with deterministic `parallel_group` values.
+- Enforce Law 20 squad boundaries before downstream execution.
 
 **Karpathy Loop Implementation:**
 ```python
@@ -102,7 +103,7 @@ PERMISSIONS = {
 
 ---
 
-### 3. Progress Monitor Agent (⏳ Meta-Agent 3)
+### 3. Progress Monitor Agent (✅ Active & Implemented)
 
 **Role:** Tracks task execution, monitors system health, and detects bottlenecks or deadlocks.
 
@@ -123,7 +124,7 @@ PERMISSIONS = {
 
 ---
 
-### 4. Quality Reviewer Agent (⏳ Meta-Agent 4)
+### 4. Quality Reviewer Agent (✅ Active & Implemented)
 
 **Role:** Evaluates global quality metrics and enforces Constitution Quality Gates before phase transitions.
 
@@ -144,7 +145,7 @@ PERMISSIONS = {
 
 ---
 
-### 5. Integration Agent (⏳ Meta-Agent 5)
+### 5. Integration Agent (✅ Active & Implemented)
 
 **Role:** Aggregates outputs from multiple Software Agents into a coherent unified system.
 
@@ -165,7 +166,7 @@ PERMISSIONS = {
 
 ---
 
-### 6. Decision & Conflict Agent (⏳ Meta-Agent 6)
+### 6. Decision & Conflict Agent (✅ Active & Implemented)
 
 **Role:** Resolves conflicting recommendations between domain agents (e.g., Security Agent vs. Developer Agent).
 
@@ -186,7 +187,7 @@ PERMISSIONS = {
 
 ---
 
-### 7. Resource & Priority Agent (⏳ Meta-Agent 7)
+### 7. Resource & Priority Agent (✅ Active & Implemented)
 
 **Role:** Manages token limits, API rate limits, and task execution priorities.
 
@@ -207,7 +208,7 @@ PERMISSIONS = {
 
 ---
 
-### 8. Human Escalation Agent (⏳ Meta-Agent 8)
+### 8. Human Escalation Agent (✅ Active & Implemented)
 
 **Role:** Handles explicit human interventions, escalation loops, and `HUMAN_CHECKPOINT` triggers.
 
@@ -233,13 +234,13 @@ PERMISSIONS = {
 | # | Meta-Agent | Primary Function | State | Karpathy Loop Status |
 |---|------------|------------------|-------|----------------------|
 | 1 | **Task Decomposer** | Converts requirements to tasks | ✅ Done | ✅ Implemented & Tested |
-| 2 | **Agent Assigner** | Assigns tasks to domain agents | ⏳ Planned | ⏳ Spec Defined |
-| 3 | **Progress Monitor** | Tracks execution & health | ⏳ Planned | ⏳ Spec Defined |
-| 4 | **Quality Reviewer** | Enforces quality gates | ⏳ Planned | ⏳ Spec Defined |
-| 5 | **Integration** | Merges modular outputs | ⏳ Planned | ⏳ Spec Defined |
-| 6 | **Decision & Conflict** | Resolves agent disputes | ⏳ Planned | ⏳ Spec Defined |
-| 7 | **Resource & Priority** | Manages rate limits & budget | ⏳ Planned | ⏳ Spec Defined |
-| 8 | **Human Escalation** | Manages human checkpoints | ⏳ Planned | ⏳ Spec Defined |
+| 2 | **Agent Assigner** | Assigns tasks to domain agents | ✅ Done | ✅ Implemented & Tested |
+| 3 | **Progress Monitor** | Tracks execution & health | ✅ Done | ✅ Implemented & Tested |
+| 4 | **Quality Reviewer** | Enforces quality gates | ✅ Done | ✅ Implemented & Tested |
+| 5 | **Integration** | Merges modular outputs | ✅ Done | ✅ Implemented & Tested |
+| 6 | **Decision & Conflict** | Resolves agent disputes | ✅ Done | ✅ Implemented & Tested |
+| 7 | **Resource & Priority** | Manages rate limits & budget | ✅ Done | ✅ Implemented & Tested |
+| 8 | **Human Escalation** | Manages human checkpoints | ✅ Done | ✅ Implemented & Tested |
 
 ---
 

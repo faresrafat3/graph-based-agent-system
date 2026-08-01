@@ -119,19 +119,19 @@ The system operates under **10 Laws** ([LAWS.md](LAWS.md)) that govern all imple
 │ │ - Uses LLM + Memory + MCP Tools                      │    │
 │ └──────────────────────────────────────────────────────┘    │
 │ ┌──────────────────────────────────────────────────────┐    │
-│ │ 2. Agent Assigner (⏳ Next)                          │    │
+│ │ 2. Agent Assigner (✅ Done)                          │    │
 │ │ - Assigns tasks to appropriate agents                │    │
-│ │ - Respects dependencies and priorities               │    │
+│ │ - Builds deterministic DAG execution plans           │    │
 │ └──────────────────────────────────────────────────────┘    │
 │ ┌──────────────────────────────────────────────────────┐    │
-│ │ 3-8. Specialized Agents (⏳ Planned)                  │    │
-│ │ - Progress Monitor, Quality Reviewer, etc.           │    │
+│ │ 3-8. Governance Agents (✅ Done)                      │    │
+│ │ - Monitor, review, integrate, resolve, prioritize    │    │
 │ └──────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                                ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ Infrastructure Layer                                        │
-│ • LangChain (LLM Integration - OpenAI, Anthropic)           │
+│ • Stepfun Native REST LLM Integration (fail-loud only)      │
 │ • Custom Memory (short-term + long-term)                    │
 │ • Custom MCP Tools (requirements parser, etc.)              │
 └─────────────────────────────────────────────────────────────┘
@@ -146,18 +146,19 @@ The system operates under **10 Laws** ([LAWS.md](LAWS.md)) that govern all imple
 | # | Agent | Role | Status | Karpathy Loop |
 |---|-------|------|--------|---------------|
 | 1 | **Task Decomposer** | Converts requirements to structured tasks | ✅ Done | ✅ Implemented |
-| 2 | **Agent Assigner** | Assigns tasks to appropriate agents | ⏳ Next | ⏳ Planned |
-| 3 | **Progress Monitor** | Monitors task progress and detects issues | ⏳ Planned | ⏳ Planned |
-| 4 | **Quality Reviewer** | Reviews output quality | ⏳ Planned | ⏳ Planned |
-| 5 | **Integration** | Integrates outputs from all agents | ⏳ Planned | ⏳ Planned |
-| 6 | **Decision & Conflict** | Resolves conflicts between agents | ⏳ Planned | ⏳ Planned |
-| 7 | **Resource & Priority** | Manages resources and priorities | ⏳ Planned | ⏳ Planned |
-| 8 | **Human Escalation** | Escalates to human when needed | ⏳ Planned | ⏳ Planned |
+| 2 | **Agent Assigner** | Assigns tasks to appropriate agents and builds DAG plans | ✅ Done | ✅ Implemented |
+| 3 | **Progress Monitor** | Monitors task progress and detects issues | ✅ Done | ✅ Implemented |
+| 4 | **Quality Reviewer** | Reviews output quality | ✅ Done | ✅ Implemented |
+| 5 | **Integration** | Integrates outputs from all agents | ✅ Done | ✅ Implemented |
+| 6 | **Decision & Conflict** | Resolves conflicts between agents | ✅ Done | ✅ Implemented |
+| 7 | **Resource & Priority** | Manages resources and priorities | ✅ Done | ✅ Implemented |
+| 8 | **Human Escalation** | Escalates to human when needed | ✅ Done | ✅ Implemented |
 
 ### Technology Stack
 
 - **Orchestration**: LangGraph 0.2.0+ (100% - no other orchestration)
-- **LLM Integration**: LangChain 0.3.0+ (OpenAI GPT-4, Anthropic Claude 3.5)
+- **LLM Integration**: Stepfun native REST API only (`STEPFUN_MODEL`, default `step-3.7-flash`)
+- **Provider Policy**: Stepfun-only execution with no fallback response path; missing credentials fail loudly
 - **Memory**: Custom implementation (short-term dict + long-term list)
 - **Tools**: Custom MCP tools (requirements parser, dependency analyzer)
 - **Governance**: Constitution + Laws (enforced through code reviews)
@@ -183,7 +184,7 @@ pip install -r requirements.txt
 
 # Set API keys
 cp .env.example .env
-# Edit .env and add your API keys (OPENAI_API_KEY or ANTHROPIC_API_KEY)
+# Edit .env and add STEPFUN_API_KEY
 
 # Review governance documents
 cat CONSTITUTION.md
@@ -193,8 +194,22 @@ cat LAWS.md
 ### Usage
 
 ```bash
-# Run the system
-python main.py
+# 1) Put your real Stepfun credentials in .env (do not paste keys into chat)
+cp .env.example .env
+# Edit .env and set STEPFUN_API_KEY
+
+# 2) Run the pipeline on inline requirements
+python main.py \
+  --requirements "Build a login page with email authentication" \
+  --project-context "Web application" \
+  --orchestrate-graph
+
+# 3) Or run from a requirements file and write full JSON output
+python main.py \
+  --requirements-file product-requirements.txt \
+  --project-context "FastAPI service" \
+  --orchestrate-graph \
+  --output run-result.json
 ```
 
 ### Example
@@ -220,6 +235,12 @@ print(result['metadata'])
 - [docs/RESEARCH.md](docs/RESEARCH.md) - Research foundation and references
 - [docs/KARPATHY-AGENTS.md](docs/KARPATHY-AGENTS.md) - Specifications for the 8 Karpathy Meta-Agents
 - [docs/SOFTWARE-AGENTS.md](docs/SOFTWARE-AGENTS.md) - Specifications for the 7 Software Domain Agents
+- [docs/QUALITY-AUDIT-PLAN.md](docs/QUALITY-AUDIT-PLAN.md) - Quality audit plan and hardening status
+- [docs/GOVERNANCE-SYSTEM.md](docs/GOVERNANCE-SYSTEM.md) - Distributed governance checks without a supreme decision agent
+- [docs/SYSTEM-LIFECYCLE.md](docs/SYSTEM-LIFECYCLE.md) - Complete end-to-end system lifecycle documentation
+- [docs/AGENT-LIFECYCLE.md](docs/AGENT-LIFECYCLE.md) - Combined lifecycle reference for implemented and planned agents
+- [docs/agents/INDEX.md](docs/agents/INDEX.md) - Individual lifecycle documentation for each agent
+- `orchestrate_graph=True` enables group-based DAG execution orchestration over assigned tasks
 
 ---
 

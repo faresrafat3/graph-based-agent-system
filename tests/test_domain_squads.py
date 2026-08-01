@@ -1,10 +1,12 @@
 import pytest
+
+import agents.domain_squads as domain_squads_module
 from agents.domain_squads import (
     AuthSquadAgent,
     DatabaseSquadAgent,
     APISquadAgent,
     UISquadAgent,
-    SQUAD_PERMISSIONS
+    SQUAD_PERMISSIONS,
 )
 
 
@@ -23,7 +25,7 @@ def test_auth_squad_out_of_scope_raises():
         "id": "task_99",
         "title": "Design CSS layout and jsx component",
         "description": "Add CSS styling to page",
-        "type": "ui"
+        "type": "ui",
     }
     
     with pytest.raises(PermissionError) as exc_info:
@@ -39,7 +41,7 @@ def test_db_squad_out_of_scope_raises():
         "id": "task_100",
         "title": "Create react component for header",
         "description": "Build header react component",
-        "type": "ui"
+        "type": "ui",
     }
     
     with pytest.raises(PermissionError) as exc_info:
@@ -48,14 +50,20 @@ def test_db_squad_out_of_scope_raises():
     assert "Law 20 Violation" in str(exc_info.value)
 
 
-def test_auth_squad_valid_execution():
-    """Valid auth task executes and returns squad metadata"""
+def test_auth_squad_valid_execution(monkeypatch):
+    """Valid auth task executes and returns squad metadata."""
+    monkeypatch.setattr(
+        domain_squads_module,
+        "call_llm",
+        lambda prompt, system_prompt="", **kwargs: '{"filename": "auth.py", "code": "def login(): pass"}',
+    )
+
     agent = AuthSquadAgent()
     task = {
         "id": "task_1",
         "title": "Implement JWT login authentication",
         "description": "Create login endpoint with password hashing",
-        "type": "auth"
+        "type": "auth",
     }
     res = agent.execute_auth_task(task, global_context="Web app auth")
     
@@ -63,3 +71,33 @@ def test_auth_squad_valid_execution():
     assert res["squad"] == "auth"
     assert res["task_id"] == "task_1"
     assert res["response"] is not None
+
+
+def test_api_squad_out_of_scope_raises():
+    agent = APISquadAgent()
+    task = {
+        "id": "task_api_bad",
+        "title": "Create database migration",
+        "description": "Write alembic database migration for users",
+        "type": "database",
+    }
+
+    with pytest.raises(PermissionError) as exc_info:
+        agent.execute_api_task(task)
+
+    assert "Law 20 Violation" in str(exc_info.value)
+
+
+def test_ui_squad_out_of_scope_raises():
+    agent = UISquadAgent()
+    task = {
+        "id": "task_ui_bad",
+        "title": "Implement JWT token rotation",
+        "description": "Security token refresh logic",
+        "type": "auth",
+    }
+
+    with pytest.raises(PermissionError) as exc_info:
+        agent.execute_ui_task(task)
+
+    assert "Law 20 Violation" in str(exc_info.value)

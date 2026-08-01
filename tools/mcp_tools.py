@@ -27,8 +27,8 @@ class MCPTools:
         keywords = {
             "authentication": "authentication",
             "database": "database",
-            "API": "API",
-            "UI": "UI",
+            "api": "API",
+            "ui": "UI",
             "testing": "testing",
             "notification": "notification",
             "payment": "payment",

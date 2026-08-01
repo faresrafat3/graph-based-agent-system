@@ -46,7 +46,7 @@ The Software Builder Agents system is a **multi-agent system** that implements K
                                ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ Infrastructure Layer                                        │
-│ • LLM Integration (OpenAI/Anthropic) + Mock/Dry-Run Mode    │
+│ • Stepfun Native REST LLM Integration (fail-loud only)      │
 │ • Custom Memory (Short-term + Long-term)                    │
 │ • MCP Tools (DFS Dependency Analyzer)                       │
 │ • MemorySaver Checkpointer                                  │
