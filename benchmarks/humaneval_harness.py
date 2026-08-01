@@ -1,8 +1,9 @@
 """
 HumanEval Harness - Real, published benchmark for the Graph-Based Agent System.
 
-This harness measures pass@1 on OpenAI's HumanEval (164 hand-written Python problems)
-by driving the SYSTEM's own components, not a raw LLM call:
+This harness measures pass@1 on the canonical HumanEval set (164 hand-written Python
+problems, `openai/human-eval` on GitHub) by driving the SYSTEM's own components rather
+than a raw LLM call:
 
     Context Curator (zero-LLM sanitation)
         -> Code Executor prompt path (LLM as sandboxed CPU)
@@ -159,7 +160,6 @@ def solve_baseline(problem: dict) -> dict:
     response = call_llm(
         prompt=problem["prompt"],
         system_prompt=CODE_SYSTEM_PROMPT,
-        allow_mock=False,
     )
     return {"code": strip_code_fences(response), "llm_calls": 1, "refinements": 0}
 
@@ -176,7 +176,7 @@ def solve_agent(problem: dict, max_retries: int = 2) -> dict:
     stn = ContextCuratorEngine.calculate_signal_to_noise(problem["prompt"], sanitized)
 
     # Stage 2: Code Executor (LLM as sandboxed CPU)
-    response = call_llm(prompt=sanitized, system_prompt=CODE_SYSTEM_PROMPT, allow_mock=False)
+    response = call_llm(prompt=sanitized, system_prompt=CODE_SYSTEM_PROMPT)
     llm_calls += 1
     code = strip_code_fences(response)
 
@@ -196,7 +196,7 @@ def solve_agent(problem: dict, max_retries: int = 2) -> dict:
             f"{sanitized}\n\n"
             "Fix ONLY the violations. Output ONLY the complete corrected Python function."
         )
-        response = call_llm(prompt=fix_prompt, system_prompt=CODE_SYSTEM_PROMPT, allow_mock=False)
+        response = call_llm(prompt=fix_prompt, system_prompt=CODE_SYSTEM_PROMPT)
         llm_calls += 1
         code = strip_code_fences(response)
         validation = validate_python_syntax(code)

@@ -18,12 +18,19 @@ DENY_MARKERS = [
 SKIP_DIRS = {".git", "__pycache__", ".venv", ".pytest_cache", ".mypy_cache"}
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".yml", ".yaml", ".example", ""}
 
+# The policy governs which providers this code CALLS, not which ones it may name.
+# Benchmark reports must be free to cite competitor scores by vendor, and .env is
+# gitignored local state rather than shipped source.
+SKIP_FILES = {".env", "docs/BENCHMARK-REPORT.md"}
+
 
 def should_scan(path: Path) -> bool:
     """Return True for repository text files relevant to policy enforcement."""
     if any(part in SKIP_DIRS for part in path.parts):
         return False
     if path.is_dir():
+        return False
+    if path.as_posix() in SKIP_FILES or path.name in SKIP_FILES:
         return False
     return path.suffix in TEXT_SUFFIXES or path.name in {"Makefile"}
 
