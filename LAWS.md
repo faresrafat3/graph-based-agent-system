@@ -595,8 +595,151 @@ These Laws may be amended through the process defined in the Constitution.
 
 ---
 
-**Last Updated**: July 31, 2025
+## Law 11: The Law of Execution Grounding
 
-**Version**: 1.0
+### Statement
+**No agent output MUST be accepted based on LLM self-assessment. All validation MUST be execution-grounded.**
+
+### Rationale
+LLM-as-a-Judge leads to "self-endorsement bias" where the model validates its own hallucinations. Only deterministic, execution-based verification (compilers, linters, AST parsers, pytest, JSON schema checkers) provides Ground Truth.
+
+### Requirements
+1. The `evaluate` step in ANY agent MUST NOT call an LLM
+2. Validation MUST use deterministic Python code (assertions, schema checks, graph algorithms)
+3. Quality scores MUST be mathematically computed, not LLM-estimated
+4. The Executor (LLM) and the Grader (Validator) MUST be completely separated
+5. Only outputs that pass execution-grounded checks MAY be committed to memory
+
+### Implementation
+```python
+# ✅ Good: Execution-Grounded Validation (Zero LLM)
+def evaluate(state):
+    violations = DeterministicValidatorEngine.validate_schema(
+        state["output"], required_keys=["tasks", "metadata"]
+    )
+    score = DeterministicValidatorEngine.calculate_quality_score(violations)
+    return {"success": len(violations) == 0 and score >= 0.8}
+
+# ❌ Bad: LLM-as-a-Judge
+def evaluate(state):
+    response = call_llm("Is this output correct? " + str(state["output"]))
+    return {"success": "yes" in response.lower()}
+```
+
+### Validation
+- Code reviews MUST verify that `evaluate` steps contain zero LLM calls
+- Any `evaluate` step that invokes an LLM MUST be immediately refactored
+
+### Penalties
+- First violation: Mandatory refactoring to deterministic validation
+- Second violation: Agent disabled until fixed
+- Third violation: Agent removed from the system
+
+---
+
+## Law 12: The Law of Context Sanitation
+
+### Statement
+**Every LLM invocation MUST receive a sanitized, budget-aware context. Failed attempts and noise MUST NEVER pollute the context window.**
+
+### Rationale
+Context Rot (silent degradation from accumulated noise in the context window) is the primary cause of LLM behavioral drift. The context window is finite RAM — it must be managed like a precious computational resource.
+
+### Requirements
+1. Raw inputs MUST be sanitized before reaching any LLM (strip tracebacks, excess whitespace, stale logs)
+2. Failed Karpathy Loop iterations MUST NOT be fed back into the context
+3. Only the sanitized prompt + clean state MUST enter the LLM context window
+4. Historical logs MUST be compacted to a maximum of 3 recent entries
+5. Signal-to-Noise Ratio MUST be computed and monitored for every LLM call
+6. Only outputs that passed ALL deterministic gates (Law 11) MAY be stored in long-term memory
+
+### Implementation
+```python
+# ✅ Good: Context Sanitation before LLM invocation
+sanitized = ContextCuratorEngine.sanitize_raw_text(raw_prompt)
+compacted = ContextCuratorEngine.compact_history_logs(logs, max_items=3)
+stn_ratio = ContextCuratorEngine.calculate_signal_to_noise(raw_prompt, sanitized)
+
+# Only feed sanitized context to LLM
+response = call_llm(sanitized, system_prompt)
+
+# ❌ Bad: Dumping everything into LLM context
+response = call_llm(raw_prompt + "\n" + full_history + "\n" + error_logs)
+```
+
+### Validation
+- Code reviews MUST verify that Context Curator Agent precedes all LLM invocations
+- Direct LLM calls with unsanitized input MUST be rejected
+
+### Penalties
+- First violation: Mandatory Context Curator integration
+- Second violation: Code review rejection
+- Third violation: Agent disabled until pipeline compliance is verified
+
+---
+
+## Law 13: The Law of Surgical Refinement
+
+### Statement
+**When an agent output fails validation, refinement MUST be targeted and surgical. Full regeneration is PROHIBITED.**
+
+### Rationale
+Full regeneration wastes tokens, destroys correct partial work, and increases the probability of introducing new errors. Karpathy's "Surgical Changes" principle mandates that only the specific failing component be corrected.
+
+### Requirements
+1. The Surgical Refiner MUST extract exact failing keys from the validation report
+2. Refinement instructions MUST specify ONLY what to fix, not regenerate the entire output
+3. Maximum 3 surgical refinement attempts before escalation to HUMAN_CHECKPOINT
+4. Each refinement attempt MUST carry forward the correct parts of the previous output
+5. The refinement feedback MUST contain the word "SURGICAL CORRECTION REQUIRED" as a hard invariant
+
+### Implementation
+```python
+# ✅ Good: Surgical, targeted refinement
+feedback = SurgicalRefinerEngine.generate_surgical_instructions(
+    violations=["Missing mandatory schema key: 'metadata'"],
+    failing_keys=["metadata"]
+)
+# Output: "SURGICAL CORRECTION REQUIRED: Fix ONLY 'metadata' key. Do NOT regenerate unchanged parts."
+
+# ❌ Bad: Full regeneration
+feedback = "The output was wrong. Please try again from scratch."
+```
+
+### Validation
+- Code reviews MUST verify that refinement steps are targeted (not full regeneration)
+- Refinement prompts without "SURGICAL CORRECTION" invariant MUST be rejected
+
+### Penalties
+- First violation: Mandatory refactoring to surgical refinement
+- Second violation: Code review rejection
+- Third violation: Agent disabled
+
+---
+
+## Enforcement
+
+### Enforcement Authority
+The system operators have authority to enforce these Laws.
+
+### Enforcement Process
+- **Detection**: Violations are detected through code reviews, testing, and monitoring
+- **Notification**: Violators are notified of violations
+- **Correction**: Violators must correct violations
+- **Verification**: Corrections are verified
+- **Penalties**: Penalties are applied for repeated violations
+
+### Appeals
+Violators may appeal penalties to the system operators.
+
+### Amendments
+These Laws may be amended through the process defined in the Constitution.
+
+---
+
+**Last Updated**: August 1, 2025
+
+**Version**: 2.0
 
 **Status**: Ratified
+

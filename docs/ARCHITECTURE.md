@@ -24,23 +24,32 @@ The Software Builder Agents system is a **multi-agent system** that implements K
                                ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ Orchestration Layer                                         │
+│ • Karpathy Pipeline (agents/karpathy_pipeline.py)           │
 │ • LangGraph State Machine                                   │
-│ • Workflow Management                                       │
 │ • Conditional Routing                                       │
 └─────────────────────────────────────────────────────────────┘
                                ↓
 ┌─────────────────────────────────────────────────────────────┐
+│ Governance Layer (Zero-LLM) [NEW - Laws 11, 12, 13]        │
+│ • Context Curator Agent      (Law 12: Context Sanitation)   │
+│ • Deterministic Validator    (Law 11: Execution Grounding)  │
+│ • Surgical Refiner Agent     (Law 13: Surgical Refinement)  │
+└─────────────────────────────────────────────────────────────┘
+                               ↓
+┌─────────────────────────────────────────────────────────────┐
 │ Agent Layer                                                 │
-│ • 8 Karpathy Agents                                         │
+│ • 8 Karpathy Meta-Agents                                    │
+│ • 7 Software Domain Agents                                  │
 │ • Each agent implements Karpathy Loop                       │
 │ • Agents are independent and specialized                    │
 └─────────────────────────────────────────────────────────────┘
                                ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ Infrastructure Layer                                        │
-│ • LLM Integration (OpenAI/Anthropic)                        │
-│ • Custom Memory                                             │
-│ • MCP Tools                                                 │
+│ • LLM Integration (OpenAI/Anthropic) + Mock/Dry-Run Mode    │
+│ • Custom Memory (Short-term + Long-term)                    │
+│ • MCP Tools (DFS Dependency Analyzer)                       │
+│ • MemorySaver Checkpointer                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
