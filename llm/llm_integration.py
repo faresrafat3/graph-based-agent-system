@@ -10,13 +10,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_llm(provider="stepfun", model="step-1-8k", temperature=0):
+def get_llm(provider="stepfun", model=None, temperature=0):
     """
     Get LLM instance
     
     Args:
         provider: "stepfun", "openai", or "anthropic"
-        model: Model name
+        model: Model name (defaults to STEPFUN_MODEL env or step-3.7-flash)
         temperature: Temperature for generation
     
     Returns:
@@ -26,6 +26,8 @@ def get_llm(provider="stepfun", model="step-1-8k", temperature=0):
     if provider == "stepfun":
         api_key = os.getenv("STEPFUN_API_KEY")
         base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/step_plan/v1")
+        env_model = os.getenv("STEPFUN_MODEL", "step-3.7-flash")
+        
         if not api_key:
             raise ValueError("STEPFUN_API_KEY not found in environment variables")
         try:
@@ -33,7 +35,7 @@ def get_llm(provider="stepfun", model="step-1-8k", temperature=0):
         except ImportError:
             raise ImportError("langchain-openai is not installed. Please run pip install langchain-openai")
         
-        target_model = model if model not in ["gpt-4", "gpt-4o"] else "step-1-8k"
+        target_model = model if (model and model not in ["gpt-4", "gpt-4o"]) else env_model
         return ChatOpenAI(
             model=target_model,
             temperature=temperature,
