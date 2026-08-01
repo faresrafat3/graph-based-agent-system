@@ -1,12 +1,14 @@
 """
-Karpathy Pipeline - Integrated Pipeline connecting Context Curator → Task Decomposer → Deterministic Validator → Surgical Refiner
-Implements the full Karpathy Engineering Loop with zero-LLM governance.
+Karpathy Pipeline - Integrated Pipeline connecting Context Curator → Task Decomposer → Deterministic Validator → Code Executor → Test Runner → Surgical Refiner
+Implements the full Karpathy Engineering Loop with zero-LLM governance and empirical ground-truth execution.
 """
 
 from agents.context_curator import curate_context
 from agents.task_decomposer import decompose_requirements
 from agents.deterministic_validator import validate_output
 from agents.surgical_refiner import generate_refinement_feedback
+from agents.code_executor import execute_task
+from agents.test_runner_agent import run_code_and_tests
 
 
 def run_karpathy_pipeline(
@@ -14,19 +16,19 @@ def run_karpathy_pipeline(
     project_context: str = "",
     constraints: str = "",
     history_logs: list = None,
+    execute_code: bool = False,
     max_retries: int = 3
 ) -> dict:
     """
-    Full Karpathy Pipeline: Curate → Decompose → Validate → Refine (if needed)
-    
-    The LLM is ONLY used inside decompose_requirements (the CPU).
-    Everything else is deterministic Python code (the Operating System).
+    Full Karpathy Pipeline:
+    Curate → Decompose → Validate → Execute Code (optional) → Run Pytest → Refine (if needed)
     
     Args:
         requirements: Raw user requirements
         project_context: Project context
         constraints: Constraints
         history_logs: Historical execution logs
+        execute_code: Whether to execute Code Executor + Test Runner for each task
         max_retries: Maximum refinement retries before escalation
     
     Returns:
@@ -60,7 +62,7 @@ def run_karpathy_pipeline(
         required_keys=["tasks", "metadata"]
     )
     
-    # === Stage 4: Surgical Refiner Loop (if validation fails) ===
+    # === Stage 4: Surgical Refiner Loop for Decomposition ===
     attempt = 0
     while not validation["success"] and attempt < max_retries:
         attempt += 1
@@ -70,7 +72,6 @@ def run_karpathy_pipeline(
             previous_output=decomposition
         )
         
-        # Feed surgical feedback back into decomposer
         enhanced_requirements = (
             f"{curated['sanitized_prompt']}\n\n"
             f"CORRECTION INSTRUCTIONS:\n{refinement['surgical_feedback']}"
@@ -86,15 +87,34 @@ def run_karpathy_pipeline(
             target_output=decomposition,
             required_keys=["tasks", "metadata"]
         )
+        
+    tasks = decomposition.get("tasks", [])
+    executed_modules = []
+    
+    # === Stage 5: Code Execution & Test Runner Loop (if enabled) ===
+    if execute_code and validation["success"] and tasks:
+        for task in tasks[:3]:  # Execute top tasks
+            code_res = execute_task(task, project_context=project_context)
+            if code_res["success"] and code_res["code"]:
+                # Physically run tests in isolated sandbox
+                test_res = run_code_and_tests(
+                    filename=code_res["filename"],
+                    code=code_res["code"],
+                    test_filename=code_res["test_filename"],
+                    test_code=code_res["test_code"]
+                )
+                code_res["test_execution"] = test_res
+                executed_modules.append(code_res)
     
     # === Final Result ===
     return {
         "stage": "complete",
         "success": validation["success"],
-        "tasks": decomposition.get("tasks", []),
+        "tasks": tasks,
         "metadata": decomposition.get("metadata", {}),
         "quality_score": validation["quality_score"],
         "violations": validation["violations"],
         "refinement_attempts": attempt,
-        "context_signal_to_noise": curated["signal_to_noise_ratio"]
+        "context_signal_to_noise": curated["signal_to_noise_ratio"],
+        "executed_modules": executed_modules
     }

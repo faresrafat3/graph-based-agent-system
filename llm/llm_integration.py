@@ -40,7 +40,7 @@ def call_stepfun_native(prompt: str, system_prompt: str = "", model: str = None,
     }
     
     req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
-    with urllib.request.urlopen(req, timeout=90) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         res_data = json.loads(resp.read().decode("utf-8"))
         return res_data["choices"][0]["message"]["content"]
 
