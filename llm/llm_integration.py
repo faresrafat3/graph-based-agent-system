@@ -1,5 +1,5 @@
 """
-LLM Integration - Direct access to LLM providers (with Mock/Dry-Run Support)
+LLM Integration - Direct access to LLM providers (OpenAI, Anthropic, Stepfun, with Mock/Dry-Run Support)
 """
 
 import os
@@ -10,12 +10,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_llm(provider="openai", model="gpt-4", temperature=0):
+def get_llm(provider="stepfun", model="step-1-8k", temperature=0):
     """
     Get LLM instance
     
     Args:
-        provider: "openai" or "anthropic"
+        provider: "stepfun", "openai", or "anthropic"
         model: Model name
         temperature: Temperature for generation
     
@@ -23,7 +23,25 @@ def get_llm(provider="openai", model="gpt-4", temperature=0):
         LLM instance
     """
     
-    if provider == "openai":
+    if provider == "stepfun":
+        api_key = os.getenv("STEPFUN_API_KEY")
+        base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/step_plan/v1")
+        if not api_key:
+            raise ValueError("STEPFUN_API_KEY not found in environment variables")
+        try:
+            from langchain_openai import ChatOpenAI
+        except ImportError:
+            raise ImportError("langchain-openai is not installed. Please run pip install langchain-openai")
+        
+        target_model = model if model not in ["gpt-4", "gpt-4o"] else "step-1-8k"
+        return ChatOpenAI(
+            model=target_model,
+            temperature=temperature,
+            api_key=api_key,
+            base_url=base_url
+        )
+        
+    elif provider == "openai":
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
@@ -54,17 +72,17 @@ def get_llm(provider="openai", model="gpt-4", temperature=0):
         )
     
     else:
-        raise ValueError(f"Unknown provider: {provider}. Use 'openai' or 'anthropic'")
+        raise ValueError(f"Unknown provider: {provider}. Use 'stepfun', 'openai', or 'anthropic'")
 
 
-def call_llm(prompt: str, system_prompt: str = "", provider="openai", model="gpt-4", allow_mock: bool = True) -> str:
+def call_llm(prompt: str, system_prompt: str = "", provider="stepfun", model="step-1-8k", allow_mock: bool = True) -> str:
     """
     Call LLM directly. Fallback to structured Mock/Dry-Run response if API key is missing.
     
     Args:
         prompt: User prompt
         system_prompt: System prompt (optional)
-        provider: LLM provider
+        provider: LLM provider ("stepfun", "openai", "anthropic")
         model: Model name
         allow_mock: Allow dry-run fallback if no API keys exist
     
@@ -72,8 +90,18 @@ def call_llm(prompt: str, system_prompt: str = "", provider="openai", model="gpt
         LLM response as string
     """
     
+    stepfun_key = os.getenv("STEPFUN_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+
+    def has_stepfun():
+        if not stepfun_key or len(stepfun_key) < 10:
+            return False
+        try:
+            import langchain_openai
+            return True
+        except ImportError:
+            return False
 
     def has_openai():
         if not openai_key or not openai_key.startswith("sk-"):
@@ -93,7 +121,7 @@ def call_llm(prompt: str, system_prompt: str = "", provider="openai", model="gpt
         except ImportError:
             return False
 
-    if not has_openai() and not has_anthropic() and allow_mock:
+    if not has_stepfun() and not has_openai() and not has_anthropic() and allow_mock:
         # Dry-run / Mock fallback for offline testing
         mock_response = {
             "tasks": [
@@ -142,8 +170,20 @@ def call_llm(prompt: str, system_prompt: str = "", provider="openai", model="gpt
         }
         return json.dumps(mock_response)
     
+    # Select active provider dynamically if default requested but not configured
+    active_provider = provider
+    active_model = model
+
+    if provider == "stepfun" and not has_stepfun():
+        if has_openai():
+            active_provider = "openai"
+            active_model = "gpt-4"
+        elif has_anthropic():
+            active_provider = "anthropic"
+            active_model = "claude-3-5-sonnet-20240620"
+
     # Get LLM instance
-    llm = get_llm(provider=provider, model=model)
+    llm = get_llm(provider=active_provider, model=active_model)
     from langchain_core.messages import HumanMessage, SystemMessage
     
     # Build messages
