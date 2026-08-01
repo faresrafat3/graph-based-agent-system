@@ -247,13 +247,29 @@ def run_code_and_tests(
 
         # Stage 2: Pytest Execution if test file exists
         if test_path:
-            pytest_cmd = [sys.executable, "-I", "-m", "pytest", test_path, "-v", "--tb=short"]
+            pytest_cmd = [sys.executable, "-I", "-m", "pytest", test_path, "-v", "--tb=short", "-p", "no:cacheprovider"]
             test_proc = _run_subprocess(pytest_cmd, temp_dir, timeout_seconds)
 
             output = test_proc.stdout + "\n" + test_proc.stderr
             is_success = test_proc.returncode == 0
             passed_count = output.count(" PASSED")
             failed_count = output.count(" FAILED")
+
+            # Law 3: distinguish a genuine test failure from a broken harness.
+            # pytest exit codes: 0=all passed, 1=tests failed, 2=interrupted,
+            # 3=internal error, 4=usage error, 5=no tests collected.
+            # Without this split, a broken sandbox is silently reported as a code
+            # defect — the exact class of failure Law 3 exists to prevent.
+            if not is_success and failed_count == 0 and test_proc.returncode in (2, 3, 4, 5):
+                return _failure(
+                    "harness_error",
+                    (
+                        f"Test harness error (pytest exit code {test_proc.returncode}) — "
+                        "not a code defect. Check the sandbox environment."
+                    ),
+                    stdout=test_proc.stdout,
+                    stderr=test_proc.stderr,
+                )
 
             return {
                 "success": is_success,
