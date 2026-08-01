@@ -16,7 +16,7 @@ def call_stepfun_native(prompt: str, system_prompt: str = "", model: str = None,
     Calls Stepfun REST API natively using urllib.request (zero third-party dependencies required).
     """
     api_key = os.getenv("STEPFUN_API_KEY")
-    base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/v1").rstrip('/')
+    base_url = os.getenv("STEPFUN_BASE_URL", "https://api.stepfun.ai/step_plan/v1").rstrip('/')
     target_model = model or os.getenv("STEPFUN_MODEL", "step-3.7-flash")
     
     if not api_key:
@@ -40,7 +40,7 @@ def call_stepfun_native(prompt: str, system_prompt: str = "", model: str = None,
     }
     
     req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=90) as resp:
         res_data = json.loads(resp.read().decode("utf-8"))
         return res_data["choices"][0]["message"]["content"]
 
