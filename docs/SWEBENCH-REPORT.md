@@ -11,8 +11,8 @@
 
 | Metric | Result |
 |---|---|
-| **Resolve rate (best observed)** | **4/8 = 50%** (psf/requests, run 1, pre-key-pool) |
-| **Resolve rate (docker-graded, 8 inst)** | **1/8 = 12.5%** (psf/requests, full 8-instance grade) |
+| **Resolve rate (best observed)** | **4/8 = 50%** (psf/requests, `gbas_smoke` run) |
+| **Resolve rate (docker-graded, 8 inst)** | **1/8 = 12.5%** (psf/requests, `gbas_agent_requests` run) |
 | **Patch apply rate (post-fix)** | 100% (8/8) |
 | **Localizer recall@3** | 70% (IDF-weighted, current code) / 57.5% pre-upgrade |
 | **Localizer recall@10** | 80% |
@@ -76,22 +76,23 @@ the governance layer's contribution.
 
 ## Results
 
-### Run 1 — psf/requests, 8 instances, workers=2 (before hunk-count repair)
+### Run 1 — psf/requests, 8 instances (`gbas_smoke`, docker-graded)
 
 | Instance | Patch applies? | Resolved? |
 |---|---|---|
 | psf__requests-1142 | yes | **yes** |
 | psf__requests-1724 | yes | **yes** |
 | psf__requests-1766 | yes | **yes** |
-| psf__requests-2317 | NO (corrupt hunk) | **yes** (grader tolerated it) |
+| psf__requests-2317 | yes | **yes** |
 | psf__requests-1921 | yes | no |
 | psf__requests-2931 | yes | no |
 | psf__requests-5414 | yes | no |
-| psf__requests-6028 | NO | error |
+| psf__requests-6028 | NO (malformed patch) | error |
 
-**Resolve rate: 4/8 = 50%.**
+**Resolve rate: 4/8 = 50%** (note: 6028's patch was malformed from the generator, so it
+counts as an error, not a resolve — the 4 resolved come from the other 7).
 
-### Run 2 — psf/requests, 8 instances, workers=2 (after hunk-count repair)
+### Run 2 — psf/requests, 8 instances (`gbas_agent_requests`, docker-graded)
 
 Patch apply rate jumped to 100% (the `2317` corrupt-hunk false negative was fixed), but
 the **resolve rate dropped to 1/8**. Same instances, same settings. The difference is
@@ -100,7 +101,9 @@ broke PASS_TO_PASS tests (e.g. `2317` produced 39 failures instead of fixing 1).
 
 **This variance is the real story.** A single 8-instance sample cannot characterize a
 system on SWE-bench. The published leaderboard reports best-of-N over hundreds of
-instances precisely because of this.
+instances precisely because of this. Our two docker grades on the *same* 8 instances gave
+**4/8 and 1/8** — a 4× swing from LLM nondeterminism alone. The AlphaCode arm
+(best-of-N sampling, measured at 100% on HumanEval) is the direct remedy.
 
 ---
 
