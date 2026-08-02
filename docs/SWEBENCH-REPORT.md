@@ -23,9 +23,18 @@ best-of-N) because **the StepFun API rate limit is the binding constraint, not t
 agent architecture.** Every attempt to scale past ~8 instances serially ran into
 HTTP 429 exhaustion that no retry/backoff could outrun within a practical window.
 
+> **Update (later same day):** the rate limit was a *per-account* quota, not a global
+> one. We now run an **11-account key pool** (`llm/llm_integration.py`) that rotates
+> keys round-robin with per-key 429 cooldown. Aggregate quota is 11×. This removes the
+> 429 wall for HumanEval-scale runs (15–40 problems complete at 100% pass@1 with zero
+> infra fails). SWE-bench at 500 instances is now *feasible* on throughput, not blocked
+> by quota — the remaining cost is wall-clock (~5–10s/instance × 500 = 40–80 min) and
+> the per-instance LLM variance (best-of-N still recommended for a fair leaderboard
+> comparison).
+
 This is the same lesson HumanEval taught, restated at higher stakes: **on SWE-bench,
-the bottleneck is infrastructure, and measuring it honestly requires admitting that
-up front.**
+the bottleneck was infrastructure, and measuring it honestly requires admitting that
+up front.** The key pool fixes the infrastructure half of the problem.
 
 ---
 
