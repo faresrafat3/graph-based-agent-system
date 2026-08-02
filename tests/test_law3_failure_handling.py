@@ -1,6 +1,7 @@
 """
 Regression tests for the Law 3 (Failure Handling) defects found during the
-HumanEval benchmark run of 2026-08-01.
+HumanEval benchmark run of 2026-08-01, extended with the SWE-bench Verified
+defects of 2026-08-02.
 
 Each test pins a real bug that silently converted an infrastructure failure into a
 reported capability failure — the exact class of defect Law 3 exists to prevent.
@@ -22,6 +23,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agents.test_runner_agent import run_code_and_tests
 from llm import llm_integration
 from llm.llm_integration import StepfunAPIError, _RETRYABLE_HTTP_STATUS
+
+_BENCHMARKS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "benchmarks")
+if _BENCHMARKS not in sys.path:
+    sys.path.insert(0, _BENCHMARKS)
 
 
 def _http_error(code: str, status: int) -> urllib.error.HTTPError:
@@ -199,3 +204,51 @@ def test_transport_timeout_is_retried(monkeypatch):
 
     assert llm_integration.call_stepfun_native("ping", max_retries=2) == "OK"
     assert calls["n"] == 2
+
+
+# --- Bug 4: SWE-bench hunk-count repair -------------------------------------
+
+
+def test_repair_hunk_counts_fixes_declared_count():
+    """
+    The LLM emits `@@ -403,8 +403,8 @@` but only 7 body lines. git rejects the
+    whole patch as 'corrupt' even though the edit is correct. This false negative in
+    the validator discards good work (Law 11). repair_hunk_counts recomputes the
+    counts arithmetically.
+
+    Original patch body (8 lines):
+        ctx, ctx, ctx, del, add, ctx, ctx, ctx
+    -> old = 7 (all except the single addition), new = 7 (all except the single deletion)
+    """
+    from swebench_harness import repair_hunk_counts
+
+    bad_patch = (
+        "--- a/requests/sessions.py\n"
+        "+++ b/requests/sessions.py\n"
+        "@@ -403,8 +403,8 @@ class Session(SessionRedirectMixin):\n"
+        "         :param cert: (optional) if String, path to ssl client cert file (.pem).\n"
+        "             If Tuple, ('cert', 'key') pair.\n"
+        '         """\n'
+        "-        method = builtin_str(method)\n"
+        "+        method = to_native_string(method)\n"
+        " \n"
+        "         # Create the Request.\n"
+        "         req = Request(\n"
+    )
+    fixed = repair_hunk_counts(bad_patch)
+    header = [l for l in fixed.split("\n") if l.startswith("@@")][0]
+    assert "@@ -403,7 +403,7 @@" in header, f"expected repaired count, got {header}"
+
+
+def test_repair_hunk_counts_leaves_correct_patch_unchanged():
+    from swebench_harness import repair_hunk_counts
+
+    good = (
+        "--- a/x.py\n+++ b/x.py\n"
+        "@@ -1,3 +1,3 @@ def f():\n"
+        "     a = 1\n"
+        "-    b = 2\n"
+        "+    b = 3\n"
+        "     c = 4\n"
+    )
+    assert repair_hunk_counts(good) == good

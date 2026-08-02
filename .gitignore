@@ -21,3 +21,8 @@ htmlcov/
 
 # Benchmark datasets (downloaded, not vendored)
 benchmarks/data/
+
+# SWE-bench local repo clones and Docker eval logs (large, not vendored)
+~/.cache/swebench-repos/
+logs/run_evaluation/
+*.jsonl

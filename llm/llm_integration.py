@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import socket
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -33,6 +34,44 @@ DEFAULT_STEPFUN_BASE_URL = "https://api.stepfun.ai/step_plan/v1"
 DEFAULT_STEPFUN_MODEL = "step-3.7-flash"
 _RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
 logger = logging.getLogger(__name__)
+
+
+# --------------------------------------------------------------------------------------
+# Global rate limiter
+#
+# During the SWE-bench run we discovered the Stepfun quota admits only about 2-3
+# concurrent requests and then returns 429 for tens of seconds. Per-call retry with a
+# 0.5s base delay cannot recover from that: it burns its 3 attempts in ~2s and raises,
+# leaving the instance marked INFRA-FAIL. The fix is a *global* throttle so the whole
+# process never exceeds the quota in the first place.
+#
+# Token-bucket: one token per MIN_INTERVAL seconds, refilled lazily, guarded by a lock
+# so all worker threads share one bucket. Threads that would exceed the rate sleep
+# until a token is available. This is cooperative pacing, not a busy spin.
+# --------------------------------------------------------------------------------------
+
+_RATE_LIMIT_LOCK = threading.Lock()
+_RATE_BUCKET_TOKENS = 1.0
+_RATE_BUCKET_UPDATED = 0.0
+_MIN_INTERVAL_SECONDS = float(os.getenv("STEPFUN_MIN_INTERVAL", "0.9"))
+
+
+def _acquire_rate_token() -> None:
+    """Block until the global token bucket allows one request."""
+    global _RATE_BUCKET_TOKENS, _RATE_BUCKET_UPDATED
+    while True:
+        with _RATE_LIMIT_LOCK:
+            now = time.monotonic()
+            elapsed = now - _RATE_BUCKET_UPDATED
+            _RATE_BUCKET_TOKENS = min(1.0, _RATE_BUCKET_TOKENS + elapsed / _MIN_INTERVAL_SECONDS)
+            _RATE_BUCKET_UPDATED = now
+            if _RATE_BUCKET_TOKENS >= 1.0:
+                _RATE_BUCKET_TOKENS -= 1.0
+                return
+            # Seconds until the bucket refills to 1.0. Guarded with max(0, ...) so a
+            # large elapsed (many threads were waiting) never yields a negative wait.
+            wait = max(0.0, (_MIN_INTERVAL_SECONDS - elapsed) / max(_RATE_BUCKET_TOKENS, 1e-9))
+        time.sleep(min(wait, 1.0))
 
 
 class StepfunConfigurationError(RuntimeError):
@@ -192,6 +231,7 @@ def call_stepfun_native(
     last_error = None
     attempts = max(0, int(max_retries)) + 1
     for attempt in range(attempts):
+        _acquire_rate_token()
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
