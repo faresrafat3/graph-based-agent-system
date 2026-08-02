@@ -14,7 +14,7 @@
 | **Resolve rate (best observed)** | **4/8 = 50%** (psf/requests, run 1) |
 | **Resolve rate (run 2, same settings)** | 1/8 = 12.5% (LLM variance + quota exhaustion) |
 | **Patch apply rate (post-fix)** | 100% (8/8) |
-| **Localizer recall@3** | 70% (IDF-weighted) |
+| **Localizer recall@3** | 70% (requests-only) / **57.5% (23/40 cross-repo)** |
 | **Localizer recall@10** | 80% |
 
 **The headline is not the resolve rate. It is this:** SWE-bench Verified could not be
@@ -136,7 +136,23 @@ complete 500 instances would require either (a) a higher StepFun tier, (b) a slo
 pace spread over hours/days, or (c) a different model with headroom.
 
 **This is a measurement constraint, not a system failure.** The agent *did* resolve
-real bugs (4 confirmed) and localize correctly 70% of the time at @3.
+real bugs (4 confirmed) and localize correctly 70% of the time at @3 on requests-only.
+
+### Localizer recall (cross-repo, 40 instances)
+
+A later, larger measurement over 40 instances drawn from 3 repos (django, requests,
+astropy) gave **RECALL@3 = 57.5% (23/40)** — lower than the 70% requests-only number.
+The localizer (zero-LLM, IDF-weighted) degrades on large repos with deep directory
+trees (django). This is the honest, current number and it is the main lever left to
+improve before a full SWE-bench run can expect a respectable resolve rate: at 57.5%
+localization the generator is pointed at the wrong file ~42% of the time, capping the
+ceiling well below the leaderboard.
+
+> **Key-pool update:** the per-account quota wall that made 500 instances infeasible
+> (above) is now gone — the 11-account pool raises aggregate quota 11×, so throughput is
+> no longer quota-bound. What remains is (a) the 57.5% localizer recall and (b) wall-clock
+> (~5–30s/instance × 500 = 40–250 min). Both are now *scheduling* problems, not hard
+> blockers. A full 500-instance run is recommended as the next real measurement.
 
 ---
 
