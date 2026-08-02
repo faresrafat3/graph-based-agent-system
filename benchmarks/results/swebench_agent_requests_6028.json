@@ -1,0 +1,123 @@
+{
+  "summary": {
+    "mode": "agent",
+    "model": "step-3.7-flash",
+    "top_k_files": 5,
+    "total_instances": 6,
+    "patch_apply_rate_percent": 100.0,
+    "infrastructure_failures": 0,
+    "partial": true,
+    "wall_clock_seconds": 405.94,
+    "note": "incremental snapshot; patch_apply_rate is NOT the resolve rate."
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "model_name_or_path": "gbas-agent",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -288,5 +288,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n \n     def prepare_content_length(self, body):\n+        if body is None:\n+            return\n         self.headers['Content-Length'] = '0'\n         if hasattr(body, 'seek') and hasattr(body, 'tell'):\n             body.seek(0, 2)\n```\n",
+      "llm_calls": 1,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/packages/urllib3/request.py",
+        "requests/models.py",
+        "requests/adapters.py",
+        "requests/packages/urllib3/connectionpool.py",
+        "requests/utils.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 30.35
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "model_name_or_path": "gbas-agent",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -296,8 +296,11 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n     def prepare_method(self, method):\n         \"\"\"Prepares the given HTTP method.\"\"\"\n         self.method = method\n         if self.method is not None:\n-            self.method = self.method.upper()\n+            if is_py2 and not isinstance(self.method, str):\n+                self.method = self.method.encode('utf-8')\n+\n+            self.method = self.method.upper()\n \n     def prepare_url(self, url, params):\n         \"\"\"Prepares the given HTTP URL.\"\"\"\n",
+      "llm_calls": 1,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/packages/urllib3/connectionpool.py",
+        "requests/packages/urllib3/request.py",
+        "requests/packages/urllib3/util.py",
+        "requests/packages/urllib3/response.py",
+        "requests/models.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 109.19
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "model_name_or_path": "gbas-agent",
+      "model_patch": "--- a/requests/auth.py\n+++ b/requests/auth.py\n@@ -113,6 +113,6 @@ class HTTPDigestAuth(AuthBase):\n         if entdig:\n             base += ', digest=\"%s\"' % entdig\n         if qop:\n-            base += ', qop=auth, nc=%s, cnonce=\"%s\"' % (ncvalue, cnonce)\n+            base += ', qop=\"auth\", nc=%s, cnonce=\"%s\"' % (ncvalue, cnonce)\n \n         return 'Digest %s' % base\n",
+      "llm_calls": 1,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/auth.py",
+        "requests/sessions.py",
+        "requests/packages/urllib3/util.py",
+        "requests/utils.py",
+        "requests/packages/urllib3/connectionpool.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 13.41
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "model_name_or_path": "gbas-agent",
+      "model_patch": "--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -50,12 +50,16 @@\n     ):\n         return request_setting\n \n     merged_setting = dict_class(to_key_val_list(session_setting))\n+    # Remove keys that are set to None in the session setting.\n+    for (k, v) in session_setting.items():\n+        if v is None:\n+            del merged_setting[k]\n     merged_setting.update(to_key_val_list(request_setting))\n \n     # Remove keys that are set to None.\n     for (k, v) in request_setting.items():\n         if v is None:\n             del merged_setting[k]\n \n     return merged_setting\n",
+      "llm_calls": 1,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/models.py",
+        "requests/sessions.py",
+        "requests/cookies.py",
+        "requests/adapters.py",
+        "requests/packages/urllib3/util.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 123.23
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "model_name_or_path": "gbas-agent",
+      "model_patch": "--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -14,6 +14,6 @@ from datetime import datetime\n \n from .auth import _basic_auth_str\n-from .compat import cookielib, OrderedDict, urljoin, urlparse, builtin_str\n+from .compat import cookielib, OrderedDict, urljoin, urlparse, builtin_str, is_py2\n from .cookies import (\n     cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar, merge_cookies)\n from .models import Request, PreparedRequest, DEFAULT_REDIRECT_LIMIT\n@@ -439,7 +439,12 @@ class Session(SessionRedirectMixin):\n \n         method = builtin_str(method)\n \n-        # Create the Request.\n+        if isinstance(method, bytes):\n+            if not is_py2:\n+                method = method.decode('ascii')\n+        elif not isinstance(method, builtin_str):\n+            method = builtin_str(method)\n+\n         # Create the Request.\n         req = Request(\n             method = method.upper(),\n",
+      "llm_calls": 1,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/sessions.py",
+        "requests/utils.py",
+        "requests/models.py",
+        "requests/cookies.py",
+        "requests/packages/urllib3/connectionpool.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 53.25
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "model_name_or_path": "gbas-agent",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -82,6 +82,8 @@ class RequestEncodingMixin(object):\n \n         if isinstance(data, (str, bytes)):\n-            return to_native_string(data)\n+            if isinstance(data, str):\n+                return to_native_string(data)\n+            return data\n         elif hasattr(data, 'read'):\n             return data\n         elif hasattr(data, '__iter__'):\n",
+      "llm_calls": 1,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/utils.py",
+        "requests/sessions.py",
+        "requests/models.py",
+        "requests/packages/urllib3/request.py",
+        "requests/__init__.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 76.47
+    }
+  ]
+}

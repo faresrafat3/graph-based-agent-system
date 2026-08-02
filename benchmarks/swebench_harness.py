@@ -558,6 +558,39 @@ def load_instances(limit: Optional[int], repo_filter: Optional[str]) -> list:
     return rows
 
 
+def _save_partial_swebench(out_path: str, mode: str, top_k: int, results: list, started: float) -> None:
+    """Persist completed SWE-bench results + predictions so a kill never loses work (Law 3)."""
+    applied = sum(1 for r in results if r["patch_applies"])
+    infra = sum(1 for r in results if r.get("failure_class") == "infrastructure")
+    total = len(results)
+    partial = {
+        "summary": {
+            "mode": mode,
+            "model": os.getenv("STEPFUN_MODEL", "step-3.7-flash"),
+            "top_k_files": top_k,
+            "total_instances": total,
+            "patch_apply_rate_percent": round((applied / total) * 100, 2) if total else 0.0,
+            "infrastructure_failures": infra,
+            "partial": True,
+            "wall_clock_seconds": round(time.time() - started, 2),
+            "note": "incremental snapshot; patch_apply_rate is NOT the resolve rate.",
+        },
+        "results": results,
+    }
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(partial, f, indent=2)
+    # Official predictions schema (one JSON object per line) for the grader.
+    preds_path = out_path.replace(".json", "_preds.jsonl")
+    with open(preds_path, "w", encoding="utf-8") as f:
+        for r in results:
+            f.write(json.dumps({
+                "instance_id": r["instance_id"],
+                "model_name_or_path": r["model_name_or_path"],
+                "model_patch": r.get("model_patch", ""),
+            }) + "\n")
+
+
 def run(mode: str, limit: Optional[int], workers: int, out_path: str, repo_filter: Optional[str], top_k: int) -> dict:
     instances = load_instances(limit, repo_filter)
 
@@ -583,6 +616,9 @@ def run(mode: str, limit: Optional[int], workers: int, out_path: str, repo_filte
             if res["failure_class"] == "infrastructure":
                 flag = "INFRA-FAIL"
             print(f"  [{i:3}/{len(instances)}] {res['instance_id']:<34} {flag:<11} {res['duration']}s", flush=True)
+            # Incremental save: a timeout/kill never loses completed results (Law 3).
+            if out_path:
+                _save_partial_swebench(out_path, mode, top_k, results, started)
 
     results.sort(key=lambda r: r["instance_id"])
 
