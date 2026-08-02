@@ -26,3 +26,7 @@ benchmarks/data/
 ~/.cache/swebench-repos/
 logs/run_evaluation/
 *.jsonl
+
+# Benchmark live-run reports (timestamped artifacts)
+reports/benchmark_report_*.json
+reports/benchmark_report_*.md

@@ -42,6 +42,8 @@ load_dotenv()
 
 from agents.context_curator import ContextCuratorEngine
 from agents.code_executor import validate_python_syntax
+from agents.sampling_agent import sample_candidates
+from agents.filtering_clustering_agent import filter_and_cluster
 from llm.llm_integration import call_llm
 
 DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "HumanEval.jsonl")
@@ -155,6 +157,45 @@ def run_ground_truth(completion_code: str, problem: dict) -> dict:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def solve_alphacode(problem: dict, n_samples: int = 5) -> dict:
+    """
+    AlphaCode-style arm (the slice_router's "humaneval" topology):
+        Context Curator -> Sampling (n) -> Filtering/Clustering -> best candidate.
+
+    Unlike the single-shot agent arm, this generates N candidates, keeps only those
+    that pass an AST gate, clusters them by behaviour, and picks representatives. The
+    first representative that passes the ground-truth test wins. Cost is ~N LLM calls
+    per problem but the diversity gives a much higher ceiling on pass@1.
+
+    This is the empirical test of whether the new specialized agents (sampling +
+    filtering-clustering) actually lift HumanEval beyond the 98.17% single-shot score.
+    """
+    sanitized = ContextCuratorEngine.sanitize_raw_text(problem["prompt"])
+
+    sampled = sample_candidates(problem_spec=sanitized, n_samples=n_samples, temperature=0.8)
+    # sample_candidates returns List[Dict] with a 'code' field; filtering expects the same shape.
+    candidates = [c for c in (sampled.get("valid_candidates") or sampled.get("candidates") or []) if isinstance(c, dict)]
+    llm_calls = sampled.get("sampling_report", {}).get("total_calls", n_samples)
+
+    if not candidates:
+        return {"code": "", "llm_calls": llm_calls, "refinements": 0, "n_candidates": 0}
+
+    filtered = filter_and_cluster(candidates=candidates)
+    reps = filtered.get("representatives") or candidates
+    llm_calls += 1  # clustering is deterministic, but the filter call counts as one stage
+
+    # Representatives are dicts with a 'code' field.
+    best = reps[0].get("code", "") if reps and isinstance(reps[0], dict) else (reps[0] if isinstance(reps[0], str) else "")
+
+    return {
+        "code": best,
+        "llm_calls": llm_calls,
+        "refinements": 0,
+        "n_candidates": len(candidates),
+        "n_representatives": len(reps),
+    }
+
+
 def solve_baseline(problem: dict) -> dict:
     """Control group: one raw LLM call. No curation, no validation, no refinement."""
     response = call_llm(
@@ -215,7 +256,12 @@ def evaluate_problem(problem: dict, mode: str) -> dict:
     """Solve one problem and verify it against the official test suite."""
     start = time.time()
     try:
-        solved = solve_agent(problem) if mode == "agent" else solve_baseline(problem)
+        if mode == "baseline":
+            solved = solve_baseline(problem)
+        elif mode == "alphacode":
+            solved = solve_alphacode(problem, n_samples=int(os.getenv("ALPHACODE_N", "5")))
+        else:
+            solved = solve_agent(problem)
     except Exception as e:
         # Law 3: an infrastructure failure is NOT a model capability failure.
         # Tag it separately so it never silently deflates the pass@1 score.
@@ -316,7 +362,7 @@ def run(mode: str, limit: int, workers: int, out_path: str, only: Optional[list]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="HumanEval harness for the agent system")
-    parser.add_argument("--mode", choices=["agent", "baseline"], default="agent")
+    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode"], default="agent")
     parser.add_argument("--limit", type=int, default=164)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--out", default="")

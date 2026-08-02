@@ -37,6 +37,104 @@ logger = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------------------
+# Key pool (multi-account rotation)
+#
+# The system ships with 11 StepFun accounts. Each account has its own per-minute quota,
+# so a single shared key exhausts in ~8 requests and every benchmark collapses into
+# 429s (we measured this: 96/99 HumanEval failures were 429). The pool rotates keys
+# so the *aggregate* quota is 11x. When a key returns 429 it is parked in cooldown for
+# a short window and the next healthy key is used. This is pure load distribution — no
+# key is "better", they are interchangeable step-3.7-flash endpoints.
+# --------------------------------------------------------------------------------------
+
+class _KeyPool:
+    """Thread-safe round-robin pool over N API keys with per-key 429 cooldown."""
+
+    def __init__(self, keys: list):
+        self._keys = [k.strip() for k in keys if k and k.strip()]
+        self._lock = threading.Lock()
+        self._idx = 0
+        self._cooldown_until = {k: 0.0 for k in self._keys}  # key -> monotonic cooldown expiry
+
+    @property
+    def size(self) -> int:
+        return len(self._keys)
+
+    def next_available(self) -> Optional[str]:
+        """Return the next key that is not in cooldown, or None if all are cooling down.
+
+        Picks round-robin from the cursor; if the chosen key is cooling down it keeps
+        scanning forward (bounded by pool size) and returns the soonest-ready key if
+        every key is parked.
+        """
+        if not self._keys:
+            return None
+        with self._lock:
+            now = time.monotonic()
+            n = len(self._keys)
+            start = self._idx % n
+            # First pass: any key not in cooldown.
+            for offset in range(n):
+                i = (start + offset) % n
+                key = self._keys[i]
+                if self._cooldown_until[key] <= now:
+                    self._idx = (i + 1) % n
+                    return key
+            # All cooling: return the one that frees up soonest (still rotates cursor).
+            soonest_i = start
+            soonest_t = float("inf")
+            for offset in range(n):
+                i = (start + offset) % n
+                t = self._cooldown_until[self._keys[i]]
+                if t < soonest_t:
+                    soonest_t = t
+                    soonest_i = i
+            self._idx = (soonest_i + 1) % n
+            return self._keys[soonest_i]
+
+    def mark_rate_limited(self, key: str, cooldown_seconds: float = 30.0) -> None:
+        """Park a key that returned 429 until `cooldown_seconds` from now."""
+        with self._lock:
+            if key in self._cooldown_until:
+                self._cooldown_until[key] = max(
+                    self._cooldown_until[key], time.monotonic() + cooldown_seconds
+                )
+
+
+def _load_key_pool() -> _KeyPool:
+    """Build the pool from STEPFUN_API_KEYS (multi-line/comma) or fall back to STEPFUN_API_KEY."""
+    raw = os.getenv("STEPFUN_API_KEYS", "")
+    keys = []
+    for part in re.split(r"[\s,]+", raw):
+        part = part.strip().strip('"').strip("'")
+        if part and _is_configured_api_key(part):
+            keys.append(part)
+    # Also honor a single STEPFUN_API_KEY if the pool is empty or separately set.
+    single = os.getenv("STEPFUN_API_KEY", "").strip()
+    if single and _is_configured_api_key(single) and single not in keys:
+        keys.insert(0, single)
+    if not keys:
+        raise StepfunConfigurationError(
+            "No usable StepFun API key found. Set STEPFUN_API_KEYS (multi-line) or STEPFUN_API_KEY."
+        )
+    return _KeyPool(keys)
+
+
+_KEY_POOL = None
+_KEY_POOL_LOCK = threading.Lock()
+
+
+def get_key_pool() -> _KeyPool:
+    """Lazily build and cache the shared key pool (one per process)."""
+    global _KEY_POOL
+    if _KEY_POOL is None:
+        with _KEY_POOL_LOCK:
+            if _KEY_POOL is None:
+                _KEY_POOL = _load_key_pool()
+    return _KEY_POOL
+
+
+# --------------------------------------------------------------------------------------
 # Global rate limiter
 #
 # During the SWE-bench run we discovered the Stepfun quota admits only about 2-3
@@ -107,6 +205,7 @@ def sanitize_llm_text(text: str) -> str:
 
     This central guard complements Context Curator agents and protects direct
     LLM callers from sending obvious tracebacks or excessive whitespace.
+
     """
     if not isinstance(text, str):
         raise ValueError("LLM text payload must be a string.")
@@ -125,6 +224,10 @@ def get_stepfun_config(model: Optional[str] = None) -> dict:
     """
     Read and validate Stepfun configuration from environment variables.
 
+    The API key is drawn from the shared key pool (11 accounts) rather than a single
+    static key. Callers must not cache the returned ``api_key`` across requests — it is
+    only valid for the one call that fetched it. Rotate via the pool on 429.
+
     Args:
         model: Optional model override. If omitted, STEPFUN_MODEL is used.
 
@@ -132,13 +235,14 @@ def get_stepfun_config(model: Optional[str] = None) -> dict:
         Dictionary containing ``api_key``, ``base_url``, and ``model``.
 
     Raises:
-        StepfunConfigurationError: If STEPFUN_API_KEY is missing/placeholder.
+        StepfunConfigurationError: If no usable Stepfun key is configured.
     """
-    api_key = os.getenv("STEPFUN_API_KEY")
-    if not _is_configured_api_key(api_key):
+    pool = get_key_pool()
+    api_key = pool.next_available()
+    if not api_key:
         raise StepfunConfigurationError(
-            "STEPFUN_API_KEY is required and must not be a placeholder. "
-            "Configure it in the environment or .env file."
+            "No usable StepFun API key available (all keys in cooldown or unset). "
+            "Configure STEPFUN_API_KEYS or STEPFUN_API_KEY."
         )
 
     base_url = os.getenv("STEPFUN_BASE_URL", DEFAULT_STEPFUN_BASE_URL).strip().rstrip("/")
@@ -150,7 +254,7 @@ def get_stepfun_config(model: Optional[str] = None) -> dict:
         raise StepfunConfigurationError("STEPFUN_MODEL must not be empty.")
 
     return {
-        "api_key": api_key.strip(),
+        "api_key": api_key,
         "base_url": base_url,
         "model": target_model,
     }
@@ -232,12 +336,16 @@ def call_stepfun_native(
     attempts = max(0, int(max_retries)) + 1
     for attempt in range(attempts):
         _acquire_rate_token()
+        # Pull a fresh key from the pool each attempt so a 429 on one account rotates
+        # to a different account rather than re-hammering the same exhausted quota.
+        config = get_stepfun_config(model=model)
+        used_key = config["api_key"]
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {config['api_key']}",
+                "Authorization": f"Bearer {used_key}",
             },
             method="POST",
         )
@@ -257,6 +365,9 @@ def call_stepfun_native(
             error_body = _extract_http_error_body(exc)
             last_error = StepfunAPIError(f"Stepfun API returned HTTP {exc.code}: {error_body}")
             if exc.code in _RETRYABLE_HTTP_STATUS and attempt < attempts - 1:
+                if exc.code == 429:
+                    # Rotate: park this key, let the next attempt pick a fresh one.
+                    get_key_pool().mark_rate_limited(used_key, cooldown_seconds=30.0)
                 delay = _retry_after_seconds(exc, backoff_seconds * (2 ** attempt))
                 logger.warning(
                     "Stepfun retryable HTTP error status=%s attempt=%s/%s delay=%s",

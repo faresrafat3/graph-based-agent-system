@@ -1,0 +1,170 @@
+{
+  "summary": {
+    "benchmark": "HumanEval",
+    "mode": "alphacode",
+    "model": "step-3.7-flash",
+    "total_problems": 15,
+    "passed": 15,
+    "failed": 0,
+    "capability_failures": 0,
+    "infrastructure_failures": 0,
+    "pass_at_1_percent": 100.0,
+    "pass_at_1_adjusted_percent": 100.0,
+    "scored_problems": 15,
+    "total_llm_calls": 90,
+    "total_refinements": 0,
+    "wall_clock_seconds": 181.4
+  },
+  "results": [
+    {
+      "task_id": "HumanEval/0",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 97.77
+    },
+    {
+      "task_id": "HumanEval/1",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 50.82
+    },
+    {
+      "task_id": "HumanEval/2",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 91.09
+    },
+    {
+      "task_id": "HumanEval/3",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 83.43
+    },
+    {
+      "task_id": "HumanEval/4",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 55.47
+    },
+    {
+      "task_id": "HumanEval/5",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 38.63
+    },
+    {
+      "task_id": "HumanEval/6",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 49.83
+    },
+    {
+      "task_id": "HumanEval/7",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 41.46
+    },
+    {
+      "task_id": "HumanEval/8",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 58.36
+    },
+    {
+      "task_id": "HumanEval/9",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 58.86
+    },
+    {
+      "task_id": "HumanEval/10",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 131.56
+    },
+    {
+      "task_id": "HumanEval/11",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 46.18
+    },
+    {
+      "task_id": "HumanEval/12",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 44.41
+    },
+    {
+      "task_id": "HumanEval/13",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 50.08
+    },
+    {
+      "task_id": "HumanEval/14",
+      "passed": true,
+      "failure_class": null,
+      "error": null,
+      "llm_calls": 6,
+      "refinements": 0,
+      "ast_valid": null,
+      "duration": 35.55
+    }
+  ]
+}
