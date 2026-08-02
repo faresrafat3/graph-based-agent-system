@@ -11,8 +11,8 @@
 
 | Metric | Result |
 |---|---|
-| **Resolve rate (best observed)** | **4/8 = 50%** (psf/requests, run 1) |
-| **Resolve rate (run 2, same settings)** | 1/8 = 12.5% (LLM variance + quota exhaustion) |
+| **Resolve rate (best observed)** | **4/8 = 50%** (psf/requests, run 1, pre-key-pool) |
+| **Resolve rate (docker-graded, 8 inst)** | **1/8 = 12.5%** (psf/requests, full 8-instance grade) |
 | **Patch apply rate (post-fix)** | 100% (8/8) |
 | **Localizer recall@3** | 70% (IDF-weighted, current code) / 57.5% pre-upgrade |
 | **Localizer recall@10** | 80% |
@@ -27,10 +27,17 @@ HTTP 429 exhaustion that no retry/backoff could outrun within a practical window
 > one. We now run an **11-account key pool** (`llm/llm_integration.py`) that rotates
 > keys round-robin with per-key 429 cooldown. Aggregate quota is 11×. This removes the
 > 429 wall for HumanEval-scale runs (15–40 problems complete at 100% pass@1 with zero
-> infra fails). SWE-bench at 500 instances is now *feasible* on throughput, not blocked
-> by quota — the remaining cost is wall-clock (~5–10s/instance × 500 = 40–80 min) and
-> the per-instance LLM variance (best-of-N still recommended for a fair leaderboard
-> comparison).
+> infra fails) and for SWE-bench pilot runs (django 5/5 apply, 0 infra fails). SWE-bench
+> at 500 instances is now *feasible* on throughput, not blocked by quota — the remaining
+> cost is wall-clock (~5–30s/instance × 500 = 40–250 min) and the per-instance LLM
+> variance (best-of-N still recommended for a fair leaderboard comparison).
+>
+> **Full 8-instance docker grade (`gbas_agent_requests`): resolved 1/8 = 12.5%.** The
+> patches all APPLY (100%) but only one flips FAIL_TO_PASS without breaking PASS_TO_PASS.
+> This is the honest ceiling for the single-shot generator on this 8-instance slice and
+> it is gated by (a) 70% localizer recall and (b) LLM nondeterminism in patch quality.
+> The AlphaCode arm (best-of-N sampling, already measured at 100% on HumanEval) is the
+> natural next lever to lift this number.
 
 This is the same lesson HumanEval taught, restated at higher stakes: **on SWE-bench,
 the bottleneck was infrastructure, and measuring it honestly requires admitting that
