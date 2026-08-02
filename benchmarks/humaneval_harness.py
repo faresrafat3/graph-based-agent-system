@@ -289,6 +289,35 @@ def evaluate_problem(problem: dict, mode: str) -> dict:
     }
 
 
+def _save_partial(out_path: str, mode: str, results: list, start_time: float) -> None:
+    """Persist completed results so a timeout/kill never discards finished work (Law 3)."""
+    import os as _os
+
+    from collections import Counter
+
+    passed = sum(1 for r in results if r["passed"])
+    total = len(results)
+    fc = Counter(r.get("failure_class") for r in results)
+    partial = {
+        "summary": {
+            "benchmark": "HumanEval",
+            "mode": mode,
+            "model": os.getenv("STEPFUN_MODEL", "step-3.7-flash"),
+            "total_problems": total,
+            "passed": passed,
+            "pass_at_1_percent": round((passed / total) * 100, 2) if total else 0.0,
+            "capability_failures": fc.get("capability", 0),
+            "infrastructure_failures": fc.get("infrastructure", 0),
+            "partial": True,
+            "wall_clock_seconds": round(time.time() - start_time, 2),
+        },
+        "results": results,
+    }
+    _os.makedirs(_os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(partial, f, indent=2)
+
+
 def run(mode: str, limit: int, workers: int, out_path: str, only: Optional[list] = None) -> dict:
     problems = load_problems(limit)
     if only:
@@ -309,6 +338,9 @@ def run(mode: str, limit: int, workers: int, out_path: str, only: Optional[list]
             results.append(res)
             icon = "PASS" if res["passed"] else "FAIL"
             print(f"  [{i:3}/{len(problems)}] {res['task_id']:<18} {icon}  {res['duration']}s")
+            # Incremental save: a timeout/kill never loses completed results.
+            if out_path:
+                _save_partial(out_path, mode, results, start)
 
     duration = round(time.time() - start, 2)
     passed = sum(1 for r in results if r["passed"])

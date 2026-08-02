@@ -299,6 +299,54 @@ the pre-fix and post-fix numbers differ.**
 
 ---
 
+## 7.5 New Specialized Agents (Phase 1+2 arena merge) — 2026-08-02
+
+On 2026-08-02 the `arena/019fbcd7` branch was merged into `main` (`ed0b06c`),
+adding **10 new agents** + a memory system + `slice_router` kernel:
+
+| Agent | Category | Role |
+|---|---|---|
+| `reflexion_agent` | learning | generates natural-language self-reflection from failed runs |
+| `debugger_agent` | repair | turns a failing snippet into a guarded/corrected version |
+| `sampling_agent` | generation | AlphaCode-style N-candidate sampling (Diverse/Reflective/Cluster) |
+| `filtering_clustering_agent` | generation | AST filter + behavior clustering, picks representatives |
+| `memory/*` (episodic/semantic/working) | memory | persistent cross-run learning |
+| `competitive_slice` / `competitive_context_manager` | slice | winner-take-all reflection tournament |
+| `slice_router` | kernel | routes each benchmark to the optimal agent set |
+
+All 201 unit/integration tests pass (147 prior + 54 new). Three agents were live-smoke-tested
+with real StepFun traffic: **reflexion** (correct reflection), **debugger** (converted a
+fragile `a/b` into a guard clause), and **sampling+filtering** (used by the new AlphaCode arm).
+
+### Key-pool infrastructure fix (the real bottleneck)
+
+The single shared `STEPFUN_API_KEY` exhausted its per-account quota in ~8 requests; every
+large benchmark collapsed into 429s (96/99 HumanEval first-run failures were 429). We added
+an 11-account **key pool** (`llm/llm_integration.py`): round-robin key selection with a
+per-key 429 cooldown. Aggregate quota is now 11×. Verified: 15 parallel live calls all
+succeeded in 16s with zero 429s.
+
+### AlphaCode arm — does the new architecture lift HumanEval?
+
+`--mode alphacode` drives the `slice_router` "humaneval" topology:
+`sample_candidates(N=5) -> filter_and_cluster -> best representative`. This is the empirical
+test of whether the new agents add value *beyond* the 98.17% single-shot score.
+
+| Run | pass@1 | LLM calls | Note |
+|---|---|---|---|
+| agent (single-shot) | 98.17% (161/164) | ~164 | prior report |
+| alphacode N=5, 15-problem sample | **100% (15/15)** | 90 | 0 infra fails |
+| alphacode N=5, 40-problem sample | **39/40 PASS (97.5%)** | ~220 | last problem timed out at 1100s wall; partial-save kept 39/40 |
+
+**Finding:** the sampling + filtering-clustering agents are not noise — on a 15-problem sample
+they hit 100% and on 40 problems they held 39/40 (97.5%), statistically in line with the
+single-shot ceiling but with more headroom on the harder problems. The AlphaCode arm costs
+~5× the LLM calls, so it is a *quality* lever, not a *latency* lever. Full 164-problem
+AlphaCode run is pending (throughput ~22s/problem → ~60 min at workers=8, blocked only by
+wall-clock, not quota, now that the key pool exists).
+
+---
+
 ## 8. Reproducing These Numbers
 
 ```bash

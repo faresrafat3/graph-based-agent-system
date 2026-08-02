@@ -30,6 +30,10 @@ class FakeHTTPResponse:
 def test_get_stepfun_config_requires_real_key(monkeypatch):
     """Missing or placeholder Stepfun keys fail loudly; no fallback is allowed."""
     monkeypatch.delenv("STEPFUN_API_KEY", raising=False)
+    monkeypatch.delenv("STEPFUN_API_KEYS", raising=False)
+    # The key pool is cached process-wide; reset it so this test sees a clean state.
+    import llm.llm_integration as lli
+    monkeypatch.setattr(lli, "_KEY_POOL", None)
 
     with pytest.raises(StepfunConfigurationError):
         get_stepfun_config()
