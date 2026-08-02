@@ -210,7 +210,43 @@ python main.py \
   --project-context "FastAPI service" \
   --orchestrate-graph \
   --output run-result.json
+
+# 4) Run benchmark suite (NEW - with auto reports)
+python main.py --benchmark
+python main.py --benchmark-extended
+python main.py --benchmark --benchmark-reports-dir reports --output benchmark.json --json
+
+# Using dedicated runner
+python scripts/run_benchmarks.py
+python scripts/run_benchmarks.py --extended
+python scripts/run_benchmarks.py --live-only
 ```
+
+### Benchmarks & Reports
+
+The system includes a production-ready benchmark harness:
+
+- **Base Suite (4 scenarios)**: E-commerce, Fintech MFA, Noisy Input, Adversarial Injection
+- **Extended Suite (8 scenarios)**: + Rate Limits, ETL DAG, Empty Input, Long Context
+- **Auto Reports**: JSON + Markdown saved to `reports/` with advanced metrics
+- **Health Score**: Weighted composite (success 40% + quality 30% + defense 20% + hygiene 10%)
+
+```bash
+# Generate report
+python scripts/run_benchmarks.py
+cat reports/latest_benchmark.md
+
+# Compare two runs
+python scripts/compare_reports.py reports/old.json reports/new.json --output diff.md
+```
+
+See [docs/BENCHMARK-GUIDE.md](docs/BENCHMARK-GUIDE.md) for full guide.
+
+Expected healthy metrics:
+- Raw Success: 75% (4-suite) with adversarial blocked
+- Effective Success: 100% (security-aware)
+- Defense Rate: 100%
+- Avg Quality: >=0.7, Health Score >=80
 
 ### Example
 

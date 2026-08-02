@@ -8,6 +8,8 @@ mock fallback.
 
 import argparse
 import json
+import sys
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,14 @@ except ImportError:  # pragma: no cover - minimal runtime fallback
         return False
 
 from agents.karpathy_pipeline import run_karpathy_pipeline
+
+# Benchmark imports (lazy to avoid heavy deps when not needed)
+def _load_benchmarks():
+    try:
+        from benchmarks.benchmark_suite import run_benchmarks as run_base, BENCHMARK_SCENARIOS
+        return run_base, BENCHMARK_SCENARIOS
+    except ImportError as e:
+        return None, None
 
 
 DEFAULT_REQUIREMENTS = """
@@ -46,6 +56,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--requirements-file",
         "-f",
         help="Path to a UTF-8 text file containing requirements.",
+    )
+    # Benchmark mode is mutually exclusive? No, allow as separate top-level flag, but add to group handling later
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Run benchmark suite (4 scenarios) instead of single pipeline run.",
+    )
+    parser.add_argument(
+        "--benchmark-extended",
+        action="store_true",
+        help="Run extended benchmark suite (8 scenarios).",
+    )
+    parser.add_argument(
+        "--benchmark-reports-dir",
+        default="reports",
+        help="Directory to save benchmark reports (default: reports).",
     )
     parser.add_argument(
         "--project-context",
@@ -149,11 +175,75 @@ def run_from_args(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def run_benchmark_mode(args: argparse.Namespace) -> int:
+    """Run benchmark suite mode"""
+    try:
+        from benchmarks.benchmark_suite import run_benchmarks as run_base
+        from benchmarks.report_generator import save_benchmark_report
+        from benchmarks.metrics import compute_full_metrics
+        from pathlib import Path
+    except ImportError as e:
+        print(f"❌ Failed to import benchmark modules: {e}", file=sys.stderr)
+        return 1
+
+    # Decide extended or base
+    if args.benchmark_extended:
+        try:
+            from benchmarks.extended_scenarios import get_full_scenarios
+            from scripts.run_benchmarks import run_extended_benchmarks
+            scenarios = get_full_scenarios()
+            print(f"🚀 Running EXTENDED benchmark suite ({len(scenarios)} scenarios)")
+            result = run_extended_benchmarks(scenarios)
+        except ImportError as e:
+            print(f"❌ Extended suite import failed: {e}, falling back to base", file=sys.stderr)
+            result = run_base()
+    else:
+        print("🚀 Running BASE benchmark suite (4 scenarios)")
+        result = run_base()
+
+    # Advanced metrics
+    try:
+        advanced = compute_full_metrics(result)
+        print()
+        print("=" * 80)
+        print(f"  Advanced Metrics - Health Score: {advanced.get('overall_health_score',0)}/100")
+        print("=" * 80)
+        print(json.dumps(advanced, indent=2, ensure_ascii=False))
+    except Exception as e:
+        print(f"⚠️ Metrics calc failed: {e}")
+        advanced = {}
+
+    # Save reports
+    try:
+        reports_dir = args.benchmark_reports_dir
+        Path(reports_dir).mkdir(parents=True, exist_ok=True)
+        paths = save_benchmark_report(result, reports_dir)
+        print()
+        print(f"📄 JSON report saved: {paths['json']}")
+        print(f"📝 Markdown report saved: {paths['markdown']}")
+        if args.output:
+            Path(args.output).write_text(json.dumps({"benchmark": result, "advanced": advanced}, indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"📦 Full output also written to: {args.output}")
+    except Exception as e:
+        print(f"⚠️ Failed to save reports: {e}")
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    # Success if >=50% success rate
+    success_rate = result.get("summary", {}).get("success_rate_percent", 0)
+    return 0 if success_rate >= 50 else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint."""
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # Benchmark mode
+    if args.benchmark or args.benchmark_extended:
+        return run_benchmark_mode(args)
 
     result = run_from_args(args)
 

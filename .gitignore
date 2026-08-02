@@ -14,7 +14,18 @@ ENV/
 .coverage
 htmlcov/
 
+# Reports - keep latest but ignore timestamped large artifacts? We keep all reports for now
+# Uncomment to ignore timestamped reports: reports/benchmark_report_*.json
+# reports/benchmark_report_*.md
+
+# Benchmark datasets (downloaded, not vendored)
+benchmarks/data/
+
 # IDE & OS
 .vscode/
 .idea/
 .DS_Store
+
+# Temporary
+*.tmp
+*.log
