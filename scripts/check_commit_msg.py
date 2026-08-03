@@ -88,6 +88,7 @@ def check_commits() -> int:
 
     shas = [s for s in out.splitlines() if s]
     if not shas:
+        print("✓ no commits in range to lint (already on main / nothing new).")
         return 0
 
     # Author of the PR head commit == "you".
