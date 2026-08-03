@@ -9,9 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0   # needed for commit-message lint range
 
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
@@ -23,6 +24,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Lint commit messages
+      if: github.event_name == 'pull_request'
+      run: python scripts/check_commit_msg.py
+
     - name: Run Pytest Test Suite
       run: |
-        pytest --cov=. --cov-report=term-missing
+        pytest --cov=. --cov-report=term-missing --cov-fail-under=80
