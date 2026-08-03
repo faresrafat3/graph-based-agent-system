@@ -264,7 +264,8 @@ def _extract_http_error_body(exc: urllib.error.HTTPError) -> str:
     """Extract a bounded, safe HTTP error body for diagnostics."""
     try:
         return exc.read().decode("utf-8", errors="replace")[:1000]
-    except Exception:
+    except Exception as body_exc:
+        logger.debug("Could not read HTTP error body: %s", body_exc)
         return str(getattr(exc, "reason", "no response body"))
 
 
@@ -274,7 +275,8 @@ def _retry_after_seconds(exc: urllib.error.HTTPError, default_delay: float) -> f
         retry_after = exc.headers.get("Retry-After") if exc.headers else None
         if retry_after:
             return min(float(retry_after), 10.0)
-    except Exception:
+    except Exception as ra_exc:
+        logger.debug("Could not parse Retry-After header: %s", ra_exc)
         pass
     return default_delay
 

@@ -160,6 +160,54 @@ def check_no_llm_in_evaluate(registry: list[dict] | None = None) -> GovernanceCh
     return GovernanceCheckResult("no_llm_in_evaluate", not violations, violations)
 
 
+def check_no_silent_except(main_registry: list[dict] | None = None) -> GovernanceCheckResult:
+    """Verify agent modules do not swallow errors with bare 'except Exception:'.
+
+    A bare ``except Exception:`` with no binding and no logging silently discards
+    failures, which violates Law 3 (Fail Loudly) and Law 11 (no hidden failures).
+    This check walks the AST of every registered module and flags any handler that
+    catches ``Exception`` (or a broader builtin) without binding the exception to a
+    name via ``as``.
+    """
+    registry = AGENT_REGISTRY if main_registry is None else main_registry
+    violations = []
+    checked_paths = set()
+    for entry in registry:
+        if not isinstance(entry, dict):
+            continue
+        source_path = module_path(entry.get("module", ""))
+        if source_path in checked_paths:
+            continue
+        checked_paths.add(source_path)
+        if not source_path.exists():
+            continue
+        try:
+            tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:
+            violations.append(f"{source_path}: could not parse ({exc}).")
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            # Bare 'except:' (no type) is always silent.
+            if node.type is None:
+                violations.append(f"{source_path}:{node.lineno}: bare 'except:' swallows all errors silently.")
+                continue
+            # 'except Exception' / 'except BaseException' without 'as' binding is silent.
+            type_node = node.type
+            is_broad = (
+                isinstance(type_node, ast.Name) and type_node.id in ("Exception", "BaseException")
+            ) or (
+                isinstance(type_node, ast.Tuple)
+                and any(isinstance(e, ast.Name) and e.id in ("Exception", "BaseException") for e in type_node.elts)
+            )
+            if is_broad and node.name is None:
+                violations.append(
+                    f"{source_path}:{node.lineno}: 'except Exception:' without 'as' binding swallows failures silently."
+                )
+    return GovernanceCheckResult("no_silent_except", not violations, violations)
+
+
 def run_governance_checks(registry: list[dict] | None = None) -> dict[str, Any]:
     """Run independent governance checks and aggregate their factual reports."""
     registry = AGENT_REGISTRY if registry is None else registry
@@ -169,6 +217,7 @@ def run_governance_checks(registry: list[dict] | None = None) -> dict[str, Any]:
         check_entrypoints,
         check_permission_matrices,
         check_no_llm_in_evaluate,
+        check_no_silent_except,
     ]
     results = [check(registry) for check in checks]
     violations = [violation for result in results for violation in result.violations]

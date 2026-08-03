@@ -715,6 +715,104 @@ feedback = "The output was wrong. Please try again from scratch."
 - Second violation: Code review rejection
 ---
 
+## Law 14: The Law of Signal Determinism
+
+### Statement
+**All inter-agent control flow MUST be driven by deterministic, typed signals. The control plane (routing, dispatch, retry policy) MUST contain zero LLM calls.**
+
+### Rationale
+The `kernel/signal_protocol.py` `AgentSignal` schema is the single contract every agent emits on completion. If routing were delegated to an LLM (e.g. "decide the next agent"), the control plane would become non-deterministic, un-auditable, and impossible to replay. A deterministic signal bus is what makes the system a *graph* rather than a chat.
+
+### Requirements
+1. Every agent MUST emit exactly ONE typed `AgentSignal` on completion (success / failure / alert / terminal).
+2. The `DispatchKernel` MUST route via a static `ROUTING_TABLE` lookup — `route(signal)` returns the next agent name with no model involvement.
+3. Retry budgets (`FAILURE_POLICY`) MUST be evaluated deterministically per agent, never by LLM judgment.
+4. Unknown signal types MUST raise `ValueError` at construction time, not fail silently at route time.
+
+### Implementation
+```python
+# ✅ Good: deterministic routing, zero-LLM
+ROUTING_TABLE = {"TASK_DECOMPOSED": "deterministic_validator", ...}
+def route(self, signal: AgentSignal) -> str:
+    return ROUTING_TABLE.get(signal.signal_type, "human_checkpoint")
+```
+
+### Validation
+- Code reviews MUST verify `route()` contains no `call_llm`.
+- Any dynamic/LLM-based next-step selection MUST be rejected.
+
+### Penalties
+- First violation: Mandatory refactor to static `ROUTING_TABLE`.
+- Second violation: Code review rejection.
+- Third violation: Router disabled until compliant.
+
+---
+
+## Law 15: The Law of Latency Budget
+
+### Statement
+**No pipeline stage MAY block indefinitely. Every LLM-bound and IO-bound stage MUST respect a bounded latency budget with global pacing.**
+
+### Rationale
+The Stepfun per-account quota admits only ~2-3 concurrent requests before returning 429 for tens of seconds. Unbounded per-call retry (0.5s base) burns its attempts in ~2s and marks instances INFRA-FAIL. A *global* token-bucket limiter (`llm/llm_integration.py::_acquire_rate_token`) is the control that keeps the whole process within quota.
+
+### Requirements
+1. LLM calls MUST acquire a global rate token before issuing a request.
+2. Retry budgets MUST be global across worker threads, not per-call (per-call budgets multiply latency without a ceiling).
+3. The kernel MUST enforce a wall-clock ceiling for the full pipeline run.
+4. Timeout values MUST be explicit on every transport boundary (HTTP, subprocess, worktree).
+
+### Implementation
+```python
+# ✅ Good: global token bucket paces all workers
+def _acquire_rate_token():
+    while True:
+        with _RATE_LIMIT_LOCK:
+            # refill lazily, sleep until a token is available
+            ...
+        time.sleep(min(wait, 1.0))
+```
+
+### Validation
+- Code reviews MUST verify that no unbounded `while`/`for` loop issues LLM calls without a global limiter.
+- Load tests MUST confirm no deadlock under N parallel workers.
+
+### Penalties
+- First violation: Mandatory integration with the global limiter.
+- Second violation: Code review rejection.
+
+---
+
+## Law 16: The Law of Reproducible Evidence
+
+### Statement
+**Every quality claim about the system MUST be backed by physically-executed evidence, never by model self-report.**
+
+### Rationale
+LLM-as-a-judge produces self-endorsement bias. A system "graded" by the same model that generated the output is not measured — it is flattered. Ground truth comes only from deterministic execution: `pytest` exit codes, `git apply --check`, AST parsing, JSON-schema assertions.
+
+### Requirements
+1. Benchmark scores MUST come from subprocess execution of generated code against real test suites.
+2. Failure taxonomy MUST separate `capability` (model error) from `infrastructure` (429/timeout) — never conflate them.
+3. Raw and infra-adjusted numbers MUST both be published.
+4. Predictions MUST be graded by an external oracle (official SWE-bench harness, official HumanEval tests), not by the system under test.
+
+### Implementation
+```python
+# ✅ Good: external oracle grades, not the model
+score = run_tests_in_worktree(patch, instance)  # pytest FTP/PTP, same signal as the grader
+```
+
+### Validation
+- Code reviews MUST verify benchmark harnesses invoke a real test runner, not `call_llm("is this correct?")`.
+- Any report citing model-stated scores MUST be rejected.
+
+### Penalties
+- First violation: Mandatory re-run with physical execution.
+- Second violation: Report rejected.
+
+---
+
 ## Law 17: The Law of Subsystem Context Isolation
 
 ### Statement

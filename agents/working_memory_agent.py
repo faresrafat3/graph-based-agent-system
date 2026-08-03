@@ -12,7 +12,10 @@ Law 2,4,11 compliant.
 """
 
 import sys
+import logging
 from typing import TypedDict, List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 
@@ -147,7 +150,8 @@ def execute(state: WorkingState) -> dict:
         try:
             all_long = global_memory.get_from_long_term(limit=30)
             long_entries = all_long
-        except Exception:
+        except Exception as exc:
+            logger.warning("Working memory auto-retrieval failed, using empty: %s", exc)
             long_entries = []
 
     ranked = WorkingEngine.rank_by_relevance(long_entries, problem_spec)

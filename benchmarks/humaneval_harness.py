@@ -103,7 +103,12 @@ def extract_prompt_preamble(problem: dict) -> str:
     Our agent returns a complete function rather than a bare body, so we re-attach that
     preamble to preserve the official semantics without duplicating the definition.
     """
-    prompt = problem["prompt"]
+    prompt = problem.get("prompt", "")
+    if not isinstance(prompt, str):
+        # Defensive: some problem loaders hand back a structured field instead of
+        # the raw prompt string. Never let that crash ground-truth execution (Law 3:
+        # an infra/format failure must not masquerade as a capability failure).
+        prompt = str(prompt)
     entry_point = problem["entry_point"]
 
     matches = list(re.finditer(rf"^\s*def\s+{re.escape(entry_point)}\s*\(", prompt, re.MULTILINE))

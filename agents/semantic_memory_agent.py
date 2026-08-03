@@ -12,8 +12,10 @@ Law 2,4,11 compliant. Evaluate ZERO-LLM.
 """
 
 import sys
-from typing import TypedDict, List, Dict, Any
-from collections import Counter
+import logging
+from typing import TypedDict, List, Dict
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 
@@ -174,8 +176,8 @@ def commit(state: SemanticState) -> dict:
             },
             metadata={"agent": "semantic_memory_agent", "rule_count": 1}
         )
-    except Exception:
-        pass
+    except Exception as exc:  # Memory failure shouldn't break commit, but MUST be loud
+        logger.warning("Semantic commit to long-term memory failed: %s", exc)
     return {"committed": True}
 
 
@@ -220,7 +222,8 @@ def extract_semantic_rule(
         try:
             all_long = global_memory.get_from_long_term(limit=20)
             episodic_entries = [e["data"] for e in all_long if e["data"].get("type") == "episodic"]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Semantic auto-retrieval failed, using empty: %s", exc)
             episodic_entries = []
 
     result = semantic_graph.invoke(
@@ -251,5 +254,6 @@ def get_semantic_rules(limit: int = 10) -> List[str]:
         all_long = global_memory.get_from_long_term(limit=50)
         rules = [e["data"].get("rule", "") for e in all_long if e["data"].get("type") == "semantic" and e["data"].get("rule")]
         return rules[:limit]
-    except Exception:
+    except Exception as exc:
+        logger.warning("Semantic rules retrieval failed, returning empty: %s", exc)
         return []

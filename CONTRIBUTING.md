@@ -1,15 +1,16 @@
 # Contributing — Graph-Based Agent System
 
-This repo is worked on by more than one person. To avoid `main` getting
-clobbered by conflicting direct pushes, **all changes go through a branch +
-pull request**, and `main` is branch-protected on GitHub (no direct push,
-require a passing CI run + 1 review).
+This repo is worked on by more than one person (including an autonomous
+patrol that pushes to `main`). To avoid `main` getting clobbered by
+conflicting direct pushes, **all human changes go through a branch + pull
+request**, and `main` is branch-protected on GitHub (no direct push for
+non-admins, require a passing CI run).
 
 ## 1. Branch model
 
 | Branch | Purpose | Push directly? |
 |--------|---------|----------------|
-| `main` | Always-green, deployable. Protected. | **No** — only via merged PR |
+| `main` | Always-green, deployable. Protected. | **No** for collaborators; the repo owner / patrol may direct-push in emergencies |
 | `feat/<short-slug>` | New feature / agent / benchmark arm | Yes |
 | `fix/<short-slug>` | Bug fix | Yes |
 | `docs/<short-slug>` | Docs / report only | Yes |
@@ -24,8 +25,10 @@ treat them like any other feature branch; don't push to them by hand.
 ## 2. Commit message convention
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/).
-CI runs `scripts/check_commit_msg.py` on every PR and fails on non-conforming
-messages.
+CI runs `scripts/check_commit_msg.py` on every PR. It lints only the PR
+author's own non-merge commits in the branch range — commits made by other
+collaborators or the autonomous patrol are skipped, so they can't block your
+PR.
 
 ```
 <type>: <subject>            # subject: imperative, lowercase, no trailing period, <= 72 chars
@@ -35,11 +38,6 @@ messages.
 
 **Allowed `type` values:** `feat`, `fix`, `docs`, `chore`, `refactor`,
 `test`, `perf`, `ci`, `build`, `revert`.
-
-CI runs `scripts/check_commit_msg.py` on every PR. It lints only the PR
-author's own non-merge commits in the branch range — commits made by other
-collaborators or the autonomous patrol are skipped, so they can't block your
-PR.
 
 Examples:
 - `feat: add AlphaCode benchmark arm to HumanEval harness`

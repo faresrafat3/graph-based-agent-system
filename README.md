@@ -156,7 +156,7 @@ The system operates under **10 Laws** ([LAWS.md](LAWS.md)) that govern all imple
 
 ### Technology Stack
 
-- **Orchestration**: LangGraph 0.2.0+ (100% - no other orchestration)
+- **Orchestration**: LangGraph 1.2.x (currently installed; `requirements.txt` pins `langgraph>=0.2.0`) — the only orchestration framework in use
 - **LLM Integration**: Stepfun native REST API only (`STEPFUN_MODEL`, default `step-3.7-flash`)
 - **Provider Policy**: Stepfun-only execution with no fallback response path; missing credentials fail loudly
 - **Memory**: Custom implementation (short-term dict + long-term list)

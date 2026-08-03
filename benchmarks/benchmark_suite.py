@@ -1,5 +1,4 @@
 import sys
-import os
 import argparse
 from pathlib import Path
 
@@ -8,7 +7,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from agents.karpathy_pipeline import run_karpathy_pipeline
-import json
 import time
 
 BENCHMARK_SCENARIOS = [

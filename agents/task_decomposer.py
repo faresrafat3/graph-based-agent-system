@@ -190,13 +190,16 @@ def propose(state: TaskDecomposerState) -> dict:
         # Use past decomposition as reference
         past_data = similar[0]["entry"]["data"]
         past_tasks = past_data.get("tasks", [])
-        return {
-            "tasks": past_tasks,
-            "metadata": past_data.get("metadata", {}),
-            "clarifications_needed": past_data.get("clarifications_needed", []),
-            "similar_past_decompositions": similar,
-            "use_cached": True
-        }
+        # Guard against cache poisoning (F5): never reuse an empty/!success
+        # decomposition, or the refine loop would retrieve [] forever.
+        if past_tasks:
+            return {
+                "tasks": past_tasks,
+                "metadata": past_data.get("metadata", {}),
+                "clarifications_needed": past_data.get("clarifications_needed", []),
+                "similar_past_decompositions": similar,
+                "use_cached": True,
+            }
     
     # Use MCP tools to parse requirements
     parsed = mcp_tools.requirements_parser(requirements)
@@ -349,25 +352,26 @@ def evaluate(state: TaskDecomposerState) -> dict:
 
 
 def commit(state: TaskDecomposerState) -> dict:
-    """Step 4: Commit - Save to memory"""
-    
+    """Step 4: Commit - Save to memory (never cache empty/!success output)."""
     tasks = state.get("tasks", [])
     requirements = state["requirements"]
-    
-    # Save to memory
-    memory.add_to_long_term(
-        data={
-            "requirements": requirements,
-            "tasks": tasks,
-            "metadata": state.get("metadata", {}),
-            "timestamp": datetime.now().isoformat()
-        },
-        metadata={
-            "source": "task_decomposer",
-            "success": True
-        }
-    )
-    
+
+    # F5: never persist an empty or failed decomposition — doing so would poison
+    # the similarity cache and let a later refine loop retrieve [] indefinitely.
+    if tasks and state.get("success", False):
+        memory.add_to_long_term(
+            data={
+                "requirements": requirements,
+                "tasks": tasks,
+                "metadata": state.get("metadata", {}),
+                "timestamp": datetime.now().isoformat(),
+            },
+            metadata={
+                "source": "task_decomposer",
+                "success": True,
+            },
+        )
+
     return {"committed": True}
 
 

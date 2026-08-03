@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Lint commit messages against Conventional Commits for this repo.
 
-CI runs this on every PR (see .github/workflows/ci.yml). It checks every
-commit in the PR range, OR every line of a commit-message file passed as
-an argument (useful for `git commit --verify` hooks).
+CI runs this on every PR (see .github/workflows/ci.yml). It checks only the
+PR author's own non-merge commits in the range BASE..HEAD, so commits made by
+other collaborators or the autonomous patrol cannot block your PR.
 
 Exit code 1 on any violation.
 """
@@ -21,7 +21,6 @@ TYPES = {
 PATTERN = re.compile(r"^(?P<type>[a-z]+)(?P<scope>\([a-z0-9_\-/]+\))?!?:\s+(?P<subject>.+)$")
 
 REVERT_RE = re.compile(r"^revert:\s+", re.IGNORECASE)
-REVERT_BODY_RE = re.compile(r"^This reverts commit [0-9a-f]{7,40}\.", re.MULTILINE)
 
 
 def lint_one(msg: str) -> list[str]:
@@ -64,7 +63,7 @@ def check_commits() -> int:
     """Lint only THIS PR author's non-merge commits in the range BASE..HEAD.
 
     We skip:
-      - merge commits (GitHub-generated "Merge ... into ...")
+      - merge commits (more than one parent)
       - commits authored by someone other than the PR head author
 
     This keeps the lint about *your* work. In a repo where an autonomous
@@ -100,11 +99,11 @@ def check_commits() -> int:
     failures = 0
     checked = 0
     for sha in shas:
-        is_merge = subprocess.run(
+        parents = subprocess.run(
             ["git", "log", "-1", "--format=%P", sha],
             capture_output=True, text=True,
         ).stdout.strip()
-        if is_merge:  # merge commit -> skip
+        if len(parents.split()) > 1:  # true merge commit -> skip
             continue
         author = subprocess.run(
             ["git", "log", "-1", "--format=%ae", sha],
