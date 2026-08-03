@@ -60,9 +60,6 @@ def run_competitive_slice(
     past_reflections = get_relevant_reflections(prompt, limit=3)
 
     execution_history = []
-    best_candidate = None
-
-    # === Outer Loop: Reflexion Trials ===
     for reflexion_trial in range(max_reflexion_trials + 1):
         # === Stage 2: Sampling (AlphaCode) ===
         sampling_result = sample_candidates(
@@ -149,7 +146,7 @@ def run_competitive_slice(
                     past_reflections.append(new_reflection)
                     print(f"  💭 Reflexion: {reflection_res['reflection_summary'][:100]}...")
                 else:
-                    print(f"  ⚠️ Reflexion failed to generate actionable reflection")
+                    print("  ⚠️ Reflexion failed to generate actionable reflection")
 
     # If we reach here, all trials failed
     print(f"  ❌ FAIL after {max_reflexion_trials+1} trials, {len(execution_history)} candidates tried")

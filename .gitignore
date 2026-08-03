@@ -30,3 +30,14 @@ logs/run_evaluation/
 # Benchmark live-run reports (timestamped artifacts)
 reports/benchmark_report_*.json
 reports/benchmark_report_*.md
+
+# Throwaway benchmark smoke/proto artifacts (regenerate, don't vendor)
+benchmarks/results/*smoke*
+benchmarks/results/*repro*
+benchmarks/results/*_preds.jsonl
+benchmarks/results/*requests*.json
+
+# Node / editor / OS junk
+node_modules/
+*.swp
+Thumbs.db
