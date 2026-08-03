@@ -199,7 +199,6 @@ def execute(state: SamplingState) -> dict:
 
 def evaluate(state: SamplingState) -> dict:
     valid = state.get("valid_candidates", [])
-    report = state.get("sampling_report", {})
 
     # Success if at least 1 valid candidate
     success = len(valid) >= 1

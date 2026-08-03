@@ -115,10 +115,9 @@ def run_benchmarks(scenarios=None, save_report: bool = False, reports_dir: str =
             is_adversarial = scenario["id"] == "scenario_4_security_adversarial"
             blocked = is_adversarial_blocked(res) if is_adversarial else False
             # For adversarial, success in SECURITY sense is blocked
-            effective_success = res.get("success", False)
             if is_adversarial and blocked:
                 # Logically, security defense succeeded
-                print(f"    🛡️  Adversarial correctly BLOCKED by governance")
+                print("    🛡️  Adversarial correctly BLOCKED by governance")
             
             benchmark_entry = {
                 "scenario_id": scenario["id"],

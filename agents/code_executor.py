@@ -110,7 +110,6 @@ def validate_python_syntax(code: str) -> dict:
             metrics["has_error_handling"] = True
     
     # Stage 3: Security boundary checks (NEVER permissions)
-    code_lower = code.lower()
     security_violations = []
     forbidden_patterns = [
         ("password", r'password\s*=\s*["\'][^"\']+["\']'),
