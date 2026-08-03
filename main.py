@@ -9,7 +9,6 @@ mock fallback.
 import argparse
 import json
 import sys
-import os
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +25,7 @@ def _load_benchmarks():
     try:
         from benchmarks.benchmark_suite import run_benchmarks as run_base, BENCHMARK_SCENARIOS
         return run_base, BENCHMARK_SCENARIOS
-    except ImportError as e:
+    except ImportError:
         return None, None
 
 

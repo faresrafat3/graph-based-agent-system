@@ -11,7 +11,7 @@ This is Phase 3: Kernel Dual-Mode Routing
 Constitution: Law 11 Evaluate never calls LLM, Law 2 Permission checked.
 """
 
-from typing import Dict, List
+from typing import Dict
 
 SLICE_REGISTRY = {
     "humaneval": {

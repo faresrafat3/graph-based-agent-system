@@ -15,8 +15,11 @@ import sys
 import shutil
 import subprocess
 import tempfile
+import logging
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -146,8 +149,9 @@ def _resource_limited_preexec(timeout_seconds: int):
             resource.setrlimit(resource.RLIMIT_FSIZE, (file_size_limit, file_size_limit))
             if hasattr(resource, "RLIMIT_NPROC"):
                 resource.setrlimit(resource.RLIMIT_NPROC, (process_limit, process_limit))
-        except Exception:
+        except Exception as exc:
             # Best-effort: subprocess timeout and static preflight still apply.
+            logger.debug("Resource limits could not be applied (best-effort): %s", exc)
             pass
 
     return _apply_limits

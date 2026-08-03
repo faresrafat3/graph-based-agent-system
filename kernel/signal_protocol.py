@@ -3,7 +3,7 @@ Signal Protocol - Deterministic Signal Schema for Agent Communication (Law 14).
 Every agent emits exactly ONE typed signal on completion. The Kernel routes based on signal type.
 """
 
-from typing import TypedDict, Literal, Any
+from typing import Literal
 from datetime import datetime
 
 

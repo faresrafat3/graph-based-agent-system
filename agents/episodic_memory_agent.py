@@ -12,7 +12,10 @@ Constitution: Law 2 Permission Matrix, Law 4 Karpathy Loop, Law 11 Zero-LLM in E
 
 import sys
 import time
+import logging
 from typing import TypedDict, List, Dict, Any
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 
 sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
@@ -147,8 +150,8 @@ def commit(state: EpisodicState) -> dict:
                 "tags": entry.get("tags", [])
             }
         )
-    except Exception:
-        pass  # Memory failure shouldn't break commit
+    except Exception as exc:  # Memory failure shouldn't break commit, but MUST be loud
+        logger.warning("Episodic commit to long-term memory failed: %s", exc)
     return {"committed": True}
 
 
@@ -247,5 +250,6 @@ def retrieve_episodes(problem_spec: str, limit: int = 5, outcome_filter: str = N
         if outcome_filter:
             episodes = [e for e in episodes if e.get("outcome") == outcome_filter]
         return episodes[:limit]
-    except Exception:
+    except Exception as exc:
+        logger.warning("Episodic retrieval failed, returning empty: %s", exc)
         return []

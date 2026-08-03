@@ -70,8 +70,8 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     md_lines.append("")
     md_lines.append("## 🏆 Summary")
     md_lines.append("")
-    md_lines.append(f"| Metric | Value |")
-    md_lines.append(f"|--------|-------|")
+    md_lines.append("| Metric | Value |")
+    md_lines.append("|--------|-------|")
     md_lines.append(f"| Success Rate | {summary.get('success_rate_percent', 0)}% ({sum(1 for d in details if d.get('success'))}/{len(details)}) |")
     md_lines.append(f"| Avg Quality Score | {summary.get('average_quality_score', 0)} / 1.0 |")
     md_lines.append(f"| Avg Signal-to-Noise | {summary.get('average_signal_to_noise', 0)} |")
@@ -82,8 +82,8 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     
     md_lines.append("## ⚡ Latency Metrics")
     md_lines.append("")
-    md_lines.append(f"| Metric | Value |")
-    md_lines.append(f"|--------|-------|")
+    md_lines.append("| Metric | Value |")
+    md_lines.append("|--------|-------|")
     md_lines.append(f"| Mean | {latency.get('mean',0)}s |")
     md_lines.append(f"| P50 (Median) | {latency.get('p50',0)}s |")
     md_lines.append(f"| P95 | {latency.get('p95',0)}s |")
@@ -93,8 +93,8 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     
     md_lines.append("## 🛡️ Security / Defense Metrics")
     md_lines.append("")
-    md_lines.append(f"| Metric | Value |")
-    md_lines.append(f"|--------|-------|")
+    md_lines.append("| Metric | Value |")
+    md_lines.append("|--------|-------|")
     md_lines.append(f"| Evaluated | {security.get('evaluated',0)} |")
     md_lines.append(f"| Blocked | {security.get('blocked',0)} |")
     md_lines.append(f"| Defense Rate | {security.get('defense_rate',0)}% |")
@@ -104,8 +104,8 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     
     md_lines.append("## 🧹 Context Hygiene")
     md_lines.append("")
-    md_lines.append(f"| Metric | Value |")
-    md_lines.append(f"|--------|-------|")
+    md_lines.append("| Metric | Value |")
+    md_lines.append("|--------|-------|")
     md_lines.append(f"| Avg Signal/Noise | {hygiene.get('average_signal_to_noise',0)} |")
     if hygiene.get("noisy_scenarios_avg_signal") is not None:
         md_lines.append(f"| Noisy Scenarios Avg | {hygiene.get('noisy_scenarios_avg_signal')} |")
@@ -114,8 +114,8 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     
     md_lines.append("## 🎯 Quality Distribution")
     md_lines.append("")
-    md_lines.append(f"| Metric | Value |")
-    md_lines.append(f"|--------|-------|")
+    md_lines.append("| Metric | Value |")
+    md_lines.append("|--------|-------|")
     md_lines.append(f"| Mean Quality | {quality_dist.get('mean',0)} |")
     md_lines.append(f"| Median Quality | {quality_dist.get('median',0)} |")
     md_lines.append(f"| Min | {quality_dist.get('min',0)} |")
@@ -124,16 +124,16 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     
     md_lines.append("## 📂 By Category")
     md_lines.append("")
-    md_lines.append(f"| Category | Total | Passed | Success Rate | Avg Quality |")
-    md_lines.append(f"|----------|-------|--------|--------------|-------------|")
+    md_lines.append("| Category | Total | Passed | Success Rate | Avg Quality |")
+    md_lines.append("|----------|-------|--------|--------------|-------------|")
     for cat, data in by_category.items():
         md_lines.append(f"| {cat} | {data.get('total',0)} | {data.get('passed',0)} | {data.get('success_rate',0)}% | {data.get('avg_quality',0)} |")
     md_lines.append("")
     
     md_lines.append("## 📋 Scenario Details")
     md_lines.append("")
-    md_lines.append(f"| # | Scenario | Category | Success | Quality | Signal/Noise | Tasks | Duration |")
-    md_lines.append(f"|---|----------|----------|---------|---------|--------------|-------|----------|")
+    md_lines.append("| # | Scenario | Category | Success | Quality | Signal/Noise | Tasks | Duration |")
+    md_lines.append("|---|----------|----------|---------|---------|--------------|-------|----------|")
     for i, d in enumerate(details, 1):
         status = "✅" if d.get("success") else "❌"
         md_lines.append(
@@ -157,13 +157,13 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     md_lines.append("## 🔍 Interpretation")
     md_lines.append("")
     md_lines.append(f"- **Health Score {full_metrics.get('overall_health_score',0)}/100**: Composite of success rate, quality, defense, hygiene")
-    md_lines.append(f"- **Expected Success Rate**: 75%+ for 4-scenario suite (3 pass + 1 adversarial blocked)")
-    md_lines.append(f"- **For 8-scenario suite**: 75%+ still healthy (6/8 + 1 vague correctly handled)")
+    md_lines.append("- **Expected Success Rate**: 75%+ for 4-scenario suite (3 pass + 1 adversarial blocked)")
+    md_lines.append("- **For 8-scenario suite**: 75%+ still healthy (6/8 + 1 vague correctly handled)")
     md_lines.append("")
     md_lines.append("## 📎 Artifacts")
     md_lines.append("")
-    md_lines.append(f"- JSON report: `reports/benchmark_report_{timestamp}.json`")
-    md_lines.append(f"- Latest JSON: `reports/latest_benchmark.json`")
+    md_lines.append("- JSON report: `reports/benchmark_report_{timestamp}.json`")
+    md_lines.append("- Latest JSON: `reports/latest_benchmark.json`")
     md_lines.append("")
     
     content = "\n".join(md_lines)

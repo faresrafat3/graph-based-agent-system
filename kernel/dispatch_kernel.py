@@ -6,14 +6,14 @@ based on a deterministic routing table. Zero-LLM at the control plane.
 
 import os
 import sys
+import logging
 from collections import deque
-from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from kernel.signal_protocol import (
-    AgentSignal, SUCCESS_SIGNALS, FAILURE_SIGNALS, ALERT_SIGNALS, TERMINAL_SIGNALS
-)
+from kernel.signal_protocol import AgentSignal
 from agents.context_curator import curate_context
 from agents.task_decomposer import decompose_requirements
 from agents.deterministic_validator import validate_output
@@ -82,15 +82,28 @@ class DispatchKernel:
         """Increment retry counter for an agent."""
         self.retry_tracker[agent_name] = self.retry_tracker.get(agent_name, 0) + 1
         
-    def run(self, requirements: str, project_context: str = "", constraints: str = "") -> dict:
+    def run(
+        self,
+        requirements: str,
+        project_context: str = "",
+        constraints: str = "",
+        execute_code: bool = False,
+    ) -> dict:
         """
         Main kernel loop — processes signals until terminal state.
-        
+
+        The control plane (routing, retry policy, signal emission) is deterministic
+        and Zero-LLM (Law 14). The only LLM calls are the task-decomposition and
+        optional code-generation stages, which are gated by `execute_code`.
+
         Args:
             requirements: Raw user requirements
             project_context: Project context
             constraints: Constraints
-            
+            execute_code: If True, generate + run code/tests for each task
+                (LLM-backed; requires a trusted sandbox). If False, only the
+                deterministic decomposition/validation signals are emitted.
+
         Returns:
             Final pipeline result dict
         """
@@ -179,8 +192,35 @@ class DispatchKernel:
                 )
         
         # === Stage 4: Code Execution Loop (per task) ===
+        # The control-plane routing decision is made by the deterministic router
+        # (Law 14): the CODE_GENERATED signal must resolve to the test_runner agent.
+        # We assert the router is wired correctly so the ROUTING_TABLE is never dead code.
+        code_stage_agent = self.route(AgentSignal(
+            signal_type="CODE_GENERATED",
+            source_agent="code_executor",
+            data={},
+        ))
+        if code_stage_agent != "test_runner":  # pragma: no cover - router invariant
+            logger.warning(
+                "ROUTING_TABLE drift: CODE_GENERATED -> %s (expected 'test_runner')",
+                code_stage_agent,
+            )
+
         executed_modules = []
-        for task in tasks[:3]:
+        # NOTE: execute every decomposed task. Code generation hits the LLM and must be
+        # gated by execute_code (mirrors karpathy_pipeline). The previous tasks[:3] slice
+        # silently dropped the rest of the plan.
+        for task in tasks:
+            if not execute_code:
+                # Without code execution we still emit the deterministic signals so the
+                # signal log stays complete, but skip the LLM-backed code stage.
+                self.emit(AgentSignal(
+                    signal_type="TASK_DECOMPOSED",
+                    source_agent="task_decomposer",
+                    data={"task_id": task.get("id"), "skipped_code_stage": True},
+                ))
+                continue
+
             code_result = execute_task(task, project_context=project_context)
             
             if code_result["success"] and code_result.get("code"):

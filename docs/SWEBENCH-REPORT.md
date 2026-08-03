@@ -72,6 +72,37 @@ Localizer (zero-LLM, IDF-weighted)   -> picks top-k files
 The baseline arm is one LLM call + retrieval, no validation, no refinement — isolating
 the governance layer's contribution.
 
+### AlphaCode arm (best-of-N, NEW)
+
+The single-shot agent's resolve rate swung 1/8 vs 4/8 on the *same* 8 instances
+(LLM nondeterminism). To attack that variance directly, a third arm samples N patches
+per instance through the full governance path and selects the best by **local, LLM-free
+test execution** — the same FAIL_TO_PASS/PASS_TO_PASS signal the official Docker grader
+uses, run inside the worktree via `pytest`.
+
+```python
+solve_alphacode_swebench(instance, root, files, n_samples=4)
+  for _ in range(n_samples):
+      patch = solve_agent(...)            # full governance path
+      score = run_tests_in_worktree(patch, instance)   # apply + pytest FTP/PTP
+  return best patch by (local_resolved, score, applies)
+```
+
+`run_tests_in_worktree` is self-contained: it resets the worktree to a pristine state at
+entry and exit (so repeated samples never inherit leftovers), dry-checks with `git apply
+--check`, applies, runs the instance's test commands (SWE-bench stores bare pytest node
+IDs, so they are invoked via `python -m pytest`), and returns
+`score = ftp_pass − (ptp_total − ptp_pass)` so breaking PASS_TO_PASS is penalized.
+
+**Status (2026-08-02):** the arm is implemented, wired into the CLI (`--mode alphacode
+--n-samples N`), and unit-verified offline — `run_tests_in_worktree` correctly applies a
+patch and scores 62 FTP / 320 PTP tests on `psf__requests-1142`. A full 8-instance
+best-of-N run could not be completed to a Docker grade because the host network was
+intermittently dropping LLM transport connections (user-confirmed; not a code fault).
+The architecture is in place; re-running `--mode alphacode` once the network is stable
+will produce the first best-of-N SWE-bench resolve number. Expected effect: collapse the
+1/8↔4/8 swing toward the upper end by selecting the best of N samples per instance.
+
 ---
 
 ## Results

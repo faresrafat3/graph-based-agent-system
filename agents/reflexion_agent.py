@@ -21,7 +21,10 @@ Now: Test failure -> reflection -> memory -> next attempt guided by reflection
 import os
 import sys
 import re
+import logging
 from typing import TypedDict, List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -185,9 +188,9 @@ def commit(state: ReflexionState) -> dict:
             },
             metadata={"agent": "reflexion_agent", "actionable": True}
         )
-    except Exception:
-        pass  # Memory failure should not break commit
-
+    except Exception as exc:  # Memory failure should not break commit, but MUST be loud
+        logger.warning("Reflexion commit to long-term memory failed: %s", exc)
+    return {"committed": True}
     return {"committed": True}
 
 
@@ -270,5 +273,6 @@ def get_relevant_reflections(problem_spec: str, limit: int = 3) -> List[str]:
     try:
         similar = global_memory.find_similar(problem_spec, threshold=0.3, limit=limit)
         return [entry["entry"]["data"].get("reflection", "") for entry in similar if entry["entry"]["data"].get("reflection")]
-    except Exception:
+    except Exception as exc:
+        logger.warning("Reflexion retrieval failed, returning empty: %s", exc)
         return []
