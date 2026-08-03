@@ -116,8 +116,33 @@ def test_kernel_routing_alert_to_human():
     assert kernel.route(sig) == "human_checkpoint"
 
 
-def test_kernel_routing_terminal():
-    """Terminal signals route to done"""
+def test_kernel_route_is_used_in_run(tmp_path, monkeypatch):
+    """run() routes the code stage through route() and emits one signal per task.
+
+    Guards against the ROUTING_TABLE becoming dead code (F3): the kernel must
+    consult route() rather than hard-coding the next agent.
+    """
+    # Stub the LLM-backed stage so the test never hits the network.
+    import agents.task_decomposer as td
+    import kernel.dispatch_kernel as dk
+
+    captured = {}
+
+    def fake_decompose(*a, **k):
+        return {"tasks": [{"id": "t1"}, {"id": "t2"}], "metadata": {}, "success": True}
+
+    monkeypatch.setattr(td, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "execute_task", lambda *a, **k: {"success": False, "code": ""})
+    monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": False})
+
     kernel = DispatchKernel()
-    sig = AgentSignal(signal_type="PIPELINE_COMPLETE", source_agent="dispatch_kernel")
-    assert kernel.route(sig) == "done"
+    result = kernel.run("Build a login page", execute_code=True)
+    assert result["success"] is True
+    # route() must be exercised: CODE_GENERATED resolves to test_runner
+    assert kernel.route(AgentSignal(signal_type="CODE_GENERATED", source_agent="x")) == "test_runner"
+    # decomposition produces exactly one TASK_DECOMPOSED signal carrying ALL tasks
+    # (no silent tasks[:3] truncation — every task is present in the signal payload).
+    decomposed = [s for s in kernel.signal_log if s["signal_type"] == "TASK_DECOMPOSED"]
+    assert len(decomposed) == 1
+    emitted_task_ids = {t.get("id") for t in decomposed[0]["data"].get("tasks", [])}
+    assert emitted_task_ids == {"t1", "t2"}

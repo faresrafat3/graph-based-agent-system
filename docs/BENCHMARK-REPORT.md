@@ -287,7 +287,7 @@ the pre-fix and post-fix numbers differ.**
 - **Rate limits are the binding constraint**, not intelligence. 3 workers is the practical ceiling; the 164-problem agent run took 44 minutes wall-clock, mostly waiting.
 - **Squad agents are unverified end-to-end.** `domain_squads.py` returns raw LLM strings that are never parsed or executed. Layer 4 has permission enforcement but no execution grounding — it is the weakest layer.
 - **Law 20 boundaries are keyword substring matches.** Brittle and trivially bypassed by paraphrase.
-- **The mock fallback is a live footgun.** `call_llm(allow_mock=True)` silently returns fixture JSON when the API fails. In a benchmark that produces fabricated results. The harness sets `allow_mock=False` explicitly — *nothing else in the codebase does.*
+- **The `allow_mock` fallback is gone.** An earlier revision of `call_llm` accepted `allow_mock=True` and silently returned fixture JSON when the API failed — a live footgun that could fabricate benchmark results. The current `llm/llm_integration.py` has **no mock path at all**: missing credentials or API failures raise typed exceptions (`StepfunConfigurationError` / `StepfunAPIError`). Every harness hits the real Stepfun endpoint; there is no in-code path that can emit a fake prediction. (If a test ever needs to avoid the network it monkeypatches `call_llm` at the boundary, which is explicit and auditable.)
 - **Retry budgets are per-call, not global.** A long pipeline can multiply latency without any ceiling.
 
 ### What to measure next
