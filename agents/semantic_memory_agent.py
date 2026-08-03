@@ -13,8 +13,7 @@ Law 2,4,11 compliant. Evaluate ZERO-LLM.
 
 import sys
 import logging
-from typing import TypedDict, List, Dict, Any
-from collections import Counter
+from typing import TypedDict, List, Dict
 
 logger = logging.getLogger(__name__)
 

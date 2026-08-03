@@ -14,7 +14,7 @@ Slice Topology (5-7 agents vs 20 in Ultimate):
 This slice is selected by DispatchKernel when task_type == "humaneval" or "competitive"
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 import sys
 import os
 
@@ -24,7 +24,7 @@ from agents.context_curator import curate_context
 from agents.sampling_agent import sample_candidates
 from agents.debugger_agent import debug_code
 from agents.reflexion_agent import generate_reflection, get_relevant_reflections
-from benchmarks.humaneval_harness import run_ground_truth, extract_prompt_preamble
+from benchmarks.humaneval_harness import run_ground_truth
 
 
 def run_competitive_slice(

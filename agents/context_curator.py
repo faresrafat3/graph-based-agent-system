@@ -5,7 +5,7 @@ Implements Karpathy's 2nd Engineering Pillar: Context Engineering & Window Sanit
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from typing import TypedDict, List, Dict, Any
+from typing import TypedDict, List
 import re
 
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)

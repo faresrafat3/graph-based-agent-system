@@ -9,7 +9,6 @@ All validation is deterministic (AST parsing, syntax checks, import verification
 import os
 import sys
 import ast
-import json
 import re
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

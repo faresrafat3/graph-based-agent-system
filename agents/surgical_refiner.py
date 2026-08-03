@@ -5,7 +5,7 @@ Implements Karpathy's 3rd Engineering Pillar: Surgical Changes & Pinpoint Self-C
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from typing import TypedDict, List, Dict, Any
+from typing import TypedDict, List, Any
 
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)
 SURGICAL_REFINER_PERMISSIONS = {

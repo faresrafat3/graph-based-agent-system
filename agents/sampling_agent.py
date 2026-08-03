@@ -22,7 +22,6 @@ import sys
 import re
 import hashlib
 from typing import TypedDict, List, Dict, Any
-import concurrent.futures
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
