@@ -61,7 +61,16 @@ def lint_one(msg: str) -> list[str]:
 
 
 def check_commits() -> int:
-    """Lint every commit in the PR range (BASE..HEAD)."""
+    """Lint only THIS PR author's non-merge commits in the range BASE..HEAD.
+
+    We skip:
+      - merge commits (GitHub-generated "Merge ... into ...")
+      - commits authored by someone other than the PR head author
+
+    This keeps the lint about *your* work. In a repo where an autonomous
+    patrol or other collaborators push to the same branches, their commits
+    shouldn't block your PR.
+    """
     import subprocess
 
     base = (
@@ -82,8 +91,28 @@ def check_commits() -> int:
     if not shas:
         return 0
 
+    # Author of the PR head commit == "you".
+    head_author = subprocess.run(
+        ["git", "log", "-1", "--format=%ae", "HEAD"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+
     failures = 0
+    checked = 0
     for sha in shas:
+        is_merge = subprocess.run(
+            ["git", "log", "-1", "--format=%P", sha],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        if is_merge:  # merge commit -> skip
+            continue
+        author = subprocess.run(
+            ["git", "log", "-1", "--format=%ae", sha],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        if author != head_author:  # not your commit -> skip
+            continue
+        checked += 1
         msg = subprocess.run(["git", "log", "-1", "--format=%B", sha],
                               capture_output=True, text=True).stdout
         errs = lint_one(msg)
@@ -93,10 +122,11 @@ def check_commits() -> int:
             for e in errs:
                 print(f"    - {e}")
     if failures:
-        print(f"\n{failures} commit(s) failed the message convention. "
-              f"See CONTRIBUTING.md §2.")
+        print(f"\n{failures} of {checked} commit(s) failed the message "
+              f"convention. See CONTRIBUTING.md §2.")
         return 1
-    print(f"✓ {len(shas)} commit(s) conform to Conventional Commits.")
+    print(f"✓ {checked} of {len(shas)} commit(s) in range are yours and "
+          f"conform to Conventional Commits.")
     return 0
 
 

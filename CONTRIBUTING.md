@@ -36,6 +36,11 @@ messages.
 **Allowed `type` values:** `feat`, `fix`, `docs`, `chore`, `refactor`,
 `test`, `perf`, `ci`, `build`, `revert`.
 
+CI runs `scripts/check_commit_msg.py` on every PR. It lints only the PR
+author's own non-merge commits in the branch range — commits made by other
+collaborators or the autonomous patrol are skipped, so they can't block your
+PR.
+
 Examples:
 - `feat: add AlphaCode benchmark arm to HumanEval harness`
 - `fix: unbreak Stepfun policy audit (drop dead allow_mock kwarg)`
@@ -55,7 +60,11 @@ Squash noisy "fixup" commits before opening the PR (`git rebase -i main`).
 2. Ensure local tests pass: `make test` (or `pytest -q`).
 3. Push the branch: `git push -u origin feat/<slug>`.
 4. Open a PR against `main`. Fill the PR template.
-5. CI (`test`) must be green and at least 1 review approval before merge.
+5. CI (`test`) must be green. **A PR is mandatory** — direct push to `main`
+   is blocked by branch protection. For human teams of 2+, get at least 1
+   review approval before merge (the autonomous patrol merges its own PRs once
+   CI is green). Branch protection enforces the PR + green CI gate, not the
+   review count, so a solo author is never deadlocked.
 6. Merge with **Squash and merge** for single-feature branches, or
    **Rebase and merge** when you want to preserve a meaningful commit chain.
    Avoid "Create a merge commit" for routine work — it pollutes history.

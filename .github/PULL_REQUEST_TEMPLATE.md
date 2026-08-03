@@ -19,3 +19,6 @@
 
 ## Evidence (benchmarks only)
 <!-- link to artifacts in benchmarks/results/ or CI run -->
+
+---
+Merge with **Squash and merge** for single-feature branches.
