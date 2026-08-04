@@ -21,7 +21,7 @@ TEXT_SUFFIXES = {".py", ".md", ".txt", ".yml", ".yaml", ".example", ""}
 # The policy governs which providers this code CALLS, not which ones it may name.
 # Benchmark reports must be free to cite competitor scores by vendor, and .env is
 # gitignored local state rather than shipped source.
-SKIP_FILES = {".env", "docs/BENCHMARK-REPORT.md"}
+SKIP_FILES = {".env", "docs/BENCHMARK-REPORT.md", "docs/CODE-AUDIT-2026-08-03.md"}
 
 
 def should_scan(path: Path) -> bool:
