@@ -71,7 +71,7 @@ def compare_reports(old_path: str | Path, new_path: str | Path) -> Dict[str, Any
 
 def format_comparison_markdown(comp: Dict[str, Any]) -> str:
     lines = []
-    lines.append(f"# 📊 Benchmark Comparison")
+    lines.append("# 📊 Benchmark Comparison")
     lines.append("")
     lines.append(f"- **Old:** {comp['old_file']}")
     lines.append(f"- **New:** {comp['new_file']}")

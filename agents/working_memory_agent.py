@@ -56,8 +56,6 @@ class WorkingEngine:
     @staticmethod
     def rank_by_relevance(entries: List[Dict], problem_spec: str) -> List[Dict]:
         """Rank entries by Jaccard similarity + recency + outcome (ZERO-LLM)"""
-        from memory.custom_memory import CustomMemory
-        temp_mem = CustomMemory()
         # Use same Jaccard logic as CustomMemory.find_similar but manual ranking
 
         problem_keywords = set(problem_spec.lower().split())
@@ -167,7 +165,6 @@ def execute(state: WorkingState) -> dict:
 
 
 def evaluate(state: WorkingState) -> dict:
-    assembled = state.get("assembled_context", "")
     report = state.get("budget_report", {})
     violations = []
 
