@@ -41,3 +41,12 @@ benchmarks/results/*requests*.json
 node_modules/
 *.swp
 Thumbs.db
+
+# Local graph-agent working file (changes every run; not source of truth)
+gbas-agent.gbas_agent_v5.json
+
+# Local verified benchmark results (regenerate, do not vendor)
+benchmarks/results/swebench_verified_local.json
+
+# Local benchmark/build logs (large side-effects, not source)
+logs/

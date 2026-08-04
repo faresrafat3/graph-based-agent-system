@@ -17,7 +17,7 @@ test:
 	$(VENV_PYTHON) -m pytest -q
 
 coverage:
-	$(VENV_PYTHON) -m pytest --cov=. --cov-report=term-missing --cov-fail-under=60 -q
+	$(VENV_PYTHON) -m pytest --cov=. --cov-report=term-missing --cov-fail-under=80 -q
 
 audit:
 	$(VENV_PYTHON) scripts/audit_stepfun_policy.py
