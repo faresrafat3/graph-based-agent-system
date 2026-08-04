@@ -507,7 +507,6 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
     Returns {applied, ftp_pass, ftp_total, ptp_pass, ptp_total, score, error}.
     `score` = ftp_pass - (ptp_total - ptp_pass) so breaking PASS_TO_PASS is penalized.
     """
-    import subprocess
 
     def _clean():
         subprocess.run(["git", "checkout", "--", "."], cwd=root, capture_output=True, timeout=30)
@@ -582,7 +581,6 @@ def solve_alphacode_swebench(instance: dict, root: str, files: list, n_samples: 
     by an LLM judge. This is best-of-N at the harness level and directly attacks the
     per-instance LLM variance that made single-shot resolve rate swing 1/8 vs 4/8.
     """
-    import subprocess
 
     candidates = []
     total_llm_calls = 0

@@ -180,7 +180,6 @@ def run_benchmark_mode(args: argparse.Namespace) -> int:
         from benchmarks.benchmark_suite import run_benchmarks as run_base
         from benchmarks.report_generator import save_benchmark_report
         from benchmarks.metrics import compute_full_metrics
-        from pathlib import Path
     except ImportError as e:
         print(f"❌ Failed to import benchmark modules: {e}", file=sys.stderr)
         return 1
