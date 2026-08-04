@@ -285,6 +285,7 @@ def run_code_and_tests(
                 "failed_tests": failed_count,
                 "traceback": test_proc.stdout if not is_success else "",
                 "breaches": [],
+                "source_path": source_path,
             }
 
         return {
@@ -297,6 +298,7 @@ def run_code_and_tests(
             "failed_tests": 0,
             "traceback": "",
             "breaches": [],
+            "source_path": source_path,
         }
 
     except subprocess.TimeoutExpired:

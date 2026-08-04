@@ -17,6 +17,7 @@ from kernel.signal_protocol import AgentSignal
 from agents.context_curator import curate_context
 from agents.task_decomposer import decompose_requirements
 from agents.deterministic_validator import validate_output
+from agents.deterministic_validator import DeterministicValidatorEngine
 from agents.surgical_refiner import generate_refinement_feedback
 from agents.code_executor import execute_task
 from agents.test_runner_agent import run_code_and_tests
@@ -237,7 +238,24 @@ class DispatchKernel:
                     test_filename=code_result.get("test_filename", ""),
                     test_code=code_result.get("test_code", "")
                 )
-                
+
+                # VERIFY node (P2): ground-truth check that the artifact was
+                # actually written, not just narrated as successful. The test
+                # runner writes the file into a sandbox temp dir; we confirm it
+                # exists on disk at the real path it returned, regardless of the
+                # self-reported test_result["success"]. This is the concrete
+                # closure against "silent partial completion".
+                written_path = test_result.get("source_path") or code_result["filename"]
+                verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(
+                    {"kind": "file_exists", "path": written_path}
+                )
+                if verify_breaches:
+                    self.emit(AgentSignal(
+                        signal_type="VERIFY_FAILED",
+                        source_agent="deterministic_validator",
+                        data={"filename": code_result["filename"], "breaches": verify_breaches}
+                    ))
+
                 if test_result["success"]:
                     self.emit(AgentSignal(
                         signal_type="TESTS_PASSED",
