@@ -75,6 +75,17 @@ class ReflexionState(TypedDict):
     breaches: List[str]
     retry_count: int
     success: bool
+    repeated_hypothesis_count: int
+
+
+def _similarity(a: str, b: str) -> float:
+    """Cheap lexical overlap ratio between two reflections (observability only, P7)."""
+    if not a or not b:
+        return 0.0
+    a_set, b_set = set(a.lower().split()), set(b.lower().split())
+    if not a_set or not b_set:
+        return 0.0
+    return len(a_set & b_set) / len(a_set | b_set)
 
 
 class ReflexionEngine:
@@ -156,9 +167,18 @@ def execute(state: ReflexionState) -> dict:
     sentences = re.split(r'(?<=[.!?])\s+', reflection)
     summary = " ".join(sentences[:2]) if len(sentences) >= 2 else reflection
 
+    # Observability (P7): detect thrashing — repeated near-identical hypotheses.
+    repeated = state.get("repeated_hypothesis_count", 0)
+    last_reflection = ""
+    if history and isinstance(history[-1], dict):
+        last_reflection = history[-1].get("reflection", "") or history[-1].get("verbal_reflection", "")
+    if last_reflection and _similarity(last_reflection, reflection) >= 0.6:
+        repeated += 1
+
     return {
         "verbal_reflection": reflection,
-        "reflection_summary": summary
+        "reflection_summary": summary,
+        "repeated_hypothesis_count": repeated,
     }
 
 

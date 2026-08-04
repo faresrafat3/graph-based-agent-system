@@ -67,6 +67,22 @@ class DebuggerState(TypedDict):
     retry_count: int
     success: bool
     fix_attempts: int
+    repeated_hypothesis_count: int
+
+
+def _similarity(a: str, b: str) -> float:
+    """Cheap lexical overlap ratio between two reflections/hypotheses.
+
+    Used only for OBSERVABILITY (P7): detect when the debugger repeats a
+    near-identical hypothesis across retries (thrashing). Returns 0.0-1.0.
+    No control flow depends on this.
+    """
+    if not a or not b:
+        return 0.0
+    a_set, b_set = set(a.lower().split()), set(b.lower().split())
+    if not a_set or not b_set:
+        return 0.0
+    return len(a_set & b_set) / len(a_set | b_set)
 
 
 class DebuggerEngine:
@@ -149,7 +165,18 @@ def execute(state: DebuggerState) -> dict:
     code = re.sub(r"^```(?:python|py)?\s*", "", code)
     code = re.sub(r"```\s*$", "", code)
 
-    return {"fixed_code": code.strip(), "fix_attempts": state.get("fix_attempts", 0) + 1}
+    # Observability (P7): detect thrashing — repeated near-identical hypotheses.
+    repeated = state.get("repeated_hypothesis_count", 0)
+    if len(past_reflections) >= 2:
+        prev, curr = past_reflections[-2], past_reflections[-1]
+        if _similarity(prev, curr) >= 0.6:
+            repeated += 1
+
+    return {
+        "fixed_code": code.strip(),
+        "fix_attempts": state.get("fix_attempts", 0) + 1,
+        "repeated_hypothesis_count": repeated,
+    }
 
 
 def evaluate(state: DebuggerState) -> dict:
