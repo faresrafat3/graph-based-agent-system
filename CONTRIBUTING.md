@@ -52,7 +52,23 @@ Bad (will fail CI):
 A commit that only touches `docs/` or `*.md` reports must still use `docs:`.
 Squash noisy "fixup" commits before opening the PR (`git rebase -i main`).
 
-## 3. Pull request workflow
+## 3a. Autonomous Hermes patrol / agent
+
+This repo is co-owned by humans **and** an autonomous Hermes patrol (see
+[`docs/AGENT-GIT-POLICY.md`](docs/AGENT-GIT-POLICY.md)). The patrol follows the
+same branch + PR model as humans:
+
+1. Branch off `main`, commit with Conventional Commits, push, open a PR.
+2. Wait for the required `test` CI context to go **green**.
+3. Merge its own PR with `gh pr merge --admin --squash --delete-branch`.
+
+The patrol **never** pushes directly to `main` (branch protection blocks it for
+everyone). `enforce_admins: false` lets the owner/admin use `--admin` to merge
+without a human review — this avoids the solo-owner + agent deadlock while
+still enforcing the green `test` gate. See the policy doc for the exact
+commands and the hard "may-not" list.
+
+## 4. Pull request workflow
 
 1. Branch from current `main`, make focused commits.
 2. Ensure local tests pass: `make test` (or `pytest -q`).

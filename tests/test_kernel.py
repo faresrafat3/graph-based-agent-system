@@ -123,15 +123,17 @@ def test_kernel_route_is_used_in_run(tmp_path, monkeypatch):
     consult route() rather than hard-coding the next agent.
     """
     # Stub the LLM-backed stage so the test never hits the network.
-    import agents.task_decomposer as td
+    # NOTE: dispatch_kernel imports decompose_requirements via `from ... import`,
+    # so the live reference lives on the dk module object — patch that, not td.
     import kernel.dispatch_kernel as dk
-
-    captured = {}
 
     def fake_decompose(*a, **k):
         return {"tasks": [{"id": "t1"}, {"id": "t2"}], "metadata": {}, "success": True}
 
-    monkeypatch.setattr(td, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
+    # validate_output is imported into dk via `from ... import`; stub it so the
+    # deterministic validation stage reports success without hitting real logic.
+    monkeypatch.setattr(dk, "validate_output", lambda *a, **k: {"success": True, "quality_score": 1.0, "violations": []})
     monkeypatch.setattr(dk, "execute_task", lambda *a, **k: {"success": False, "code": ""})
     monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": False})
 

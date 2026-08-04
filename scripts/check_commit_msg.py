@@ -21,6 +21,7 @@ TYPES = {
 PATTERN = re.compile(r"^(?P<type>[a-z]+)(?P<scope>\([a-z0-9_\-/]+\))?!?:\s+(?P<subject>.+)$")
 
 REVERT_RE = re.compile(r"^revert:\s+", re.IGNORECASE)
+REVERT_BODY_RE = re.compile(r"^This reverts commit [0-9a-f]{7,40}\.", re.MULTILINE)
 
 
 def lint_one(msg: str) -> list[str]:
@@ -36,6 +37,12 @@ def lint_one(msg: str) -> list[str]:
 
     if REVERT_RE.match(subject_line):
         # revert commits get a free pass on the subject grammar.
+        return errors
+
+    if REVERT_BODY_RE.search(msg):
+        # `revert: <original subject>` followed by a `This reverts commit <sha>.`
+        # body (GitHub's default) is valid even if the original subject isn't
+        # Conventional-Commits-shaped — skip it.
         return errors
 
     m = PATTERN.match(subject_line)
