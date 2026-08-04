@@ -61,7 +61,7 @@ def test_assemble_within_budget_various_types_and_break():
 def test_assemble_working_memory_validations_and_exceptions(monkeypatch):
     """Verify input validations and fallback on database retrieval exceptions"""
     import pytest
-    from agents.working_memory_agent import assemble_working_memory
+    from agents.working_memory_agent import assemble_working_memory, global_memory
     
     # 1. empty problem_spec
     with pytest.raises(ValueError, match="problem_spec required"):
@@ -71,13 +71,15 @@ def test_assemble_working_memory_validations_and_exceptions(monkeypatch):
     with pytest.raises(ValueError, match="token_budget too small"):
         assemble_working_memory("spec", token_budget=100)
         
-    # 3. mock get_from_long_term exception
-    from memory.custom_memory import CustomMemory
-    def fake_get(*a, **k):
-        raise RuntimeError("db crash")
-    monkeypatch.setattr(CustomMemory, "get_from_long_term", fake_get)
+    # 3. mock get_from_long_term exception on global_memory instance directly
+    original_get = global_memory.get_from_long_term
+    global_memory.get_from_long_term = lambda *a, **k: exec('raise RuntimeError("db crash")')
+    
     res = assemble_working_memory("spec")
     assert res["success"] is True  # Falls back safely to empty memory
+    
+    # Restore normal method
+    global_memory.get_from_long_term = original_get
 
 
 def test_assemble_working_memory_budget_exceeded():
