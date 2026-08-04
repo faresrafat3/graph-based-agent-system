@@ -7,21 +7,30 @@ from typing import Literal
 from datetime import datetime
 
 
-# All possible signal types in the system
+# All possible signal types in the system - Phase 3 Dual-Mode
 SignalType = Literal[
-    # Success Signals
+    # Success Signals - Ultimate Graph
     "CONTEXT_CURATED",
     "TASK_DECOMPOSED",
     "ARCHITECTURE_READY",
     "CODE_GENERATED",
     "TESTS_PASSED",
     "PROJECT_ASSEMBLED",
+    # Success Signals - Competitive Slice (Phase 3)
+    "SLICE_DETECTED",
+    "COMPETITIVE_CONTEXT_READY",
+    "CANDIDATES_GENERATED",
+    "CANDIDATES_FILTERED",
+    "DEBUG_FIXED",
+    "REFLECTION_GENERATED",
     
-    # Failure Signals
+    # Failure Signals - Ultimate
     "VALIDATION_FAILED",
     "TESTS_FAILED",
     "ARCHITECTURE_INCOMPLETE",
     "INTEGRATION_FAILED",
+    # Failure Signals - Competitive Slice
+    "DEBUG_FAILED",
     
     # Alert Signals
     "SECURITY_VIOLATION",
@@ -37,12 +46,15 @@ SignalType = Literal[
 
 SUCCESS_SIGNALS = {
     "CONTEXT_CURATED", "TASK_DECOMPOSED", "ARCHITECTURE_READY",
-    "CODE_GENERATED", "TESTS_PASSED", "PROJECT_ASSEMBLED"
+    "CODE_GENERATED", "TESTS_PASSED", "PROJECT_ASSEMBLED",
+    "SLICE_DETECTED", "COMPETITIVE_CONTEXT_READY", "CANDIDATES_GENERATED",
+    "CANDIDATES_FILTERED", "DEBUG_FIXED", "REFLECTION_GENERATED"
 }
 
 FAILURE_SIGNALS = {
     "VALIDATION_FAILED", "TESTS_FAILED",
-    "ARCHITECTURE_INCOMPLETE", "INTEGRATION_FAILED"
+    "ARCHITECTURE_INCOMPLETE", "INTEGRATION_FAILED",
+    "DEBUG_FAILED"
 }
 
 ALERT_SIGNALS = {

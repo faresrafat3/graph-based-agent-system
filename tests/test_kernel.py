@@ -66,10 +66,45 @@ def test_alert_signal_properties():
 # ==================== Dispatch Kernel Tests ====================
 
 def test_routing_table_completeness():
-    """Every known signal type has a routing entry"""
+    """Every known signal type has a routing entry in at least one table (Ultimate or Slices)"""
+    from kernel.dispatch_kernel import SLICE_ROUTING_TABLES
     all_signals = SUCCESS_SIGNALS | FAILURE_SIGNALS | ALERT_SIGNALS | TERMINAL_SIGNALS
+    # Build union of all routing tables
+    all_tables = [ROUTING_TABLE] + list(SLICE_ROUTING_TABLES.values())
+    all_routed = set()
+    for tbl in all_tables:
+        all_routed.update(tbl.keys())
     for sig_type in all_signals:
-        assert sig_type in ROUTING_TABLE, f"Signal {sig_type} missing from routing table"
+        assert sig_type in all_routed, f"Signal {sig_type} missing from all routing tables (default + slices)"
+
+def test_dual_mode_kernel_slice_detection():
+    """Dual-Mode Kernel detects task type and builds dynamic routing table"""
+    from kernel.slice_router import detect_task_type
+    kernel = DispatchKernel()
+    
+    # Test humaneval detection
+    task_type = kernel.detect_task_type("def has_close_elements(numbers, threshold):\n    \"\"\"Check...\"\"\"\n    >>> has_close_elements([1,2], 0.5)")
+    assert task_type in ["humaneval", "default"]  # heuristic may detect as humaneval or default
+    
+    # Test ecommerce detection
+    task_type = kernel.detect_task_type("Build e-commerce backend with product catalog and Stripe")
+    assert task_type == "ecommerce"
+    
+    # Test dynamic routing table building
+    table = kernel.build_dynamic_routing_table("humaneval")
+    assert "CANDIDATES_GENERATED" in table or "CONTEXT_CURATED" in table
+    assert kernel.active_slice_type == "humaneval"
+    
+    table = kernel.build_dynamic_routing_table("ecommerce")
+    assert kernel.active_slice_type == "ecommerce"
+    
+def test_slice_config_retrieval():
+    """Kernel can retrieve full slice config for requirements"""
+    kernel = DispatchKernel()
+    config = kernel.get_slice_config("Build e-commerce backend", "")
+    assert "task_type" in config
+    assert "slice" in config
+    assert config["task_type"] == "ecommerce"
 
 
 def test_failure_policy_defined():

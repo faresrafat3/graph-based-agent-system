@@ -22,8 +22,9 @@ from agents.code_executor import execute_task
 from agents.test_runner_agent import run_code_and_tests
 
 
-# Deterministic Routing Table (Zero-LLM — pure match/case)
+# Deterministic Routing Table (Zero-LLM — pure match/case) - Ultimate Graph Default
 ROUTING_TABLE = {
+    "SLICE_DETECTED":         "context_curator",
     "CONTEXT_CURATED":        "task_decomposer",
     "TASK_DECOMPOSED":        "deterministic_validator",
     "ARCHITECTURE_READY":     "code_executor",
@@ -42,6 +43,84 @@ ROUTING_TABLE = {
     "PIPELINE_COMPLETE":      "done"
 }
 
+# Specialized Slice Routing Tables (Dual-Mode Kernel - Phase 3)
+# Each slice has minimal agents for its domain, reducing overhead
+SLICE_ROUTING_TABLES = {
+    "humaneval": {
+        "SLICE_DETECTED":         "context_curator",
+        "CONTEXT_CURATED":        "competitive_context_manager",
+        "COMPETITIVE_CONTEXT_READY": "sampling_agent",
+        "CANDIDATES_GENERATED":   "filtering_clustering_agent",
+        "CANDIDATES_FILTERED":    "code_executor",  # execution validator
+        "CODE_GENERATED":         "test_runner",
+        "TESTS_PASSED":           "done",
+        "TESTS_FAILED":           "debugger_agent",
+        "DEBUG_FIXED":            "test_runner",
+        "DEBUG_FAILED":           "reflexion_agent",
+        "REFLECTION_GENERATED":   "sampling_agent",  # retry with reflection
+        "VALIDATION_FAILED":      "surgical_refiner",
+        "SECURITY_VIOLATION":     "human_checkpoint",
+        "CONTEXT_ROT_DETECTED":   "context_curator",
+        "NEEDS_CLARIFICATION":    "human_checkpoint",
+        "HUMAN_CHECKPOINT":       "human_checkpoint",
+        "MAX_RETRIES_EXCEEDED":   "human_checkpoint",
+        "PROJECT_ASSEMBLED":      "done",
+        "PIPELINE_COMPLETE":      "done"
+    },
+    "competitive": {
+        "SLICE_DETECTED":         "context_curator",
+        "CONTEXT_CURATED":        "competitive_context_manager",
+        "COMPETITIVE_CONTEXT_READY": "sampling_agent",
+        "CANDIDATES_GENERATED":   "filtering_clustering_agent",
+        "CANDIDATES_FILTERED":    "test_runner",
+        "CODE_GENERATED":         "test_runner",
+        "TESTS_PASSED":           "done",
+        "TESTS_FAILED":           "debugger_agent",
+        "DEBUG_FIXED":            "test_runner",
+        "DEBUG_FAILED":           "reflexion_agent",
+        "REFLECTION_GENERATED":   "sampling_agent",
+        "VALIDATION_FAILED":      "surgical_refiner",
+        "SECURITY_VIOLATION":     "human_checkpoint",
+        "CONTEXT_ROT_DETECTED":   "context_curator",
+        "NEEDS_CLARIFICATION":    "human_checkpoint",
+        "HUMAN_CHECKPOINT":       "human_checkpoint",
+        "PROJECT_ASSEMBLED":      "done",
+        "PIPELINE_COMPLETE":      "done"
+    },
+    "ecommerce": {
+        "SLICE_DETECTED":         "context_curator",
+        "CONTEXT_CURATED":        "task_decomposer",
+        "TASK_DECOMPOSED":        "deterministic_validator",
+        "ARCHITECTURE_READY":     "code_executor",
+        "CODE_GENERATED":         "test_runner",
+        "TESTS_PASSED":           "integration_check",
+        "VALIDATION_FAILED":      "surgical_refiner",
+        "TESTS_FAILED":           "surgical_refiner",
+        "SECURITY_VIOLATION":     "human_checkpoint",
+        "CONTEXT_ROT_DETECTED":   "context_curator",
+        "NEEDS_CLARIFICATION":    "human_checkpoint",
+        "HUMAN_CHECKPOINT":       "human_checkpoint",
+        "PROJECT_ASSEMBLED":      "done",
+        "PIPELINE_COMPLETE":      "done"
+    },
+    "fintech": {
+        "SLICE_DETECTED":         "context_curator",
+        "CONTEXT_CURATED":        "task_decomposer",
+        "TASK_DECOMPOSED":        "deterministic_validator",
+        "ARCHITECTURE_READY":     "code_executor",
+        "CODE_GENERATED":         "test_runner",
+        "TESTS_PASSED":           "quality_reviewer",
+        "VALIDATION_FAILED":      "surgical_refiner",
+        "TESTS_FAILED":           "surgical_refiner",
+        "SECURITY_VIOLATION":     "human_checkpoint",
+        "CONTEXT_ROT_DETECTED":   "context_curator",
+        "NEEDS_CLARIFICATION":    "human_checkpoint",
+        "HUMAN_CHECKPOINT":       "human_checkpoint",
+        "PROJECT_ASSEMBLED":      "done",
+        "PIPELINE_COMPLETE":      "done"
+    }
+}
+
 # Failure Policy
 FAILURE_POLICY = {
     "task_decomposer":    {"max_retries": 3, "fallback": "human_checkpoint"},
@@ -53,8 +132,14 @@ FAILURE_POLICY = {
 
 class DispatchKernel:
     """
-    Signal-Driven Dispatch Kernel (Zero-LLM).
-    Reads signals from a FIFO queue and routes to agents deterministically.
+    Signal-Driven Dispatch Kernel (Zero-LLM) - Dual-Mode.
+
+    Supports both Ultimate Graph (default) and Specialized Slices (humaneval, competitive, etc.)
+    via dynamic routing tables. Task type detection is deterministic (keyword matching, ZERO-LLM)
+    per Law 11.
+
+    Phase 3: Slice Router Integration - the Kernel now selects the minimal graph for the task,
+    reducing overhead from 22 agents to 5-8 agents for specialized domains.
     """
     
     def __init__(self):
@@ -62,6 +147,53 @@ class DispatchKernel:
         self.signal_log = []
         self.completed_modules = []
         self.retry_tracker = {}
+        self.active_slice_type = "default"
+        self.active_routing_table = ROUTING_TABLE
+        self.slice_detection_history = []
+        
+    def detect_task_type(self, requirements: str, project_context: str = "") -> str:
+        """Deterministic task type detection - delegates to slice_router (ZERO-LLM)"""
+        try:
+            # Import here to avoid circular import
+            from kernel.slice_router import detect_task_type as router_detect
+            task_type = router_detect(requirements, project_context)
+            self.active_slice_type = task_type
+            self.slice_detection_history.append({
+                "requirements_snippet": requirements[:200],
+                "detected_type": task_type
+            })
+            return task_type
+        except Exception:
+            # Fallback to default on any error (Law 3 fail-safe)
+            self.active_slice_type = "default"
+            return "default"
+    
+    def build_dynamic_routing_table(self, task_type: str) -> dict:
+        """Build routing table for given task type - deterministic"""
+        table = SLICE_ROUTING_TABLES.get(task_type, ROUTING_TABLE)
+        self.active_routing_table = table
+        self.active_slice_type = task_type
+        return table
+    
+    def get_current_routing_table(self) -> dict:
+        """Get currently active routing table"""
+        return self.active_routing_table
+    
+    def get_slice_config(self, requirements: str, project_context: str = "") -> dict:
+        """Get full slice config for requirements - main entrypoint for dual-mode"""
+        try:
+            from kernel.slice_router import get_slice_for_requirements
+            return get_slice_for_requirements(requirements, project_context)
+        except Exception:
+            return {
+                "task_type": "default",
+                "slice": {
+                    "description": "Default Ultimate Graph",
+                    "agents": list(ROUTING_TABLE.values()),
+                    "n_agents": len(set(ROUTING_TABLE.values()))
+                },
+                "detected_by": "fallback"
+            }
         
     def emit(self, signal: AgentSignal):
         """Add a signal to the dispatch queue."""
@@ -69,8 +201,8 @@ class DispatchKernel:
         self.signal_log.append(signal.to_dict())
         
     def route(self, signal: AgentSignal) -> str:
-        """Deterministic routing — returns next agent name from routing table."""
-        return ROUTING_TABLE.get(signal.signal_type, "human_checkpoint")
+        """Deterministic routing — returns next agent name from active routing table."""
+        return self.active_routing_table.get(signal.signal_type, "human_checkpoint")
     
     def check_retry_budget(self, agent_name: str) -> bool:
         """Check if agent has retries remaining."""
@@ -107,6 +239,19 @@ class DispatchKernel:
         Returns:
             Final pipeline result dict
         """
+        # === Stage 0: Slice Detection (Dual-Mode Kernel - Phase 3) ===
+        # Detect task type deterministically and build appropriate routing table
+        task_type = self.detect_task_type(requirements, project_context)
+        self.build_dynamic_routing_table(task_type)
+        slice_info = self.get_slice_config(requirements, project_context)
+        
+        logger.info(f"DispatchKernel: detected task_type={task_type}, agents={slice_info['slice'].get('n_agents', 'unknown')}, topology={slice_info['slice'].get('description','')}")
+        
+        self.emit(AgentSignal(
+            signal_type="SLICE_DETECTED",
+            source_agent="dispatch_kernel",
+            data={"task_type": task_type, "slice_config": slice_info["slice"]}
+        ))
         
         # === Stage 1: Context Curation (Deterministic) ===
         curated = curate_context(
