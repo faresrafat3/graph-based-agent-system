@@ -491,6 +491,107 @@ def solve_agent(instance: dict, root: str, files: list, max_refinements: int = 2
     }
 
 
+def solve_agent_loop(instance: dict, root: str, files: list, max_refinements: int = 4, skip_ptp: bool = True) -> dict:
+    """
+    Agent-level feedback loop (the first, smallest step toward a multi-agent graph).
+
+    `solve_agent` stops as soon as a patch *applies* -- even if it does not fix the bug.
+    SWE-bench is graded on FAIL_TO_PASS flipping, not on apply success, so a patch that
+    applies but leaves the tests red is a silent miss.
+
+    This arm extends the governance path with a TEST-FEEDBACK LOOP: after the patch
+    applies, we run the instance's FAIL_TO_PASS tests locally (run_tests_in_worktree) and,
+    if they are not all green, we return the *failing test names* to the model and ask for
+    a corrected diff. The model already understands the problem (it localizes the right
+    file and writes a plausible first cut); what it lacks is the second/third step of a
+    multi-step fix. A tight feedback loop supplies exactly that -- without needing a full
+    multi-agent graph yet.
+
+    This is the empirical probe for the hypothesis: "the model can reason about the fix
+    but cannot execute a multi-step fix alone; a feedback loop lets it complete it." If the
+    loop resolves instances that single-shot missed, the hypothesis holds and the next
+    lever is the graph; if it does not, the ceiling is model capability, not loop depth.
+
+    Returns the same dict shape as solve_agent, plus `test_feedback_rounds`.
+    """
+    import subprocess
+
+    llm_calls = 0
+    sanitized = ContextCuratorEngine.sanitize_raw_text(instance["problem_statement"])
+    context = build_context(root, files)
+
+    response = call_llm(
+        prompt=f"# Issue\n\n{sanitized}\n\n# Relevant source\n\n{context}\n\nOutput the unified diff that fixes this issue.",
+        system_prompt=PATCH_SYSTEM_PROMPT, timeout=180,
+    )
+    llm_calls += 1
+    patch = strip_patch_fences(response)
+    validation = validate_patch(patch, root)
+    patch = validation["patch"]
+
+    refinements = 0
+    while not validation["success"] and refinements < max_refinements:
+        refinements += 1
+        breaches = "\n".join(f"- {v}" for v in validation["breaches"])
+        fix_prompt = (
+            "SURGICAL CORRECTION REQUIRED.\n"
+            "Your previous patch could not be applied. Deterministic breaches:\n"
+            f"{breaches}\n\nYour previous patch:\n{patch}\n\n"
+            f"# Issue\n\n{sanitized}\n\n# Relevant source\n\n{context}\n\n"
+            "Fix ONLY these breaches. Output ONLY the corrected unified diff."
+        )
+        response = call_llm(prompt=fix_prompt, system_prompt=PATCH_SYSTEM_PROMPT, timeout=180)
+        llm_calls += 1
+        patch = strip_patch_fences(response)
+        validation = validate_patch(patch, root)
+        patch = validation["patch"]
+
+    if not validation["success"]:
+        return {
+            "patch": patch, "llm_calls": llm_calls, "refinements": refinements,
+            "test_feedback_rounds": 0, "patch_applies": False,
+            "breaches": validation["breaches"], "files": files,
+        }
+
+    test_feedback_rounds = 0
+    while test_feedback_rounds < max_refinements:
+        res = run_tests_in_worktree(root, patch, instance, skip_ptp=skip_ptp)
+        if res["applied"] and res["ftp_pass"] == res["ftp_total"] and res["ftp_total"] > 0:
+            break
+        test_feedback_rounds += 1
+        ftp_cmds = instance.get("FAIL_TO_PASS", [])
+        if ftp_cmds and isinstance(ftp_cmds[0], list):
+            ftp_cmds = [c for sub in ftp_cmds for c in sub]
+        failing = ftp_cmds[res["ftp_pass"]:] if res["ftp_total"] else []
+        failing_str = "\n".join(f"- {c}" for c in failing[:8]) or "(tests did not run / patch did not apply)"
+        feedback_prompt = (
+            "YOUR PATCH APPLIES BUT THE BUG IS NOT FULLY FIXED.\n"
+            "These FAIL_TO_PASS tests still fail after your patch:\n"
+            f"{failing_str}\n\n"
+            "Your current patch:\n"
+            f"{patch}\n\n"
+            f"# Issue\n\n{sanitized}\n\n# Relevant source\n\n{context}\n\n"
+            "The first fix was a good start but incomplete. Diagnose what the failing tests "
+            "still require (often a SECOND related code path, an encoding/normalization edge "
+            "case, or a sibling call site). Produce a COMPLETE unified diff that fixes every "
+            "failing test, not just the first symptom. Output ONLY the unified diff."
+        )
+        response = call_llm(prompt=feedback_prompt, system_prompt=PATCH_SYSTEM_PROMPT, timeout=180)
+        llm_calls += 1
+        new_patch = strip_patch_fences(response)
+        new_val = validate_patch(new_patch, root)
+        if new_val["success"]:
+            patch = new_val["patch"]
+        subprocess.run(["git", "checkout", "--", "."], cwd=root, capture_output=True, timeout=30)
+        subprocess.run(["git", "clean", "-fd"], cwd=root, capture_output=True, timeout=30)
+
+    return {
+        "patch": patch, "llm_calls": llm_calls, "refinements": refinements,
+        "test_feedback_rounds": test_feedback_rounds, "patch_applies": True,
+        "breaches": validation["breaches"], "files": files,
+    }
+
+
 def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 120, skip_ptp: bool = False) -> dict:
     """
     Score a candidate patch by actually executing the instance's tests in `root`.
@@ -651,6 +752,8 @@ def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) 
             out = solve_agent(instance, worktree, files)
         elif mode == "alphacode":
             out = solve_alphacode_swebench(instance, worktree, files, n_samples=n_samples)
+        elif mode == "loop":
+            out = solve_agent_loop(instance, worktree, files)
         else:
             out = solve_baseline(instance, worktree, files)
 
@@ -675,6 +778,9 @@ def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) 
             result["samples"] = out.get("samples")
             result["best_local_resolved"] = out.get("best_local_resolved")
             result["best_score"] = out.get("best_score")
+        # Forward the loop arm's test-feedback round count (the empirical probe signal).
+        if mode == "loop":
+            result["test_feedback_rounds"] = out.get("test_feedback_rounds")
         return result
 
     except Exception as exc:
@@ -828,7 +934,7 @@ def run(mode: str, limit: Optional[int], workers: int, out_path: str, repo_filte
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SWE-bench Verified harness")
-    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode"], default="agent")
+    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode", "loop"], default="agent")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--repo", default=None, help="Filter to one repo, e.g. django/django")
