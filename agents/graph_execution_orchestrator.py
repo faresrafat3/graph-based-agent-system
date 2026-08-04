@@ -117,13 +117,13 @@ class GraphExecutionOrchestratorEngine:
         if not isinstance(execution_plan, list):
             return {
                 "success": False,
-                "violations": ["execution_plan must be a list."],
+                "breaches": ["execution_plan must be a list."],
                 "completed_task_ids": [],
             }
         if not isinstance(tasks, list):
             return {
                 "success": False,
-                "violations": ["tasks must be a list."],
+                "breaches": ["tasks must be a list."],
                 "completed_task_ids": [],
             }
 

@@ -122,7 +122,7 @@ def test_generate_reflection_not_actionable(monkeypatch):
     monkeypatch.setattr(reflexion_module, "call_llm", lambda *a, **k: "just try again")
     res = generate_reflection("failed_code", "test_failure", "spec", thread_id="not_actionable_session")
     assert res["success"] is False
-    assert any("not actionable" in v for v in res["violations"])
+    assert any("not actionable" in v for v in res["breaches"])
 
 
 def test_reflexion_refine_and_should_continue():

@@ -83,10 +83,10 @@ def test_assemble_working_memory_validations_and_exceptions(monkeypatch):
 
 
 def test_assemble_working_memory_budget_exceeded():
-    """Verify that exceeding token budget flags a violation"""
+    """Verify that exceeding token budget flags a breach"""
     # 2500 chars is approx 625 tokens, which exceeds a 500 token budget
     res = assemble_working_memory("spec", current_context="a" * 2500, token_budget=500)
-    assert any("Budget exceeded" in v for v in res["violations"])
+    assert any("Budget exceeded" in v for v in res["breaches"])
 
 
 def test_working_memory_refine_and_should_continue():

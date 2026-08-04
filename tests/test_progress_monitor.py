@@ -48,8 +48,8 @@ def test_monitor_progress_validation_rules():
     
     res = monitor_progress(plan, logs, timeout_seconds=10, thread_id="progress_validation_rules")
     assert res["success"] is False
-    assert any("references unknown task id" in v for v in res["violations"])
-    assert any("stalled after" in v for v in res["violations"])
+    assert any("references unknown task id" in v for v in res["breaches"])
+    assert any("stalled after" in v for v in res["breaches"])
 
 
 
@@ -57,5 +57,5 @@ def test_monitor_progress_invalid_type():
     """Verify defensive type check for non-list execution_plan inputs"""
     res = monitor_progress("not a list", [], thread_id="progress_invalid_type")
     assert res["success"] is False
-    assert any("execution_plan must be a list" in v for v in res["violations"])
+    assert any("execution_plan must be a list" in v for v in res["breaches"])
 

@@ -57,8 +57,13 @@ class ProgressMonitorEngine:
     @classmethod
     def analyze(cls, execution_plan: list[dict], agent_logs: list[dict], timeout_seconds: int) -> dict[str, Any]:
         """Compute progress metrics, stalled tasks, failures, and breaches."""
+        if not isinstance(execution_plan, list):
+            return {
+                "success": False,
+                "breaches": ["execution_plan must be a list of task dicts"],
+            }
         latest = cls.latest_logs_by_task(agent_logs)
-        planned_ids = [item.get("task_id") for item in execution_plan if item.get("task_id")]
+        planned_ids = [item.get("task_id") for item in execution_plan if isinstance(item, dict) and item.get("task_id")]
         planned_set = set(planned_ids)
 
         completed = []

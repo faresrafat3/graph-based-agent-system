@@ -36,16 +36,16 @@ def test_generate_refinement_feedback_pipeline():
 
 
 def test_generate_surgical_instructions_empty():
-    """Verify fallback message when no violations are provided"""
+    """Verify fallback message when no breaches are provided"""
     feedback = SurgicalRefinerEngine.generate_surgical_instructions([], [])
     assert feedback == "No surgical corrections required."
 
 
-def test_generate_refinement_feedback_empty_violations():
-    """Verify pipeline output when no violations are detected"""
+def test_generate_refinement_feedback_empty_breaches():
+    """Verify pipeline output when no breaches are detected"""
     res = generate_refinement_feedback([])
     assert res["success"] is False
-    assert "No violations detected" in res["surgical_feedback"] or "surgical corrections" in res["surgical_feedback"]
+    assert "No breaches detected" in res["surgical_feedback"] or "surgical corrections" in res["surgical_feedback"]
 
 
 def test_surgical_refiner_refine_and_should_continue():

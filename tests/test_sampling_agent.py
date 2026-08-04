@@ -67,12 +67,12 @@ def test_excessive_samples_raises():
 
 
 def test_sample_candidates_empty_or_forbidden():
-    """Verify input validations on empty or security-violating specifications"""
+    """Verify input validations on empty or security-breaching specifications"""
     import pytest
     with pytest.raises(ValueError, match="problem_spec must be non-empty"):
         sample_candidates("")
         
-    with pytest.raises(PermissionError, match="detected NEVER permission violation"):
+    with pytest.raises(PermissionError, match="detected NEVER permission breach"):
         sample_candidates("delete production database")
 
 
@@ -115,7 +115,7 @@ def test_sampling_refine_and_should_continue():
 
 
 def test_sample_candidates_no_valid_candidates(monkeypatch):
-    """Verify evaluation and violations when all candidates fail AST parsing"""
+    """Verify evaluation and breaches when all candidates fail AST parsing"""
     monkeypatch.setattr(sampling_module, "call_llm", lambda *a, **k: "def broken_syntax(:")
     
     res = sample_candidates(
@@ -125,6 +125,6 @@ def test_sample_candidates_no_valid_candidates(monkeypatch):
     )
     
     assert res["success"] is False
-    assert any("No valid candidates" in v for v in res["violations"])
+    assert any("No valid candidates" in v for v in res["breaches"])
 
 

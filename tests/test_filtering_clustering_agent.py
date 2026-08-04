@@ -83,5 +83,5 @@ def test_filtering_refine_and_should_continue():
     
     eval_res = evaluate({"representatives": []})
     assert eval_res["success"] is False
-    assert any("No representatives" in v for v in eval_res["violations"])
+    assert any("No representatives" in v for v in eval_res["breaches"])
 

@@ -48,7 +48,7 @@ def test_store_and_retrieve(monkeypatch):
 
 
 def test_store_episode_validations_and_never():
-    """Verify input validations on empty or security-violating specifications"""
+    """Verify input validations on empty or security-breaching specifications"""
     import pytest
     with pytest.raises(ValueError, match="problem_spec required"):
         store_episode(problem_spec="", code="", failure="", reflection="")
@@ -64,18 +64,18 @@ def test_evaluate_edge_cases():
     # 1. Episode ID missing
     res1 = evaluate({"episodic_entry": {"type": "episodic"}})
     assert res1["success"] is False
-    assert "Episode ID missing" in res1["violations"]
+    assert "Episode ID missing" in res1["breaches"]
     
     # 2. Type must be episodic
     res2 = evaluate({"episodic_entry": {"episode_id": "ep1", "type": "other"}})
     assert res2["success"] is False
-    assert "Type must be episodic" in res2["violations"]
+    assert "Type must be episodic" in res2["breaches"]
     
     # 3. Episode too large
     large_entry = {"episode_id": "ep1", "type": "episodic", "code": "a" * 9000}
     res3 = evaluate({"episodic_entry": large_entry})
     assert res3["success"] is False
-    assert any("Episode too large" in v for v in res3["violations"])
+    assert any("Episode too large" in v for v in res3["breaches"])
 
 
 def test_episodic_refine_and_should_continue():

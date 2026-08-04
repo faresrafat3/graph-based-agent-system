@@ -93,18 +93,18 @@ def test_slice_triggers_reflexion_loop(monkeypatch):
             "valid_candidates": [{"id": f"c_{call_count['sample']}", "code": "bad code"}],
             "sampling_report": {"total_generated": 1},
             "success": True,
-            "violations": []
+            "breaches": []
         }
         
     def fake_ground_truth(code, problem):
         return {"passed": False, "returncode": 1, "stderr": "assert False"}
         
     def fake_debug(failed_code, test_failure, problem_spec="", past_reflections=None, thread_id=""):
-        return {"fixed_code": "def fixed(): return False", "success": True, "violations": [], "debug_summary": "fixed", "fix_attempts": 1}
+        return {"fixed_code": "def fixed(): return False", "success": True, "breaches": [], "debug_summary": "fixed", "fix_attempts": 1}
         
     def fake_reflection(*args, **kwargs):
         call_count["reflection"] += 1
-        return {"verbal_reflection": "My reflection", "reflection_summary": "reflected", "success": True, "violations": []}
+        return {"verbal_reflection": "My reflection", "reflection_summary": "reflected", "success": True, "breaches": []}
         
     monkeypatch.setattr(slice_module, "curate_context", fake_curated)
     monkeypatch.setattr(slice_module, "sample_candidates", fake_sample)
@@ -132,17 +132,17 @@ def test_slice_reflexion_failure(monkeypatch):
             "valid_candidates": [{"id": "c0", "code": "bad code"}],
             "sampling_report": {"total_generated": 1},
             "success": True,
-            "violations": []
+            "breaches": []
         }
         
     def fake_ground_truth(code, problem):
         return {"passed": False, "returncode": 1, "stderr": "assert False"}
         
     def fake_debug(failed_code, test_failure, problem_spec="", past_reflections=None, thread_id=""):
-        return {"fixed_code": "def fixed(): return False", "success": True, "violations": [], "debug_summary": "fixed", "fix_attempts": 1}
+        return {"fixed_code": "def fixed(): return False", "success": True, "breaches": [], "debug_summary": "fixed", "fix_attempts": 1}
         
     def fake_reflection_fail(*args, **kwargs):
-        return {"success": False, "violations": ["failed to reflect"]}
+        return {"success": False, "breaches": ["failed to reflect"]}
         
     monkeypatch.setattr(slice_module, "curate_context", fake_curated)
     monkeypatch.setattr(slice_module, "sample_candidates", fake_sample)

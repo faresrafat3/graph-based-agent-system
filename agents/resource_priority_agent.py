@@ -55,7 +55,7 @@ class ResourcePriorityEngine:
                 "queue_order": [],
                 "deferred_tasks": [],
                 "rate_limit_actions": [],
-                "violations": ["queue must be a list."],
+                "breaches": ["queue must be a list."],
                 "success": False,
             }
 

@@ -45,7 +45,7 @@ def test_resolve_conflict_empty_options():
     ]
     res = resolve_conflicts(disputes, thread_id="conflict_empty")
     assert res["success"] is False
-    assert any("no options to evaluate" in v for v in res["violations"])
+    assert any("no options to evaluate" in v for v in res["breaches"])
 
 
 def test_resolve_conflict_unknown_category():
@@ -59,11 +59,11 @@ def test_resolve_conflict_unknown_category():
     ]
     res = resolve_conflicts(disputes, thread_id="conflict_unknown")
     assert res["success"] is False
-    assert any("no known priority category" in v for v in res["violations"])
+    assert any("no known priority category" in v for v in res["breaches"])
 
 
 def test_resolve_conflict_invalid_disputes_type():
     res = resolve_conflicts("not a list", thread_id="conflict_invalid_type")
     assert res["success"] is False
-    assert any("disputes must be a list" in v for v in res["violations"])
+    assert any("disputes must be a list" in v for v in res["breaches"])
 

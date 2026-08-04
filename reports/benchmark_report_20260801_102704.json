@@ -25,7 +25,7 @@
         "signal_to_noise": 0.9022,
         "refinement_attempts": 0,
         "tasks_generated": 1,
-        "violations_count": 0,
+        "breaches_count": 0,
         "duration_seconds": 0.023,
         "error": null
       },
@@ -41,7 +41,7 @@
         "signal_to_noise": 0.9011,
         "refinement_attempts": 0,
         "tasks_generated": 1,
-        "violations_count": 0,
+        "breaches_count": 0,
         "duration_seconds": 0.017,
         "error": null
       },
@@ -57,7 +57,7 @@
         "signal_to_noise": 0.283,
         "refinement_attempts": 0,
         "tasks_generated": 1,
-        "violations_count": 0,
+        "breaches_count": 0,
         "duration_seconds": 0.017,
         "error": null
       },
@@ -73,7 +73,7 @@
         "signal_to_noise": 0.0,
         "refinement_attempts": 0,
         "tasks_generated": 0,
-        "violations_count": 1,
+        "breaches_count": 1,
         "duration_seconds": 0.005,
         "error": "Task Decomposer Agent attempted an action listed in NEVER permissions."
       }

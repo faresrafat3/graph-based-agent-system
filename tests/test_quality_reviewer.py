@@ -45,8 +45,8 @@ def test_review_quality_rejects_critical_security_report():
 def test_review_quality_validation_or_assignment_fails():
     """Verify quality review rejection on validation/assignment failures"""
     res = review_quality(
-        validation_reports=[{"success": False, "violations": ["Schema fail"]}],
-        assignment_result={"success": False, "violations": ["Assignment fail"]},
+        validation_reports=[{"success": False, "breaches": ["Schema fail"]}],
+        assignment_result={"success": False, "breaches": ["Assignment fail"]},
         acceptance_criteria=["Works"],
         thread_id="quality_fails"
     )

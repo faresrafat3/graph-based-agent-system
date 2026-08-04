@@ -64,7 +64,7 @@ def test_debug_code_empty_fails(monkeypatch):
     assert res["success"] is False
 
 
-def test_debugger_credentials_violation():
+def test_debugger_credentials_breach():
     import pytest
     with pytest.raises(PermissionError, match="Debugger attempted to handle credentials in NEVER permission."):
         debug_code(

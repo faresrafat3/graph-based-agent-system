@@ -50,12 +50,12 @@ def test_prioritize_item_missing_task_id():
     ]
     res = prioritize_resources(queue, thread_id="resource_missing_id")
     assert res["success"] is False
-    assert any("missing task id" in v for v in res["violations"])
+    assert any("missing task id" in v for v in res["breaches"])
 
 
 def test_prioritize_invalid_queue_type():
     """Verify defensive type check for non-list queue inputs"""
     res = prioritize_resources("not a list", thread_id="resource_invalid_type")
     assert res["success"] is False
-    assert any("queue must be a list" in v for v in res["violations"])
+    assert any("queue must be a list" in v for v in res["breaches"])
 

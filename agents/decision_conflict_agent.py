@@ -52,7 +52,7 @@ class DecisionConflictEngine:
             return {
                 "binding_decisions": [],
                 "unresolved_conflicts": [],
-                "violations": ["disputes must be a list."],
+                "breaches": ["disputes must be a list."],
                 "success": False,
             }
 

@@ -167,5 +167,5 @@ def test_dispatch_squad_execution_error(monkeypatch):
     
     assert result["success"] is False
     assert result["results"][0]["stage"] == "squad_execution"
-    assert any("dispatch failed in AuthSquadAgent: squad runtime crash" in v for v in result["violations"])
+    assert any("dispatch failed in AuthSquadAgent: squad runtime crash" in v for v in result["breaches"])
 

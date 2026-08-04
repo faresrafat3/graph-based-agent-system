@@ -92,7 +92,7 @@ def test_extract_semantic_rule_prefix_and_evaluate_fails(monkeypatch):
     monkeypatch.setattr(semantic_module, "call_llm", lambda *a, **k: "just try again")
     res2 = extract_semantic_rule(episodic_entries=episodes, thread_id="evaluate_fail_session")
     assert res2["success"] is False
-    assert any("Rule not actionable" in v for v in res2["violations"])
+    assert any("Rule not actionable" in v for v in res2["breaches"])
 
 
 def test_semantic_refine_and_should_continue():
