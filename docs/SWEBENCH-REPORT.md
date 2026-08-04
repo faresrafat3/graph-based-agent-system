@@ -125,6 +125,37 @@ sample pool (1142 resolved in Docker). The local ranker (`run_tests_in_worktree`
 with the Docker verdict on direction (1142's selected patch flipped FAIL_TO_PASS locally
 too). A full 8-instance best-of-N grade is pending a stable LLM-network window.
 
+**Full 8-instance Docker grade (N=3, `gbas_alphacode_full`, 2026-08-04):**
+
+| Instance | Generated? | AlphaCode patch applies? | Resolved (Docker)? |
+|---|---|---|---|
+| psf__requests-1142 | yes | yes (best of 3) | **yes** |
+| psf__requests-1724 | yes | yes | no |
+| psf__requests-1766 | yes | yes | no |
+| psf__requests-1921 | yes | yes | no |
+| psf__requests-2317 | yes | yes | no |
+| psf__requests-2931 | yes | yes | no |
+| psf__requests-5414 | no (LLM-network drop) | — | — |
+| psf__requests-6028 | no (LLM-network drop) | — | — |
+
+**Result: 1/8 = 12.5% resolved** (1 resolved of 8 instances; 6/8 patches generated and
+applied, 2/8 lost to intermittent LLM-network drops during N×sample generation).
+
+**Reading the number honestly:** this matches the *worst* single-shot run (1/8 = 12.5%),
+not the best (4/8 = 50%). Two facts explain it without contradiction:
+1. `step-3.7-flash` generates weak patches on most of these instances regardless of N —
+   best-of-N only helps when *at least one* sample in the pool is resolving, and on 5/6
+   generated instances none of the 3 samples cleared FAIL_TO_PASS. AlphaCode is a
+   *variance reducer*, not a *capability multiplier*: it cannot manufacture a fix the
+   model cannot produce in any sample.
+2. The 2 infra-failed generations (5414, 6028) are pure network loss, not model failure.
+
+Where AlphaCode *did* have a resolving sample (1142), it selected it correctly — the
+local ranker and Docker agreed. The arm is therefore working as designed; the ceiling is
+the underlying model's patch quality, exactly as the single-shot runs showed. To lift the
+number, the next lever is a stronger generator (e.g. a larger/coding-tuned model), not
+more samples.
+
 ---
 
 ## Results

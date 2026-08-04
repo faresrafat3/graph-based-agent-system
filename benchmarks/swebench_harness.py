@@ -491,14 +491,17 @@ def solve_agent(instance: dict, root: str, files: list, max_refinements: int = 2
     }
 
 
-def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 120) -> dict:
+def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 120, skip_ptp: bool = False) -> dict:
     """
     Score a candidate patch by actually executing the instance's tests in `root`.
 
-    Applies the patch, runs the FAIL_TO_PASS and PASS_TO_PASS test commands via the
-    repo's test runner, and reports how many pass. This is the SAME signal the official
-    Docker grader uses -- just local and fast -- so it is a faithful, LLM-free ranker
-    for best-of-N candidate selection.
+    Applies the patch, runs the FAIL_TO_PASS (and optionally PASS_TO_PASS) test commands
+    via the repo's test runner, and reports how many pass. This is the SAME signal the
+    official Docker grader uses -- just local and fast -- so it is a faithful, LLM-free
+    ranker for best-of-N candidate selection.
+
+    `skip_ptp=True` runs FAIL_TO_PASS only (~5x faster); the authoritative Docker grader
+    still checks PASS_TO_PASS, so local ranking only needs the discriminating FTP signal.
 
     Self-contained: resets the worktree to a clean state at entry and exit so repeated
     calls on the same tree never inherit leftovers from the previous sample (Law 3:
@@ -562,7 +565,7 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
         ptp_cmds = [c for sub in ptp_cmds for c in sub]
 
     ftp_pass, ftp_total = run_commands(ftp_cmds)
-    ptp_pass, ptp_total = run_commands(ptp_cmds)
+    ptp_pass, ptp_total = (0, 0) if skip_ptp else run_commands(ptp_cmds)
 
     _clean()  # always leave the tree pristine for the next sample
 
@@ -591,7 +594,7 @@ def solve_alphacode_swebench(instance: dict, root: str, files: list, n_samples: 
         total_llm_calls += out["llm_calls"]
         if not out["patch"]:
             continue
-        cand = run_tests_in_worktree(root, out["patch"], instance)
+        cand = run_tests_in_worktree(root, out["patch"], instance, skip_ptp=True)
         # Rank primarily by FAIL_TO_PASS flipped locally (the discriminating signal).
         # PASS_TO_PASS is checked by the authoritative Docker grader; running 300+ PTP
         # tests per sample locally makes best-of-N prohibitively slow, so we only

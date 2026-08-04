@@ -1,0 +1,30 @@
+{
+  "total": 6,
+  "resolved": 1,
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "resolved": true
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "resolved": false
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "resolved": false
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "resolved": false
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "resolved": false
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "resolved": false
+    }
+  ]
+}
