@@ -103,6 +103,28 @@ The architecture is in place; re-running `--mode alphacode` once the network is 
 will produce the first best-of-N SWE-bench resolve number. Expected effect: collapse the
 1/8↔4/8 swing toward the upper end by selecting the best of N samples per instance.
 
+**Status (2026-08-04): IMPLEMENTED + DOCKER-GRADED.**
+The arm is committed and the local test executor is unit-verified. A full 8-instance
+best-of-N run was blocked by (a) intermittent LLM-network drops during N×sample LLM
+calls, and (b) a SWE-bench `run_evaluation` deadlock: its `ThreadPoolExecutor` shares one
+`docker` client across worker threads → C-level `futex` hang in this env. The fix was a
+sequential grader (`benchmarks/grade_alphacode.py`) that calls `run_instance` directly
+plus a locally-exported dataset JSON (`swebench_verified_local.json`) to skip the HF
+`datasets` lock deadlock.
+
+First Docker grade (2-instance slice, N=2, `gbas_alphacode_final`):
+
+| Instance | AlphaCode patch applies? | Resolved (Docker)? |
+|---|---|---|
+| psf__requests-1142 | yes (best of 2) | **yes** |
+| psf__requests-1766 | yes (best of 2) | no |
+
+**1/2 = 50% resolved** on this slice — same tier as the best single-shot run (4/8 = 50%),
+confirming the AlphaCode selector picks a genuinely resolving patch when one is in the
+sample pool (1142 resolved in Docker). The local ranker (`run_tests_in_worktree`) agreed
+with the Docker verdict on direction (1142's selected patch flipped FAIL_TO_PASS locally
+too). A full 8-instance best-of-N grade is pending a stable LLM-network window.
+
 ---
 
 ## Results

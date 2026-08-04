@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "mode": "alphacode",
+    "model": "step-3.7-flash",
+    "top_k_files": 5,
+    "total_instances": 2,
+    "patch_apply_rate_percent": 100.0,
+    "infrastructure_failures": 0,
+    "local_resolved": 0,
+    "n_samples": 3,
+    "partial": true,
+    "wall_clock_seconds": 394.34,
+    "note": "incremental snapshot; patch_apply_rate is NOT the resolve rate."
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "model_name_or_path": "gbas-alphacode",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -258,12 +258,13 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n         self.body = body\n \n     def prepare_content_length(self, body):\n-        self.headers['Content-Length'] = '0'\n-        if hasattr(body, 'seek') and hasattr(body, 'tell'):\n-            body.seek(0, 2)\n-            self.headers['Content-Length'] = str(body.tell())\n-            body.seek(0, 0)\n-        elif body is not None:\n+        if body is not None:\n+            self.headers['Content-Length'] = '0'\n+            if hasattr(body, 'seek') and hasattr(body, 'tell'):\n+                body.seek(0, 2)\n+                self.headers['Content-Length'] = str(body.tell())\n+                body.seek(0, 0)\n+            else:\n             self.headers['Content-Length'] = str(len(body))\n \n     def prepare_auth(self, auth):\n",
+      "llm_calls": 3,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/packages/urllib3/request.py",
+        "requests/models.py",
+        "requests/adapters.py",
+        "requests/packages/urllib3/connectionpool.py",
+        "requests/utils.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 329.3,
+      "samples": 3,
+      "best_local_resolved": false,
+      "best_score": -320
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "model_name_or_path": "gbas-alphacode",
+      "model_patch": "--- a/requests/auth.py\n+++ b/requests/auth.py\n@@ -113,7 +113,7 @@ class HTTPDigestAuth(AuthBase):\n         if entdig:\n             base += ', digest=\"%s\"' % entdig\n         if qop:\n-            base += ', qop=auth, nc=%s, cnonce=\"%s\"' % (ncvalue, cnonce)\n+            base += ', qop=\"auth\", nc=%s, cnonce=\"%s\"' % (ncvalue, cnonce)\n \n         return 'Digest %s' % base\n \n",
+      "llm_calls": 3,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/auth.py",
+        "requests/sessions.py",
+        "requests/packages/urllib3/util.py",
+        "requests/utils.py",
+        "requests/packages/urllib3/connectionpool.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 65.02,
+      "samples": 3,
+      "best_local_resolved": false,
+      "best_score": -1
+    }
+  ]
+}
