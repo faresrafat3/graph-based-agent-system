@@ -3,8 +3,6 @@ from agents.domain_context_managers import (
     BaseDomainContextManager,
     AuthContextManager,
     DBContextManager,
-    APIContextManager,
-    UIContextManager
 )
 
 

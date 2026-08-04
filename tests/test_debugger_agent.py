@@ -1,9 +1,8 @@
 import sys
 sys.path.append('.')
 
-from agents.debugger_agent import DebuggerEngine, DEBUGGER_PERMISSIONS, debug_code, DebuggerState
+from agents.debugger_agent import DebuggerEngine, DEBUGGER_PERMISSIONS, debug_code
 import agents.debugger_agent as debugger_module
-import json
 
 def test_permissions_matrix():
     assert "READ" in DEBUGGER_PERMISSIONS
