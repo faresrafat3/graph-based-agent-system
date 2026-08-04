@@ -46,7 +46,7 @@ class FilteringClusteringState(TypedDict):
     clusters: Dict[str, List[Dict]]
     representatives: List[Dict]
     filtering_report: Dict[str, Any]
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
 
@@ -115,7 +115,7 @@ def propose(state: FilteringClusteringState) -> dict:
     if len(candidates) > 100:
         raise ValueError("Too many candidates (>100) requires HUMAN_CHECKPOINT")
 
-    return {"filtered_candidates": [], "clusters": {}, "representatives": [], "violations": [], "success": False}
+    return {"filtered_candidates": [], "clusters": {}, "representatives": [], "breaches": [], "success": False}
 
 
 def execute(state: FilteringClusteringState) -> dict:
@@ -150,10 +150,10 @@ def execute(state: FilteringClusteringState) -> dict:
 def evaluate(state: FilteringClusteringState) -> dict:
     reps = state.get("representatives", [])
     success = len(reps) >= 1
-    violations = []
+    breaches = []
     if not success:
-        violations.append("No representatives after clustering")
-    return {"success": success, "violations": violations}
+        breaches.append("No representatives after clustering")
+    return {"success": success, "breaches": breaches}
 
 
 def commit(state: FilteringClusteringState) -> dict:
@@ -206,7 +206,7 @@ def filter_and_cluster(
             "clusters": {},
             "representatives": [],
             "filtering_report": {},
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False
         },
@@ -219,5 +219,5 @@ def filter_and_cluster(
         "representatives": result.get("representatives", []),
         "filtering_report": result.get("filtering_report", {}),
         "success": result.get("success", False),
-        "violations": result.get("violations", [])
+        "breaches": result.get("breaches", [])
     }

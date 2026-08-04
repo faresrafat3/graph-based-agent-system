@@ -81,19 +81,19 @@ class QualityReviewerEngine:
             ok = cls._is_successful(report)
             checks.append(ok)
             if not ok:
-                reasons.append(f"Validation report {idx} failed: {report.get('violations', report)}")
+                reasons.append(f"Validation report {idx} failed: {report.get('breaches', report)}")
 
         if assignment_result:
             ok = cls._is_successful(assignment_result)
             checks.append(ok)
             if not ok:
-                reasons.append(f"Assignment failed: {assignment_result.get('violations', [])}")
+                reasons.append(f"Assignment failed: {assignment_result.get('breaches', [])}")
 
         if dispatch_result and dispatch_result.get("results"):
             ok = cls._is_successful(dispatch_result)
             checks.append(ok)
             if not ok:
-                reasons.append(f"Domain dispatch failed: {dispatch_result.get('violations', [])}")
+                reasons.append(f"Domain dispatch failed: {dispatch_result.get('breaches', [])}")
 
         for idx, result in enumerate(execution_results or [], 1):
             ok = cls._is_successful(result)

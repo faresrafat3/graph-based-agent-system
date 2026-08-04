@@ -58,7 +58,7 @@ class SemanticState(TypedDict):
     semantic_rule: str
     rule_summary: str
     supporting_episodes: List[str]
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
 
@@ -118,7 +118,7 @@ def propose(state: SemanticState) -> dict:
     if len(episodes) < 2:
         raise ValueError("Need at least 2 episodic entries to extract semantic rule")
 
-    return {"semantic_rule": "", "violations": [], "success": False}
+    return {"semantic_rule": "", "breaches": [], "success": False}
 
 
 def execute(state: SemanticState) -> dict:
@@ -159,8 +159,8 @@ def execute(state: SemanticState) -> dict:
 def evaluate(state: SemanticState) -> dict:
     rule = state.get("semantic_rule", "")
     if not SemanticEngine.is_rule_actionable(rule):
-        return {"success": False, "violations": [f"Rule not actionable: {rule[:100]}"]}
-    return {"success": True, "violations": []}
+        return {"success": False, "breaches": [f"Rule not actionable: {rule[:100]}"]}
+    return {"success": True, "breaches": []}
 
 
 def commit(state: SemanticState) -> dict:
@@ -232,7 +232,7 @@ def extract_semantic_rule(
             "semantic_rule": "",
             "rule_summary": "",
             "supporting_episodes": [],
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False
         },
@@ -244,7 +244,7 @@ def extract_semantic_rule(
         "rule_summary": result.get("rule_summary", ""),
         "supporting_episodes": result.get("supporting_episodes", []),
         "success": result.get("success", False),
-        "violations": result.get("violations", [])
+        "breaches": result.get("breaches", [])
     }
 
 

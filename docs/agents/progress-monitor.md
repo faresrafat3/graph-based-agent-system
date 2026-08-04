@@ -39,7 +39,7 @@ execution_plan: list[dict]
   "success": bool,
   "progress_metrics": dict,
   "stalled_tasks": list[str],
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 

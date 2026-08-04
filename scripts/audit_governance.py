@@ -24,8 +24,8 @@ def main() -> int:
         if check["success"]:
             continue
         print(f"[{check['check_name']}]")
-        for violation in check["violations"]:
-            print(f"- {violation}")
+        for breach in check["breaches"]:
+            print(f"- {breach}")
     return 1
 
 

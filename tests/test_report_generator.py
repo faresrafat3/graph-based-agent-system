@@ -18,8 +18,8 @@ def fake_result():
             "p95_latency_seconds": 3.0,
         },
         "details": [
-            {"scenario_id": "s1", "name": "Test1", "category": "Standard", "success": True, "quality_score": 0.9, "signal_to_noise": 1.0, "tasks_generated": 3, "violations_count": 0, "duration_seconds": 2.0, "error": None},
-            {"scenario_id": "s2", "name": "Test2", "category": "Security", "success": True, "quality_score": 0.8, "signal_to_noise": 0.9, "tasks_generated": 4, "violations_count": 0, "duration_seconds": 3.0, "error": None},
+            {"scenario_id": "s1", "name": "Test1", "category": "Standard", "success": True, "quality_score": 0.9, "signal_to_noise": 1.0, "tasks_generated": 3, "breaches_count": 0, "duration_seconds": 2.0, "error": None},
+            {"scenario_id": "s2", "name": "Test2", "category": "Security", "success": True, "quality_score": 0.8, "signal_to_noise": 0.9, "tasks_generated": 4, "breaches_count": 0, "duration_seconds": 3.0, "error": None},
         ]
     }
 

@@ -121,7 +121,7 @@ class SessionStateMerger:
         if corrupted_modules:
             return {
                 "success": False,
-                "error": f"Law 19 Violation: Session state mismatch detected in modules {corrupted_modules}",
+                "error": f"Law 19 Breach: Session state mismatch detected in modules {corrupted_modules}",
                 "merged_state": current_state
             }
             

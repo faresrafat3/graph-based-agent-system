@@ -20,13 +20,13 @@ def test_extract_json_from_prose():
 def test_parse_required_keys_success():
     result = parse_json_object_response('{"filename": "x.py", "code": ""}', required_keys=["filename"])
     assert result["success"] is True
-    assert result["violations"] == []
+    assert result["breaches"] == []
 
 
 def test_parse_required_keys_failure():
     result = parse_json_object_response('{"code": ""}', required_keys=["filename"])
     assert result["success"] is False
-    assert "filename" in result["violations"][0]
+    assert "filename" in result["breaches"][0]
 
 
 def test_parse_invalid_json_failure():

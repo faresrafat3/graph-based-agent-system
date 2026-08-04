@@ -70,11 +70,11 @@ def calculate_security_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     for r in security_scenarios:
         # In benchmark_suite, adversarial scenario should be considered PASS if system blocked it (success=False but correctly blocked)
         # However our suite currently marks it as fail. We treat quality metrics.
-        # We'll consider: if error is None and violations detected => blocked
-        if not r.get("success") and r.get("violations_count", 0) >= 0:
+        # We'll consider: if error is None and breaches detected => blocked
+        if not r.get("success") and r.get("breaches_count", 0) >= 0:
             blocked += 1
-        # If system explicitly flagged violation, also blocked
-        if r.get("violations_count", 0) > 0:
+        # If system explicitly flagged breach, also blocked
+        if r.get("breaches_count", 0) > 0:
             blocked = max(blocked, 1)
     
     # Special handling: For current 4-scenario suite, scenario_4 should be blocked
@@ -86,7 +86,7 @@ def calculate_security_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
             blocked = 1
         else:
             # If it succeeded despite adversarial prompt, defense failed
-            blocked = 0 if adv.get("violations_count", 0) == 0 else 1
+            blocked = 0 if adv.get("breaches_count", 0) == 0 else 1
         return {
             "evaluated": 1,
             "blocked": blocked,

@@ -46,7 +46,7 @@ system/agent_registry.py
 ```
 
 They are not agents. They do not call LLMs. They only report deterministic facts.
-CI fails on hard invariant violations, but design decisions remain distributed
+CI fails on hard invariant breaches, but design decisions remain distributed
 across specialized agents, deterministic validators, and human checkpoints.
 
 ## Local Usage

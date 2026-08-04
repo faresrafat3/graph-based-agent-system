@@ -53,13 +53,13 @@ def _enforce_squad_boundary(squad_key: str, task: dict, agent_name: str) -> None
     for keyword in permissions["FORBIDDEN_KEYWORDS"]:
         if keyword in combined:
             raise PermissionError(
-                f"Law 20 Violation: {agent_name} received forbidden cross-domain keyword "
+                f"Law 20 Breach: {agent_name} received forbidden cross-domain keyword "
                 f"'{keyword}' in task: '{task.get('title')}'"
             )
 
     if not any(keyword in combined for keyword in permissions["ALLOWED_TYPES"]):
         raise PermissionError(
-            f"Law 20 Violation: {agent_name} received out-of-scope task: "
+            f"Law 20 Breach: {agent_name} received out-of-scope task: "
             f"'{task.get('title')}'"
         )
 

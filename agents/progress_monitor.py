@@ -28,7 +28,7 @@ class ProgressMonitorState(TypedDict):
     progress_metrics: dict
     stalled_tasks: list[str]
     failed_tasks: list[str]
-    violations: list[str]
+    breaches: list[str]
     retry_count: int
     success: bool
 
@@ -56,21 +56,7 @@ class ProgressMonitorEngine:
 
     @classmethod
     def analyze(cls, execution_plan: list[dict], agent_logs: list[dict], timeout_seconds: int) -> dict[str, Any]:
-        """Compute progress metrics, stalled tasks, failures, and violations."""
-        if not isinstance(execution_plan, list):
-            return {
-                "progress_metrics": {
-                    "completion_rate": 0.0,
-                    "total_tasks": 0,
-                    "completed_tasks": 0,
-                    "running_tasks": 0,
-                    "failed_tasks": 0,
-                    "pending_tasks": 0,
-                },
-                "violations": ["execution_plan must be a list."],
-                "success": False,
-            }
-
+        """Compute progress metrics, stalled tasks, failures, and breaches."""
         latest = cls.latest_logs_by_task(agent_logs)
         planned_ids = [item.get("task_id") for item in execution_plan if item.get("task_id")]
         planned_set = set(planned_ids)
@@ -80,7 +66,7 @@ class ProgressMonitorEngine:
         failed = []
         pending = []
         stalled = []
-        violations = []
+        breaches = []
 
         for task_id in planned_ids:
             log = latest.get(task_id)
@@ -94,12 +80,12 @@ class ProgressMonitorEngine:
                 completed.append(task_id)
             elif status in cls.TERMINAL_FAILURE:
                 failed.append(task_id)
-                violations.append(f"Task '{task_id}' failed with status '{status}'.")
+                breaches.append(f"Task '{task_id}' failed with status '{status}'.")
             elif status in cls.ACTIVE:
                 running.append(task_id)
                 if duration > timeout_seconds:
                     stalled.append(task_id)
-                    violations.append(
+                    breaches.append(
                         f"Task '{task_id}' stalled after {duration}s (timeout {timeout_seconds}s)."
                     )
             else:
@@ -107,7 +93,7 @@ class ProgressMonitorEngine:
 
         unknown_log_tasks = sorted(set(latest) - planned_set)
         for task_id in unknown_log_tasks:
-            violations.append(f"Agent log references unknown task id '{task_id}'.")
+            breaches.append(f"Agent log references unknown task id '{task_id}'.")
 
         total = len(planned_ids)
         completion_rate = round(len(completed) / total, 4) if total else 1.0
@@ -125,8 +111,8 @@ class ProgressMonitorEngine:
             "progress_metrics": metrics,
             "stalled_tasks": stalled,
             "failed_tasks": failed,
-            "violations": violations,
-            "success": len(violations) == 0,
+            "breaches": breaches,
+            "success": len(breaches) == 0,
         }
 
 
@@ -136,8 +122,8 @@ def propose(state: ProgressMonitorState) -> dict:
     """Step 1: Propose - verify there is an execution plan to monitor."""
     plan = state.get("execution_plan", [])
     if not isinstance(plan, list):
-        return {"violations": ["execution_plan must be a list."], "success": False}
-    return {"violations": [], "success": True}
+        return {"breaches": ["execution_plan must be a list."], "success": False}
+    return {"breaches": [], "success": True}
 
 
 def execute(state: ProgressMonitorState) -> dict:
@@ -151,7 +137,7 @@ def execute(state: ProgressMonitorState) -> dict:
 
 def evaluate(state: ProgressMonitorState) -> dict:
     """Step 3: Evaluate - fail on stalls, failures, or unknown log references."""
-    return {"success": len(state.get("violations", [])) == 0}
+    return {"success": len(state.get("breaches", [])) == 0}
 
 
 def commit(state: ProgressMonitorState) -> dict:
@@ -204,7 +190,7 @@ def monitor_progress(
             "progress_metrics": {},
             "stalled_tasks": [],
             "failed_tasks": [],
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
         },
@@ -215,5 +201,5 @@ def monitor_progress(
         "progress_metrics": result.get("progress_metrics", {}),
         "stalled_tasks": result.get("stalled_tasks", []),
         "failed_tasks": result.get("failed_tasks", []),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }

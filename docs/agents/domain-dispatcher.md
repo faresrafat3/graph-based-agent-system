@@ -18,9 +18,9 @@ The Domain Dispatcher dispatches only implemented domain squad tasks. It does no
 ```python
 DOMAIN_DISPATCHER_PERMISSIONS = {
     "READ": ["tasks", "execution_plan", "global_context", "completed_task_ids"],
-    "WRITE": ["dispatch_results", "parsed_outputs", "dispatch_violations"],
+    "WRITE": ["dispatch_results", "parsed_outputs", "dispatch_breaches"],
     "NEVER": ["deployment", "credentials", "production_environment"],
-    "HUMAN_CHECKPOINT": ["blocked_dependencies", "unsupported_agent", "squad_boundary_violation"]
+    "HUMAN_CHECKPOINT": ["blocked_dependencies", "unsupported_agent", "squad_boundary_breach"]
 }
 ```
 
@@ -41,7 +41,7 @@ max_tasks: int | None = None
   "success": bool,
   "results": list[dict],
   "parsed_outputs": dict[str, dict],
-  "violations": list[str],
+  "breaches": list[str],
   "skipped_tasks": list[str],
   "blocked_tasks": list[str],
   "completed_task_ids": list[str]
@@ -74,7 +74,7 @@ max_tasks: int | None = None
 ### Evaluate
 
 - Success requires squad execution success and JSON parse success.
-- Parse failures and dependency blocks become explicit violations.
+- Parse failures and dependency blocks become explicit breaches.
 
 ### Commit
 
@@ -87,9 +87,9 @@ max_tasks: int | None = None
 |---|---|
 | Unknown task in execution plan | dispatch failure |
 | Incomplete dependency | blocked task |
-| Squad boundary exception | dispatch violation |
-| Non-JSON squad response | parse violation |
-| Missing required output key | parse violation |
+| Squad boundary exception | dispatch breach |
+| Non-JSON squad response | parse breach |
+| Missing required output key | parse breach |
 
 ## Tests
 

@@ -19,7 +19,7 @@ The validator reports validity only. It does not mutate target output, approve e
 ```python
 DETERMINISTIC_VALIDATOR_PERMISSIONS = {
     "READ": ["target_output", "expected_schema", "invariant_rules"],
-    "WRITE": ["validation_report", "quality_score", "violations"],
+    "WRITE": ["validation_report", "quality_score", "breaches"],
     "NEVER": ["modify_target_output", "grant_exceptions", "bypass_schema"],
     "HUMAN_CHECKPOINT": ["fatal_schema_corruption"]
 }
@@ -38,7 +38,7 @@ thread_id: str = "validator_session"
 ```python
 {
   "quality_score": float,
-  "violations": list[str],
+  "breaches": list[str],
   "validation_report": dict,
   "success": bool
 }
@@ -49,7 +49,7 @@ thread_id: str = "validator_session"
 ### Propose
 
 - Reject null target output.
-- Initialize empty violations and baseline score.
+- Initialize empty breaches and baseline score.
 
 ### Execute
 
@@ -63,7 +63,7 @@ thread_id: str = "validator_session"
 
 ### Evaluate
 
-- Pass only when score is high enough and violations list is empty.
+- Pass only when score is high enough and breaches list is empty.
 
 ### Commit
 
@@ -82,11 +82,11 @@ thread_id: str = "validator_session"
 
 | Failure | Result |
 |---|---|
-| Missing required key | violation |
-| Invalid enum | violation |
-| Unknown dependency | violation |
-| Circular dependency | violation |
-| Metadata mismatch | violation |
+| Missing required key | breach |
+| Invalid enum | breach |
+| Unknown dependency | breach |
+| Circular dependency | breach |
+| Metadata mismatch | breach |
 
 ## Tests
 
@@ -102,7 +102,7 @@ report = validate_output(payload)
 
 ## Improvement Plan
 
-- Structured violation objects.
+- Structured breach objects.
 - Severity levels.
 - JSON path locations.
 - Schema versioning.

@@ -74,7 +74,7 @@ def test_dispatch_parse_failure(monkeypatch):
     result = dispatch_domain_tasks([task()], [plan_item()], global_context="Auth app")
 
     assert result["success"] is False
-    assert any("output parse violation" in v for v in result["violations"])
+    assert any("output parse breach" in v for v in result["breaches"])
 
 
 def test_dispatch_skips_non_domain_agent():
@@ -102,14 +102,14 @@ def test_dispatch_blocks_incomplete_dependency(monkeypatch):
 
     assert result["success"] is False
     assert result["blocked_tasks"] == ["task_2"]
-    assert any("blocked by incomplete dependencies" in v for v in result["violations"])
+    assert any("blocked by incomplete dependencies" in v for v in result["breaches"])
 
 
 def test_dispatch_unknown_plan_task_fails():
     result = dispatch_domain_tasks([], [plan_item("missing")])
 
     assert result["success"] is False
-    assert any("unknown task id" in v for v in result["violations"])
+    assert any("unknown task id" in v for v in result["breaches"])
 
 
 def test_dispatch_respects_completed_dependencies(monkeypatch):

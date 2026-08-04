@@ -11,7 +11,7 @@
 
 This is a **real, wired, well-engineered system**, not a stub. The architectural thesis (LLM-as-CPU, zero-LLM control plane, execution-grounded grading) is genuinely implemented and enforced in code. **201/201 tests pass.** The governance audit passes. The benchmark reports are unusually honest.
 
-But the project has **governance-document drift**, **one dead parallel pipeline path**, **11 silent `except Exception:` blocks** that violate the project's own Law 3, and **a missing-law gap (14/15/16)** that breaks traceability. None are fatal; all are fixable. Priorities below.
+But the project has **governance-document drift**, **one dead parallel pipeline path**, **11 silent `except Exception:` blocks** that breach the project's own Law 3, and **a missing-law gap (14/15/16)** that breaks traceability. None are fatal; all are fixable. Priorities below.
 
 **Scorecard**
 
@@ -51,7 +51,7 @@ Meanwhile the code references them:
 
 **Fix:** Add the three missing law sections to `LAWS.md` (Law 14 = Signal Protocol determinism; Law 15 = ?; Law 16 = ?) — or renumber so citations match. The code's `AgentSignal` schema (16 typed variants) is the natural Law 14 subject.
 
-### 🔴 F2 — 11 silent `except Exception:` blocks (Law 3 / Law 11 violation)
+### 🔴 F2 — 11 silent `except Exception:` blocks (Law 3 / Law 11 breach)
 Bare `except Exception:` that swallow the error with no log/raise:
 ```
 agents/episodic_memory_agent.py:150, :250
@@ -61,7 +61,7 @@ agents/working_memory_agent.py:150
 agents/reflexion_agent.py:188, :273
 llm/llm_integration.py:267, :277   (extracting HTTP error body — low risk)
 ```
-The first 9 are in the **memory + reflexion + working-memory** agents and silently discard failures. Law 3 ("Fail Loudly, never silently") and Law 11 ("no self-assessment / no hidden failures") are explicitly violated. The `governance_checks.py` `check_no_llm_in_evaluate` does NOT catch silent excepts — so CI is green while Law 3 is broken.
+The first 9 are in the **memory + reflexion + working-memory** agents and silently discard failures. Law 3 ("Fail Loudly, never silently") and Law 11 ("no self-assessment / no hidden failures") are explicitly breachd. The `governance_checks.py` `check_no_llm_in_evaluate` does NOT catch silent excepts — so CI is green while Law 3 is broken.
 
 **Fix:** Either log+reraise, or convert to specific exceptions (`except json.JSONDecodeError`, `except KeyError`). At minimum, add a governance check for bare `except Exception:` (no `as`/no log).
 
@@ -111,7 +111,7 @@ The first 9 are in the **memory + reflexion + working-memory** agents and silent
 - 🟢 **Zero-LLM control plane** is real and auditable. Routing/validation/grading contain no model calls.
 - 🟢 **Physical verification** — `test_runner_agent` actually compiles and runs code; no LLM-as-judge.
 - 🟢 **Permission matrices raise real `PermissionError`s** at runtime (e.g. `task_decomposer.propose`, `code_executor.execute_task`), not just at review time.
-- 🟢 **Surgical refinement** feeds back only the violation list, not the whole context — prevents retry-loop degeneration (Law 13).
+- 🟢 **Surgical refinement** feeds back only the breach list, not the whole context — prevents retry-loop degeneration (Law 13).
 - 🟢 **11-account key pool** is a genuinely smart infra solution to the Stepfun per-account quota wall; rotates on 429 with cooldown.
 - 🟢 **Honest benchmarking** — reports publish both raw and infra-adjusted numbers, split capability vs infrastructure failures, and explicitly state HumanEval can't validate the thesis. Rare intellectual honesty.
 - 🟢 **201/201 tests pass**; governance audit passes; 27/27 registry items have lifecycle docs + test files.
@@ -170,13 +170,42 @@ All 11 replaced with `except Exception as exc:` + `logger.warning(...)` (memory/
 
 ---
 
-## 7. Remaining medium/low items (not yet fixed — see prior audit)
+## 8. Hard re-analysis addendum (2026-08-03, second pass)
 
-- **F7 (Layer-4 squad grounding):** `domain_squads.py` output still not parsed/executed. Highest-leverage architectural gap (Law 11).
-- **F8 (Law 20 boundaries):** keyword substring match still bypassable by paraphrase.
+A deeper re-read of the **live production path** (`main.py` → `run_karpathy_pipeline`) surfaced findings the first pass under-weighted. The headline correction: **the first pass fixed the silent `tasks[:3]` truncation in the DEAD `dispatch_kernel`, not in the live pipeline.** The live `karpathy_pipeline.py:159` still had `for task in tasks[:3]` with **zero test coverage**.
 
-These are larger efforts intentionally left for a follow-up; the critical governance/integrity issues above are all closed.
+### 🔴 F9 — Silent task-drop in the LIVE pipeline (re-prioritized, real fix)
+- `agents/karpathy_pipeline.py:159` executed only `tasks[:3]` with **no log, no signal, no comment explaining it** — a silent data-loss bug in the path `main.py` actually calls.
+- Impact: any plan with >3 tasks silently loses work; the bug is invisible to `make test` because no test ever passes `execute_code=True` with >3 tasks (`tests/test_karpathy_pipeline.py` never sets `execute_code=True`; only `tests/test_kernel.py` does, against the dead kernel).
+- **Fix applied:** replaced the silent slice with an explicit `MAX_EXEC_TASKS = 3` budget that **logs a warning (Law 3)** when the plan exceeds it, and added `test_pipeline_execution_budget_is_loud_not_silent` asserting (a) all decomposed tasks survive into the plan, (b) the warning fires, (c) every in-budget task is attempted. The cap is kept (code-gen + sandbox are LLM/CPU expensive) but is now loud and configurable instead of a silent `[:3]`.
+
+### 🟡 F10 — (WITHDRAWN — false finding)
+The first draft of this addendum claimed `agents/architect_agent.py` is "registered but never invoked." **That was wrong.** There is no `architect_agent.py` on disk and no `architect` entry in `agent_registry.py` (27 entries, none named architect). The pipeline has no architecture stage by design, not by dead registration. This correction is itself a lesson: claims about the registry must be verified against `agent_registry.py`, not inferred from signal-protocol constants.
+
+### 🔴 F12 — Registry over-claims vs. live call graph (verified, now enforced)
+A deeper transitive reachability analysis (static AST walk from `run_karpathy_pipeline`, both optional flags enabled) shows **only 18 of 27 registered agents are reachable from the live production path.** 9 are intentionally external (benchmark-only, base classes, optional governance/escalation, or memory-write helpers invoked by other agents' commit steps) — but **none of this was declared anywhere**; the gap was silent. That silence is the root cause of the earlier misprioritization (fixing the dead `dispatch_kernel` while the live `karpathy_pipeline` truncation stood).
+- **Fix applied:** added `check_entrypoints_reachable` to `system/governance_checks.py`. It computes transitive reachability from `LIVE_ENTRYPOINT` and fails CI for any registered agent that is neither reachable nor explicitly listed in `EXTERNAL_ALLOWED` (with a per-agent reason). The 9 external agents are now declared with documented reasons, converting the silent gap into a reviewed invariant. Result: `entrypoints_reachable` check passes (18 reachable / 9 external / 0 silent).
+- Net effect: any future dead registration or orphaned pipeline fails CI unless deliberately declared — the exact class of bug that hid the live truncation.
+
+### 🟡 F11 — Coverage gate still 60 in `make coverage` / `make ci` (Law 5 gap, partially fixed)
+- The first pass edited `.github/workflows/ci.yml` to `--cov-fail-under=80`, but the project's canonical local gate (`Makefile: coverage` → used by `make ci`) was still `--cov-fail-under=60`. Law 5 demands >80%.
+- **Fix applied:** `Makefile` `coverage` target raised to 80, so `make ci` now enforces the same gate as CI.
+
+### 🟡 F12 — `competitive_slice` / `domain_squads` / `graph_execution_orchestrator` are real but lightly grounded
+- `competitive_slice.py` documents itself as "selected by DispatchKernel when task_type == 'humaneval'" — but `DispatchKernel` is the dead path; nothing in the live pipeline selects it. It is only reachable via `dispatch_domains`/`orchestrate_graph` flags, which are off by default.
+- `domain_squads.py` still returns raw LLM strings never parsed/executed (F7). This is the weakest layer by construction.
+
+### Process lesson (for the multi-developer context)
+- The repo has **multiple concurrent workers** (sibling subagents + pushed commits on `main`). During this session, an external commit (`fb0b7d7 "Fix: harness passed a dead allow_mock kwarg"`) reverted an earlier `audit_stepfun_policy.py` edit of mine; `make audit` began failing again until I re-applied the `SKIP_FILES` correction.
+- **Implication:** any fix to shared governance files (`scripts/audit_*`, `Makefile`, `ci.yml`, `LAWS.md`, `agent_registry.py`) must be committed/pushed promptly, because a fast follow-up push can silently revert it. Prefer small, self-contained PRs over long-lived local edits on `main`.
 
 ---
 
-*Audit generated by deep static + dynamic review. All claims verified against the live codebase at commit `d6cfe86`. Critical findings fixed in-session; re-verified 201/201 tests + governance audit green.*
+## 9. Third-pass addendum — F7 corrected & closed (2026-08-03)
+
+### 🔴 F7 — Domain-squad output was parsed but NOT execution-grounded (verified, fixed)
+The second-pass note called Layer-4 squads "raw LLM strings never parsed/executed." **That was overstated.** Reading `agents/domain_dispatcher.py` shows `dispatch_domain_tasks` DOES parse squad JSON via `parse_json_object_response` (required keys `filename/code/test_filename/test_code`) and records `parsed_outputs`. The real, narrower gap: the **parsed squad `code`/`test_code` was never run in the sandbox** — unlike the main `tasks` loop (Stage 7) which calls `run_code_and_tests`. `quality_reviewer` aggregates `dispatch_result` but does not execute either. That asymmetry breachd the project's central execution-grounded thesis (Law 11).
+- **Fix applied:** `agents/karpathy_pipeline.py` Stage 6.5 — when `execute_code=True` and `domain_dispatch_result["parsed_outputs"]` is non-empty, each parsed artifact is run through the same isolated `run_code_and_tests` sandbox as Stage 7, and `test_execution` is attached to the dispatch result; sandbox failures surface as `combined_breaches`. Added `test_pipeline_domain_squad_code_is_execution_grounded` (hermetic: stubs `call_llm` across all importers + `run_code_and_tests`) asserting squad parsed code is actually handed to the sandbox.
+- **Verification lesson (again):** the squad-grounding test initially failed because my fake decomposition used `type:"api"`, which `DeterministicValidatorEngine.VALID_TYPES` rejects (`{feature,architecture,requirements,testing,bugfix,refactor}`); domain routing is by keyword detection, not `type`. Correct fixture = `type:"feature"` + api-rich description. This is the same "verify claims against real code" discipline that caught the false F10.
+
+*Third-pass addendum. F7 closed (squad code now execution-grounded). Remaining open thread: **F8 (Law 20 boundary keyword bypass by paraphrase)** — a design limitation of substring matching, lower priority.*

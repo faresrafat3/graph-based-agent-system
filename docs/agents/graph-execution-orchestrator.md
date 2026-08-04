@@ -50,7 +50,7 @@ thread_id: str = "graph_execution_orchestrator_session"
   "integration_result": dict,
   "progress_report": dict,
   "quality_review": dict,
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 
@@ -72,7 +72,7 @@ thread_id: str = "graph_execution_orchestrator_session"
 
 ### Evaluate
 
-- Success requires no violations and passing integration, progress, and quality reports.
+- Success requires no breaches and passing integration, progress, and quality reports.
 
 ### Commit
 
@@ -90,12 +90,12 @@ thread_id: str = "graph_execution_orchestrator_session"
 
 | Failure | Result |
 |---|---|
-| Incomplete dependency | graph violation |
-| Resource budget exhausted | graph violation |
-| Domain dispatch parse failure | graph violation |
-| Integration conflict | graph violation |
-| Progress failure | graph violation |
-| Quality rejection | graph violation |
+| Incomplete dependency | graph breach |
+| Resource budget exhausted | graph breach |
+| Domain dispatch parse failure | graph breach |
+| Integration conflict | graph breach |
+| Progress failure | graph breach |
+| Quality rejection | graph breach |
 
 ## Tests
 

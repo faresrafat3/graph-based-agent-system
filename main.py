@@ -154,7 +154,7 @@ def compact_summary(result: dict[str, Any]) -> dict[str, Any]:
         "execution_plan_items": len(result.get("execution_plan", [])),
         "graph_execution_success": result.get("graph_execution", {}).get("success"),
         "domain_dispatch_success": result.get("domain_dispatch", {}).get("success"),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }
 
 

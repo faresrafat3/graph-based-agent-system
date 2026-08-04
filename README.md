@@ -87,9 +87,9 @@ The system operates under **10 Laws** ([LAWS.md](LAWS.md)) that govern all imple
 10. **Law of Continuous Improvement** - The system MUST continuously improve
 
 **Enforcement:**
-- Violations are detected through code reviews, testing, and monitoring
+- Breaches are detected through code reviews, testing, and monitoring
 - Penalties: Warning → Code review rejection → Temporary suspension
-- Appeals: Violators may appeal to system operators
+- Appeals: Offenders may appeal to system operators
 
 ---
 

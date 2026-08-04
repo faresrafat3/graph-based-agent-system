@@ -65,7 +65,7 @@ Localizer (zero-LLM, IDF-weighted)   -> picks top-k files
   Context Curator (sanitize issue)
     Patch Generator (LLM, sandboxed)  -> unified diff
       Patch Validator (zero-LLM)       -> git apply --check, hunk-count repair
-        Surgical Refiner (bounded retry, violations-only feedback)
+        Surgical Refiner (bounded retry, breaches-only feedback)
           emit prediction
 ```
 

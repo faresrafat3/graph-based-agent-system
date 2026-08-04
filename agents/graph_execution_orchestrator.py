@@ -46,7 +46,7 @@ class GraphExecutionOrchestratorState(TypedDict):
     integration_result: dict
     progress_report: dict
     quality_review: dict
-    violations: list[str]
+    breaches: list[str]
     retry_count: int
     success: bool
 
@@ -82,7 +82,7 @@ class GraphExecutionOrchestratorEngine:
             "success": True,
             "results": [],
             "parsed_outputs": {},
-            "violations": [],
+            "breaches": [],
             "skipped_tasks": [],
             "blocked_tasks": [],
             "completed_task_ids": [],
@@ -93,7 +93,7 @@ class GraphExecutionOrchestratorEngine:
         """Merge one domain-dispatch group result into the aggregate result."""
         aggregate["results"].extend(partial.get("results", []))
         aggregate["parsed_outputs"].update(partial.get("parsed_outputs", {}))
-        aggregate["violations"].extend(partial.get("violations", []))
+        aggregate["breaches"].extend(partial.get("breaches", []))
         aggregate["skipped_tasks"].extend(partial.get("skipped_tasks", []))
         aggregate["blocked_tasks"].extend(partial.get("blocked_tasks", []))
         aggregate["completed_task_ids"] = sorted(set(
@@ -131,7 +131,7 @@ class GraphExecutionOrchestratorEngine:
         completed: set[str] = set()
         group_results = []
         agent_logs = []
-        violations = []
+        breaches = []
         dispatch_aggregate = cls._empty_dispatch_result()
 
         for group_id, group_items in groups.items():
@@ -149,12 +149,12 @@ class GraphExecutionOrchestratorEngine:
                 "dispatched": False,
                 "task_ids": [item.get("task_id") for item in group_items],
                 "completed_after_group": [],
-                "violations": [],
+                "breaches": [],
             }
 
-            if resource_result.get("violations"):
-                group_record["violations"].extend(resource_result["violations"])
-                violations.extend(resource_result["violations"])
+            if resource_result.get("breaches"):
+                group_record["breaches"].extend(resource_result["breaches"])
+                breaches.extend(resource_result["breaches"])
                 for task_id in group_record["task_ids"]:
                     agent_logs.append({"task_id": task_id, "status": "failed", "duration_seconds": 0})
                 group_results.append(group_record)
@@ -165,8 +165,8 @@ class GraphExecutionOrchestratorEngine:
                     f"Parallel group {group_id} has tasks deferred by incomplete dependencies: "
                     f"{resource_result['deferred_tasks']}"
                 )
-                group_record["violations"].append(message)
-                violations.append(message)
+                group_record["breaches"].append(message)
+                breaches.append(message)
                 for task_id in resource_result["deferred_tasks"]:
                     agent_logs.append({"task_id": task_id, "status": "failed", "duration_seconds": 0})
 
@@ -183,8 +183,8 @@ class GraphExecutionOrchestratorEngine:
                 cls._merge_dispatch(dispatch_aggregate, dispatch_result)
                 group_record["dispatched"] = True
                 group_record["dispatch_result"] = dispatch_result
-                group_record["violations"].extend(dispatch_result.get("violations", []))
-                violations.extend(dispatch_result.get("violations", []))
+                group_record["breaches"].extend(dispatch_result.get("breaches", []))
+                breaches.extend(dispatch_result.get("breaches", []))
                 completed = set(dispatch_result.get("completed_task_ids", []))
 
                 for result in dispatch_result.get("results", []):
@@ -202,7 +202,7 @@ class GraphExecutionOrchestratorEngine:
                         "assigned_agent": item.get("assigned_agent"),
                         "success": True,
                         "stage": "planned_only",
-                        "violations": [],
+                        "breaches": [],
                     })
                     agent_logs.append({"task_id": task_id, "status": "completed", "duration_seconds": 0})
 
@@ -210,13 +210,13 @@ class GraphExecutionOrchestratorEngine:
             group_results.append(group_record)
 
         dispatch_aggregate["completed_task_ids"] = sorted(completed)
-        if dispatch_aggregate["violations"]:
+        if dispatch_aggregate["breaches"]:
             dispatch_aggregate["success"] = False
 
         artifacts = list(dispatch_aggregate.get("parsed_outputs", {}).values())
         integration_result = integrate_artifacts(artifacts, thread_id="graph_execution_integration")
         if not integration_result.get("success"):
-            violations.extend(integration_result.get("conflicts", []))
+            breaches.extend(integration_result.get("conflicts", []))
 
         progress_report = monitor_progress(
             execution_plan=execution_plan,
@@ -225,11 +225,11 @@ class GraphExecutionOrchestratorEngine:
             thread_id="graph_execution_progress",
         )
         if not progress_report.get("success"):
-            violations.extend(progress_report.get("violations", []))
+            breaches.extend(progress_report.get("breaches", []))
 
         quality_review = review_quality(
             validation_reports=[],
-            assignment_result={"success": True, "violations": []},
+            assignment_result={"success": True, "breaches": []},
             dispatch_result=dispatch_aggregate,
             execution_results=[],
             acceptance_criteria=cls._task_acceptance_criteria(tasks),
@@ -237,10 +237,10 @@ class GraphExecutionOrchestratorEngine:
             thread_id="graph_execution_quality",
         )
         if not quality_review.get("approved"):
-            violations.extend(quality_review.get("rejection_reasons", []))
+            breaches.extend(quality_review.get("rejection_reasons", []))
 
         graph_success = (
-            not violations
+            not breaches
             and integration_result.get("success", False)
             and progress_report.get("success", False)
             and quality_review.get("approved", False)
@@ -256,7 +256,7 @@ class GraphExecutionOrchestratorEngine:
             "integration_result": integration_result,
             "progress_report": progress_report,
             "quality_review": quality_review,
-            "violations": violations,
+            "breaches": breaches,
         }
         return report
 
@@ -266,10 +266,10 @@ class GraphExecutionOrchestratorEngine:
 def propose(state: GraphExecutionOrchestratorState) -> dict:
     """Step 1: Propose - verify execution-plan readiness."""
     if not isinstance(state.get("execution_plan", []), list):
-        return {"violations": ["execution_plan must be a list."], "success": False}
+        return {"breaches": ["execution_plan must be a list."], "success": False}
     if not isinstance(state.get("tasks", []), list):
-        return {"violations": ["tasks must be a list."], "success": False}
-    return {"violations": [], "success": True}
+        return {"breaches": ["tasks must be a list."], "success": False}
+    return {"breaches": [], "success": True}
 
 
 def execute(state: GraphExecutionOrchestratorState) -> dict:
@@ -291,14 +291,14 @@ def execute(state: GraphExecutionOrchestratorState) -> dict:
         "integration_result": report.get("integration_result", {}),
         "progress_report": report.get("progress_report", {}),
         "quality_review": report.get("quality_review", {}),
-        "violations": report.get("violations", []),
+        "breaches": report.get("breaches", []),
         "success": report.get("success", False),
     }
 
 
 def evaluate(state: GraphExecutionOrchestratorState) -> dict:
-    """Step 3: Evaluate - graph execution succeeds only with no violations."""
-    return {"success": bool(state.get("success", False)) and not state.get("violations", [])}
+    """Step 3: Evaluate - graph execution succeeds only with no breaches."""
+    return {"success": bool(state.get("success", False)) and not state.get("breaches", [])}
 
 
 def commit(state: GraphExecutionOrchestratorState) -> dict:
@@ -362,7 +362,7 @@ def orchestrate_graph_execution(
             "integration_result": {},
             "progress_report": {},
             "quality_review": {},
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
         },
@@ -378,5 +378,5 @@ def orchestrate_graph_execution(
         "integration_result": result.get("integration_result", {}),
         "progress_report": result.get("progress_report", {}),
         "quality_review": result.get("quality_review", {}),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }

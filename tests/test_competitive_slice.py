@@ -22,7 +22,7 @@ def test_competitive_slice_passes_with_good_code(monkeypatch):
             "valid_candidates": [{"id": "c0", "code": "def has_close_elements(numbers, threshold):\n    return False"}],
             "sampling_report": {"total_generated": 1, "after_dedup": 1, "valid_after_ast": 1},
             "success": True,
-            "violations": []
+            "breaches": []
         }
     
     def fake_ground_truth(code, problem):
@@ -50,7 +50,7 @@ def test_slice_uses_debugger_when_first_fails(monkeypatch):
             "valid_candidates": [{"id": "c0", "code": "bad code"}],
             "sampling_report": {},
             "success": True,
-            "violations": []
+            "breaches": []
         }
     
     def fake_ground_truth(code, problem):
@@ -61,10 +61,10 @@ def test_slice_uses_debugger_when_first_fails(monkeypatch):
             return {"passed": True, "returncode": 0, "stderr": ""}
     
     def fake_debug(failed_code, test_failure, problem_spec="", past_reflections=None, thread_id=""):
-        return {"fixed_code": "def fixed(): return True", "success": True, "violations": [], "debug_summary": "fixed", "fix_attempts": 1}
+        return {"fixed_code": "def fixed(): return True", "success": True, "breaches": [], "debug_summary": "fixed", "fix_attempts": 1}
     
     def fake_reflection(*args, **kwargs):
-        return {"verbal_reflection": "Need to handle edge", "reflection_summary": "handle edge", "success": True, "violations": []}
+        return {"verbal_reflection": "Need to handle edge", "reflection_summary": "handle edge", "success": True, "breaches": []}
     
     monkeypatch.setattr(slice_module, "curate_context", fake_curated)
     monkeypatch.setattr(slice_module, "sample_candidates", fake_sample)

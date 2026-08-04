@@ -65,7 +65,7 @@ def run_extended_benchmarks(scenarios):
                 "signal_to_noise": res.get("context_signal_to_noise", 1.0),
                 "refinement_attempts": res.get("refinement_attempts", 0),
                 "tasks_generated": len(res.get("tasks", [])),
-                "violations_count": len(res.get("violations", [])),
+                "breaches_count": len(res.get("breaches", [])),
                 "duration_seconds": duration,
                 "error": None
             }
@@ -80,7 +80,7 @@ def run_extended_benchmarks(scenarios):
                 "signal_to_noise": 0.0,
                 "refinement_attempts": 0,
                 "tasks_generated": 0,
-                "violations_count": 1,
+                "breaches_count": 1,
                 "duration_seconds": duration,
                 "error": str(e)
             }

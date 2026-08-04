@@ -65,7 +65,7 @@ class SamplingState(TypedDict):
     candidates: List[Dict[str, Any]]
     valid_candidates: List[Dict[str, Any]]
     sampling_report: Dict[str, Any]
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
 
@@ -99,7 +99,7 @@ class SamplingEngine:
                 valid.append(cand)
             else:
                 cand["ast_valid"] = False
-                cand["violations"] = validation["violations"]
+                cand["breaches"] = validation["breaches"]
         return valid
 
     @staticmethod
@@ -136,9 +136,9 @@ def propose(state: SamplingState) -> dict:
 
     # Check for injection in NEVER
     if "delete production" in problem_spec.lower() or "override credentials" in problem_spec.lower():
-        raise PermissionError("SamplingAgent detected NEVER permission violation")
+        raise PermissionError("SamplingAgent detected NEVER permission breach")
 
-    return {"candidates": [], "valid_candidates": [], "violations": [], "success": False}
+    return {"candidates": [], "valid_candidates": [], "breaches": [], "success": False}
 
 
 def execute(state: SamplingState) -> dict:
@@ -202,11 +202,11 @@ def evaluate(state: SamplingState) -> dict:
 
     # Success if at least 1 valid candidate
     success = len(valid) >= 1
-    violations = []
+    breaches = []
     if not success:
-        violations.append("No valid candidates generated after AST filtering")
+        breaches.append("No valid candidates generated after AST filtering")
 
-    return {"success": success, "violations": violations}
+    return {"success": success, "breaches": breaches}
 
 
 def commit(state: SamplingState) -> dict:
@@ -281,7 +281,7 @@ def sample_candidates(
             "candidates": [],
             "valid_candidates": [],
             "sampling_report": {},
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False
         },
@@ -293,5 +293,5 @@ def sample_candidates(
         "valid_candidates": result.get("valid_candidates", []),
         "sampling_report": result.get("sampling_report", {}),
         "success": result.get("success", False),
-        "violations": result.get("violations", [])
+        "breaches": result.get("breaches", [])
     }

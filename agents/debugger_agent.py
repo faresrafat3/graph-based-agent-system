@@ -49,7 +49,7 @@ RULES (Constitution + Laws):
 - Include any needed imports at top
 - The fix MUST be runnable, complete
 - NEVER output TODO, pass placeholders, or credentials
-- If you see security violation in traceback (e.g., hardcoded secrets), FAIL loudly
+- If you see security breach in traceback (e.g., hardcoded secrets), FAIL loudly
 
 Format: Return ONLY the fixed Python code.
 """
@@ -63,7 +63,7 @@ class DebuggerState(TypedDict):
     past_reflections: List[str]
     fixed_code: str
     debug_summary: str
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
     fix_attempts: int
@@ -126,7 +126,7 @@ def propose(state: DebuggerState) -> dict:
     sanitized_failure = DebuggerEngine.sanitize_failure_output(test_failure)
     return {
         "test_failure": sanitized_failure,
-        "violations": [],
+        "breaches": [],
         "success": False
     }
 
@@ -157,13 +157,13 @@ def evaluate(state: DebuggerState) -> dict:
     fixed_code = state.get("fixed_code", "")
 
     if not fixed_code:
-        return {"success": False, "violations": ["Fixed code is empty"]}
+        return {"success": False, "breaches": ["Fixed code is empty"]}
 
     validation = validate_python_syntax(fixed_code)
     success = validation["success"]
     return {
         "success": success,
-        "violations": validation["violations"],
+        "breaches": validation["breaches"],
         "debug_summary": DebuggerEngine.build_summary(
             state.get("failed_code", ""), fixed_code, state.get("test_failure", "")
         )
@@ -224,7 +224,7 @@ def debug_code(
         thread_id: LangGraph thread id
 
     Returns:
-        Dict with fixed_code, success, violations, debug_summary
+        Dict with fixed_code, success, breaches, debug_summary
     """
     result = debugger_graph.invoke(
         {
@@ -234,7 +234,7 @@ def debug_code(
             "past_reflections": past_reflections or [],
             "fixed_code": "",
             "debug_summary": "",
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
             "fix_attempts": 0
@@ -245,7 +245,7 @@ def debug_code(
     return {
         "fixed_code": result.get("fixed_code", ""),
         "success": result.get("success", False),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
         "debug_summary": result.get("debug_summary", ""),
         "fix_attempts": result.get("fix_attempts", 0)
     }

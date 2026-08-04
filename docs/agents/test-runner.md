@@ -46,7 +46,7 @@ timeout_seconds: int = 15
   "passed_tests": int,
   "failed_tests": int,
   "traceback": str,
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 

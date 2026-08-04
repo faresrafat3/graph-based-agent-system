@@ -19,7 +19,7 @@ The Agent Assigner assigns and schedules only. It does not run tasks, generate c
 ```python
 AGENT_ASSIGNER_PERMISSIONS = {
     "READ": ["tasks", "task_dependencies", "agent_capabilities"],
-    "WRITE": ["assignments", "execution_plan", "routing_violations"],
+    "WRITE": ["assignments", "execution_plan", "routing_breaches"],
     "NEVER": ["source_code", "credentials", "deployment", "database_access"],
     "HUMAN_CHECKPOINT": ["unknown_domain_task", "conflicting_agent_roles"]
 }
@@ -39,7 +39,7 @@ thread_id: str = "assigner_session"
   "success": bool,
   "assignments": dict[str, dict],
   "execution_plan": list[dict],
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 
@@ -74,7 +74,7 @@ thread_id: str = "assigner_session"
 
 ### Escalate
 
-- Escalate invalid schemas, unknown dependencies, cycles, or cross-domain violations.
+- Escalate invalid schemas, unknown dependencies, cycles, or cross-domain breaches.
 
 ## Routing Table
 

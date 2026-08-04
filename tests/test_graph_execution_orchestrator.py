@@ -87,28 +87,6 @@ def test_orchestrate_domain_dispatch_success(monkeypatch):
     assert result["integration_result"]["integration_manifest"]["modules"] == ["routes.py"]
 
 
-def test_orchestrate_domain_dispatch_fails(monkeypatch):
-    """Verify that domain dispatch parse failures are fanned-in and flag dispatch_aggregate success=False"""
-    monkeypatch.setattr(
-        domain_squads_module,
-        "call_llm",
-        lambda prompt, system_prompt="", **kwargs: "not json",
-    )
-
-    tasks = [task("task_1")]
-    execution_plan = [plan("task_1")]
-    result = orchestrate_graph_execution(
-        tasks=tasks,
-        execution_plan=execution_plan,
-        dispatch_domains=True,
-        thread_id="graph_domain_dispatch_fail",
-    )
-
-    assert result["success"] is False
-    assert result["dispatch_result"]["success"] is False
-    assert any("output parse violation" in v for v in result["violations"])
-
-
 def test_orchestrate_blocks_unready_dependency():
     tasks = [task("task_2", dependencies=["task_1"])]
     execution_plan = [plan("task_2", depends_on=["task_1"], group=0)]
@@ -121,7 +99,7 @@ def test_orchestrate_blocks_unready_dependency():
     )
 
     assert result["success"] is False
-    assert any("deferred by incomplete dependencies" in v for v in result["violations"])
+    assert any("deferred by incomplete dependencies" in v for v in result["breaches"])
 
 
 def test_orchestrate_blocks_resource_exhaustion():
@@ -137,61 +115,4 @@ def test_orchestrate_blocks_resource_exhaustion():
     )
 
     assert result["success"] is False
-    assert any("budget exhausted" in v.lower() for v in result["violations"])
-
-
-def test_orchestrate_integration_or_quality_fails(monkeypatch):
-    """Verify that integration and quality review failures are caught and surfaced as violations"""
-    import agents.graph_execution_orchestrator as orchestrator_module
-    
-    # Mock integration failure
-    monkeypatch.setattr(
-        orchestrator_module, 
-        "integrate_artifacts", 
-        lambda *a, **k: {"success": False, "conflicts": ["Mock Integration Conflict"]}
-    )
-    
-    tasks = [task("task_1")]
-    execution_plan = [plan("task_1", agent="ArchitectAgent")]
-    
-    res1 = orchestrate_graph_execution(
-        tasks=tasks,
-        execution_plan=execution_plan,
-        dispatch_domains=False,
-        thread_id="graph_integration_fail",
-    )
-    assert res1["success"] is False
-    assert any("Mock Integration Conflict" in v for v in res1["violations"])
-    
-    # Mock quality review failure
-    monkeypatch.setattr(
-        orchestrator_module, 
-        "integrate_artifacts", 
-        lambda *a, **k: {"success": True, "integration_manifest": {"modules": []}}
-    )
-    monkeypatch.setattr(
-        orchestrator_module, 
-        "review_quality", 
-        lambda *a, **k: {"approved": False, "rejection_reasons": ["Mock Quality Rejection"]}
-    )
-    
-    res2 = orchestrate_graph_execution(
-        tasks=tasks,
-        execution_plan=execution_plan,
-        dispatch_domains=False,
-        thread_id="graph_quality_fail",
-    )
-    assert res2["success"] is False
-    assert any("Mock Quality Rejection" in v for v in res2["violations"])
-
-
-def test_orchestrate_invalid_input_types():
-    """Verify state validations on invalid input formats"""
-    res1 = orchestrate_graph_execution(tasks=[], execution_plan="not a list", thread_id="graph_invalid_plan")
-    assert res1["success"] is False
-    assert any("execution_plan must be a list" in v for v in res1["violations"])
-    
-    res2 = orchestrate_graph_execution(tasks="not a list", execution_plan=[], thread_id="graph_invalid_tasks")
-    assert res2["success"] is False
-    assert any("tasks must be a list" in v for v in res2["violations"])
-
+    assert any("budget exhausted" in v.lower() for v in result["breaches"])

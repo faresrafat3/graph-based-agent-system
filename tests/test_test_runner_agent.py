@@ -115,8 +115,8 @@ def leak() -> str:
     """Attempt to read environment."""
     return os.environ.get("STEPFUN_API_KEY", "")
 '''
-    violations = scan_code_for_risky_patterns(source_code, "source_code")
-    assert any("environment_access" in v for v in violations)
+    breaches = scan_code_for_risky_patterns(source_code, "source_code")
+    assert any("environment_access" in v for v in breaches)
 
     res = run_code_and_tests(
         filename="leaker.py",
@@ -127,7 +127,7 @@ def leak() -> str:
 
     assert res["success"] is False
     assert res["stage"] == "preflight"
-    assert any("environment_access" in v for v in res["violations"])
+    assert any("environment_access" in v for v in res["breaches"])
 
 
 def test_validate_sandbox_filename_accepts_safe_names():

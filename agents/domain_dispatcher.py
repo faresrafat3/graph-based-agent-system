@@ -5,7 +5,7 @@ The dispatcher consumes the deterministic execution plan produced by Agent
 Assigner and invokes only implemented domain squad agents. It is intentionally
 conservative: non-domain agents are skipped, dependency order is enforced, raw
 LLM squad responses are parsed through the shared JSON parser, and parse errors
-surface as explicit violations.
+surface as explicit breaches.
 """
 
 from typing import Any
@@ -21,9 +21,9 @@ from tools.json_output_parser import parse_json_object_response
 
 DOMAIN_DISPATCHER_PERMISSIONS = {
     "READ": ["tasks", "execution_plan", "global_context", "completed_task_ids"],
-    "WRITE": ["dispatch_results", "parsed_outputs", "dispatch_violations"],
+    "WRITE": ["dispatch_results", "parsed_outputs", "dispatch_breaches"],
     "NEVER": ["deployment", "credentials", "production_environment"],
-    "HUMAN_CHECKPOINT": ["blocked_dependencies", "unsupported_agent", "squad_boundary_violation"],
+    "HUMAN_CHECKPOINT": ["blocked_dependencies", "unsupported_agent", "squad_boundary_breach"],
 }
 
 
@@ -83,7 +83,7 @@ class DomainDispatcherEngine:
         completed = set(completed_task_ids or set())
         results = []
         parsed_outputs = {}
-        violations = []
+        breaches = []
         skipped_tasks = []
         blocked_tasks = []
         dispatched_count = 0
@@ -95,27 +95,27 @@ class DomainDispatcherEngine:
 
             if not task:
                 message = f"Execution plan references unknown task id '{task_id}'."
-                violations.append(message)
+                breaches.append(message)
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
                     "success": False,
                     "stage": "lookup",
-                    "violations": [message],
+                    "breaches": [message],
                 })
                 continue
 
             blocked = cls._blocked_dependencies(plan_item, completed)
             if blocked:
                 message = f"Task '{task_id}' blocked by incomplete dependencies: {blocked}"
-                violations.append(message)
+                breaches.append(message)
                 blocked_tasks.append(task_id)
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
                     "success": False,
                     "stage": "dependency_blocked",
-                    "violations": [message],
+                    "breaches": [message],
                 })
                 continue
 
@@ -127,7 +127,7 @@ class DomainDispatcherEngine:
                     "assigned_agent": assigned_agent,
                     "success": True,
                     "stage": "skipped_non_domain_agent",
-                    "violations": [],
+                    "breaches": [],
                 })
                 continue
 
@@ -138,7 +138,7 @@ class DomainDispatcherEngine:
                     "assigned_agent": assigned_agent,
                     "success": True,
                     "stage": "skipped_max_tasks",
-                    "violations": [],
+                    "breaches": [],
                 })
                 continue
 
@@ -149,13 +149,13 @@ class DomainDispatcherEngine:
                 raw_result = getattr(agent, method_name)(task, global_context=global_context)
             except Exception as exc:
                 message = f"Task '{task_id}' dispatch failed in {assigned_agent}: {exc}"
-                violations.append(message)
+                breaches.append(message)
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
                     "success": False,
                     "stage": "squad_execution",
-                    "violations": [message],
+                    "breaches": [message],
                 })
                 continue
 
@@ -168,9 +168,9 @@ class DomainDispatcherEngine:
                 completed.add(task_id)
                 parsed_outputs[task_id] = parsed["data"]
             else:
-                violations.extend([
-                    f"Task '{task_id}' output parse violation: {violation}"
-                    for violation in parsed["violations"]
+                breaches.extend([
+                    f"Task '{task_id}' output parse breach: {breach}"
+                    for breach in parsed["breaches"]
                 ])
 
             results.append({
@@ -182,15 +182,15 @@ class DomainDispatcherEngine:
                 "raw_result": raw_result,
                 "parsed_output": parsed["data"],
                 "parse_success": parsed["success"],
-                "violations": parsed["violations"],
+                "breaches": parsed["breaches"],
             })
             dispatched_count += 1
 
         return {
-            "success": len(violations) == 0,
+            "success": len(breaches) == 0,
             "results": results,
             "parsed_outputs": parsed_outputs,
-            "violations": violations,
+            "breaches": breaches,
             "skipped_tasks": skipped_tasks,
             "blocked_tasks": blocked_tasks,
             "completed_task_ids": sorted(completed),

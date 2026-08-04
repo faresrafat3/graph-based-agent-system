@@ -42,7 +42,7 @@ def test_permission_boundaries():
     assert "code" in TASK_DECOMPOSER_PERMISSIONS["NEVER"]
 
 
-def test_permission_violation_raises():
+def test_permission_breach_raises():
     with pytest.raises(PermissionError):
         decompose_requirements("Please delete production database completely")
 

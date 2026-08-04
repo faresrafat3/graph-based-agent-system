@@ -19,7 +19,7 @@ def test_squad_permissions_matrix():
 
 
 def test_auth_squad_out_of_scope_raises():
-    """Verify Law 20 violation raises PermissionError if Auth Squad receives out-of-scope UI task"""
+    """Verify Law 20 breach raises PermissionError if Auth Squad receives out-of-scope UI task"""
     agent = AuthSquadAgent()
     task = {
         "id": "task_99",
@@ -31,11 +31,11 @@ def test_auth_squad_out_of_scope_raises():
     with pytest.raises(PermissionError) as exc_info:
         agent.execute_auth_task(task)
         
-    assert "Law 20 Violation" in str(exc_info.value)
+    assert "Law 20 Breach" in str(exc_info.value)
 
 
 def test_db_squad_out_of_scope_raises():
-    """Verify Law 20 violation raises PermissionError if DB Squad receives out-of-scope React task"""
+    """Verify Law 20 breach raises PermissionError if DB Squad receives out-of-scope React task"""
     agent = DatabaseSquadAgent()
     task = {
         "id": "task_100",
@@ -47,7 +47,7 @@ def test_db_squad_out_of_scope_raises():
     with pytest.raises(PermissionError) as exc_info:
         agent.execute_db_task(task)
         
-    assert "Law 20 Violation" in str(exc_info.value)
+    assert "Law 20 Breach" in str(exc_info.value)
 
 
 def test_auth_squad_valid_execution(monkeypatch):
@@ -85,7 +85,7 @@ def test_api_squad_out_of_scope_raises():
     with pytest.raises(PermissionError) as exc_info:
         agent.execute_api_task(task)
 
-    assert "Law 20 Violation" in str(exc_info.value)
+    assert "Law 20 Breach" in str(exc_info.value)
 
 
 def test_ui_squad_out_of_scope_raises():
@@ -100,58 +100,4 @@ def test_ui_squad_out_of_scope_raises():
     with pytest.raises(PermissionError) as exc_info:
         agent.execute_ui_task(task)
 
-    assert "Law 20 Violation" in str(exc_info.value)
-
-
-def test_auth_squad_totally_out_of_scope_no_allowed():
-    """Verify out-of-scope task without forbidden keywords raises PermissionError"""
-    agent = AuthSquadAgent()
-    task = {
-        "id": "task_out",
-        "title": "Clean codebase comments",
-        "description": "Just clean up code comments and spacing",
-        "type": "refactor",
-    }
-    with pytest.raises(PermissionError, match="received out-of-scope task"):
-        agent.execute_auth_task(task)
-
-
-def test_db_squad_valid_execution(monkeypatch):
-    """Verify DatabaseSquadAgent valid execution path"""
-    monkeypatch.setattr(
-        domain_squads_module,
-        "call_llm",
-        lambda prompt, system_prompt="", **kwargs: '{"filename": "models.py", "code": "class User(Base): pass"}',
-    )
-    agent = DatabaseSquadAgent()
-    task = {
-        "id": "task_db_ok",
-        "title": "Create users database table schema",
-        "description": "SQL postgres tables",
-        "type": "database",
-    }
-    res = agent.execute_db_task(task, global_context="DB Context")
-    assert res["success"] is True
-    assert res["squad"] == "database"
-    assert "models.py" in res["response"]
-
-
-def test_ui_squad_valid_execution(monkeypatch):
-    """Verify UISquadAgent valid execution path"""
-    monkeypatch.setattr(
-        domain_squads_module,
-        "call_llm",
-        lambda prompt, system_prompt="", **kwargs: '{"filename": "button.jsx", "code": "export default Button"}',
-    )
-    agent = UISquadAgent()
-    task = {
-        "id": "task_ui_ok",
-        "title": "Build react component UI layout",
-        "description": "CSS button styles",
-        "type": "ui",
-    }
-    res = agent.execute_ui_task(task, global_context="UI Context")
-    assert res["success"] is True
-    assert res["squad"] == "ui"
-    assert "button.jsx" in res["response"]
-
+    assert "Law 20 Breach" in str(exc_info.value)

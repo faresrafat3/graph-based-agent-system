@@ -37,7 +37,7 @@ Use this document for:
 2. **Simplicity first**: agents are small, specialized, and explicit.
 3. **Surgical changes**: failed outputs receive targeted correction instructions.
 4. **Goal-driven execution**: success is measured by deterministic reports, not model self-assessment.
-5. **Fail loudly**: missing credentials, schema failures, unsafe code, or boundary violations must surface clearly.
+5. **Fail loudly**: missing credentials, schema failures, unsafe code, or boundary breaches must surface clearly.
 6. **No synthetic success**: production paths must not invent successful LLM outputs.
 7. **Security before autonomy**: generated-code execution is constrained and should move to container isolation before broad untrusted usage.
 8. **Everything testable**: each implemented agent has unit/integration tests.
@@ -212,7 +212,7 @@ Reject malformed or inconsistent task outputs without using an LLM.
 
 ```python
 quality_score: float
-violations: list[str]
+breaches: list[str]
 validation_report: dict
 success: bool
 ```
@@ -224,7 +224,7 @@ Success requires:
 ```text
 quality_score >= 0.8
 AND
-violations == []
+breaches == []
 ```
 
 ---
@@ -278,7 +278,7 @@ Route validated tasks to specialized agents and build a deterministic DAG execut
 ```python
 assignments: dict[str, dict]
 execution_plan: list[dict]
-violations: list[str]
+breaches: list[str]
 success: bool
 ```
 
@@ -471,7 +471,7 @@ Stepfun-only audit passed
   "metadata": dict,
   "quality_score": float,
   "final_quality_score": float,
-  "violations": list[str],
+  "breaches": list[str],
   "refinement_attempts": int,
   "context_signal_to_noise": float,
   "agent_assignments": dict,
@@ -493,9 +493,9 @@ Stepfun-only audit passed
 | Configuration | missing Stepfun key | fail loudly |
 | Context | oversized/noisy prompt | refine/truncate/escalate |
 | LLM Output | invalid JSON | clarification/refinement |
-| Schema | missing task key | deterministic violation |
-| Dependency | cycle or unknown task | deterministic violation |
-| Assignment | cross-domain routing | deterministic violation |
+| Schema | missing task key | deterministic breach |
+| Dependency | cycle or unknown task | deterministic breach |
+| Assignment | cross-domain routing | deterministic breach |
 | Code Package | invalid filename/test syntax | package failure |
 | Execution | pytest failure/timeout | execution failure report |
 | Security | env/network/subprocess attempt | preflight rejection |

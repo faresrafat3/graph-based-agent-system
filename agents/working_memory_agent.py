@@ -41,7 +41,7 @@ class WorkingState(TypedDict):
     working_memory: List[Dict]
     assembled_context: str
     budget_report: Dict[str, Any]
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
 
@@ -136,7 +136,7 @@ def propose(state: WorkingState) -> dict:
     if token_budget < 500:
         raise ValueError("token_budget too small (<500)")
 
-    return {"working_memory": [], "assembled_context": "", "violations": [], "success": False}
+    return {"working_memory": [], "assembled_context": "", "breaches": [], "success": False}
 
 
 def execute(state: WorkingState) -> dict:
@@ -169,14 +169,14 @@ def execute(state: WorkingState) -> dict:
 def evaluate(state: WorkingState) -> dict:
     assembled = state.get("assembled_context", "")
     report = state.get("budget_report", {})
-    violations = []
+    breaches = []
 
     if report.get("budget_used", 0) > report.get("budget_total", 4000):
-        violations.append("Budget exceeded")
+        breaches.append("Budget exceeded")
 
     # Success if we assembled something OR no entries to assemble (empty memory is okay)
     success = True  # Always success, even if empty - empty memory is valid
-    return {"violations": violations, "success": success}
+    return {"breaches": breaches, "success": success}
 
 
 def commit(state: WorkingState) -> dict:
@@ -231,7 +231,7 @@ def assemble_working_memory(
             "working_memory": [],
             "assembled_context": "",
             "budget_report": {},
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False
         },
@@ -243,5 +243,5 @@ def assemble_working_memory(
         "assembled_context": result.get("assembled_context", ""),
         "budget_report": result.get("budget_report", {}),
         "success": result.get("success", False),
-        "violations": result.get("violations", [])
+        "breaches": result.get("breaches", [])
     }

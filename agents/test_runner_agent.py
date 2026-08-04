@@ -100,12 +100,12 @@ def scan_code_for_risky_patterns(code: str, label: str = "code") -> list[str]:
     The checks intentionally prefer false positives over allowing generated code
     to access network, secrets, host filesystem, subprocesses, or dynamic eval.
     """
-    violations = []
+    breaches = []
     text = code or ""
     for name, pattern in _FORBIDDEN_CODE_PATTERNS:
         if re.search(pattern, text, re.IGNORECASE):
-            violations.append(f"{label}: forbidden runtime pattern detected: {name}")
-    return violations
+            breaches.append(f"{label}: forbidden runtime pattern detected: {name}")
+    return breaches
 
 
 def _clean_execution_env(temp_dir: str) -> dict:
@@ -170,7 +170,7 @@ def _run_subprocess(cmd: list[str], temp_dir: str, timeout_seconds: int) -> subp
     )
 
 
-def _failure(stage: str, error: str, violations: Optional[list[str]] = None, stdout: str = "", stderr: str = "") -> dict:
+def _failure(stage: str, error: str, breaches: Optional[list[str]] = None, stdout: str = "", stderr: str = "") -> dict:
     """Build a standard Test Runner failure response."""
     return {
         "success": False,
@@ -181,7 +181,7 @@ def _failure(stage: str, error: str, violations: Optional[list[str]] = None, std
         "passed_tests": 0,
         "failed_tests": 0,
         "traceback": stderr or error,
-        "violations": violations or [],
+        "breaches": breaches or [],
     }
 
 
@@ -203,7 +203,7 @@ def run_code_and_tests(
         timeout_seconds: Max execution timeout.
 
     Returns:
-        Dict with success status, output, pass/fail counts, and violations.
+        Dict with success status, output, pass/fail counts, and breaches.
     """
     try:
         safe_filename = validate_sandbox_filename(filename, is_test=False)
@@ -211,17 +211,17 @@ def run_code_and_tests(
         if test_filename or test_code:
             safe_test_filename = validate_sandbox_filename(test_filename, is_test=True)
     except ValueError as exc:
-        return _failure("preflight", str(exc), violations=[str(exc)])
+        return _failure("preflight", str(exc), breaches=[str(exc)])
 
-    violations = []
-    violations.extend(scan_code_for_risky_patterns(code, "source_code"))
+    breaches = []
+    breaches.extend(scan_code_for_risky_patterns(code, "source_code"))
     if test_code:
-        violations.extend(scan_code_for_risky_patterns(test_code, "test_code"))
-    if violations:
+        breaches.extend(scan_code_for_risky_patterns(test_code, "test_code"))
+    if breaches:
         return _failure(
             "preflight",
             "Unsafe generated code rejected before execution",
-            violations=violations,
+            breaches=breaches,
         )
 
     temp_dir = None
@@ -284,7 +284,7 @@ def run_code_and_tests(
                 "passed_tests": passed_count,
                 "failed_tests": failed_count,
                 "traceback": test_proc.stdout if not is_success else "",
-                "violations": [],
+                "breaches": [],
             }
 
         return {
@@ -296,7 +296,7 @@ def run_code_and_tests(
             "passed_tests": 0,
             "failed_tests": 0,
             "traceback": "",
-            "violations": [],
+            "breaches": [],
         }
 
     except subprocess.TimeoutExpired:

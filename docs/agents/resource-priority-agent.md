@@ -55,7 +55,7 @@ execution_plan: list[dict]
 
 ### Evaluate
 
-- Ensure no budget or rate-limit violation.
+- Ensure no budget or rate-limit breach.
 
 ### Commit
 

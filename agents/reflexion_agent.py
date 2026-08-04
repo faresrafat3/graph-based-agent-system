@@ -72,7 +72,7 @@ class ReflexionState(TypedDict):
     execution_history: List[Dict[str, Any]]
     verbal_reflection: str
     reflection_summary: str
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
 
@@ -134,7 +134,7 @@ def propose(state: ReflexionState) -> dict:
         # Allow security-related failures but don't store secrets
         pass
 
-    return {"verbal_reflection": "", "violations": [], "success": False}
+    return {"verbal_reflection": "", "breaches": [], "success": False}
 
 
 def execute(state: ReflexionState) -> dict:
@@ -167,9 +167,9 @@ def evaluate(state: ReflexionState) -> dict:
     if not ReflexionEngine.is_reflection_actionable(reflection):
         return {
             "success": False,
-            "violations": [f"Reflection not actionable or too short: '{reflection[:100]}'"]
+            "breaches": [f"Reflection not actionable or too short: '{reflection[:100]}'"]
         }
-    return {"success": True, "violations": []}
+    return {"success": True, "breaches": []}
 
 
 def commit(state: ReflexionState) -> dict:
@@ -253,7 +253,7 @@ def generate_reflection(
             "execution_history": execution_history or [],
             "verbal_reflection": "",
             "reflection_summary": "",
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False
         },
@@ -264,7 +264,7 @@ def generate_reflection(
         "verbal_reflection": result.get("verbal_reflection", ""),
         "reflection_summary": result.get("reflection_summary", ""),
         "success": result.get("success", False),
-        "violations": result.get("violations", [])
+        "breaches": result.get("breaches", [])
     }
 
 

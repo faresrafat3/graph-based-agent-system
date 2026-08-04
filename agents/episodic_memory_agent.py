@@ -43,7 +43,7 @@ class EpisodicState(TypedDict):
     duration: float
     metadata: Dict[str, Any]
     episodic_entry: Dict[str, Any]
-    violations: List[str]
+    breaches: List[str]
     retry_count: int
     success: bool
 
@@ -108,7 +108,7 @@ def propose(state: EpisodicState) -> dict:
     if "password" in combined and "=" in combined and "your-" not in combined:
         raise PermissionError("Episodic memory detected possible credentials, blocked by NEVER permission")
 
-    return {"episodic_entry": {}, "violations": [], "success": False}
+    return {"episodic_entry": {}, "breaches": [], "success": False}
 
 
 def execute(state: EpisodicState) -> dict:
@@ -126,17 +126,17 @@ def execute(state: EpisodicState) -> dict:
 
 def evaluate(state: EpisodicState) -> dict:
     entry = state.get("episodic_entry", {})
-    violations = []
+    breaches = []
 
     if not entry.get("episode_id"):
-        violations.append("Episode ID missing")
+        breaches.append("Episode ID missing")
     if not entry.get("type") == "episodic":
-        violations.append("Type must be episodic")
+        breaches.append("Type must be episodic")
     if EpisodicEngine.estimate_token_count(entry) > 2000:
-        violations.append("Episode too large (>2000 tokens estimated)")
+        breaches.append("Episode too large (>2000 tokens estimated)")
 
-    success = len(violations) == 0
-    return {"violations": violations, "success": success}
+    success = len(breaches) == 0
+    return {"breaches": breaches, "success": success}
 
 
 def commit(state: EpisodicState) -> dict:
@@ -207,7 +207,7 @@ def store_episode(
             "duration": duration,
             "metadata": metadata or {},
             "episodic_entry": {},
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False
         },
@@ -217,7 +217,7 @@ def store_episode(
     return {
         "episodic_entry": result.get("episodic_entry", {}),
         "success": result.get("success", False),
-        "violations": result.get("violations", [])
+        "breaches": result.get("breaches", [])
     }
 
 

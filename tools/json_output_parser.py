@@ -76,7 +76,7 @@ def parse_json_object_response(
         required_keys: Top-level keys that must exist in the parsed object.
 
     Returns:
-        A result dictionary with ``success``, ``data``, and ``violations``.
+        A result dictionary with ``success``, ``data``, and ``breaches``.
     """
     try:
         data = extract_first_json_object(response)
@@ -84,16 +84,16 @@ def parse_json_object_response(
         return {
             "success": False,
             "data": {},
-            "violations": [str(exc)],
+            "breaches": [str(exc)],
         }
 
-    violations = []
+    breaches = []
     for key in required_keys or []:
         if key not in data:
-            violations.append(f"Missing required JSON key: '{key}'")
+            breaches.append(f"Missing required JSON key: '{key}'")
 
     return {
-        "success": not violations,
+        "success": not breaches,
         "data": data,
-        "violations": violations,
+        "breaches": breaches,
     }

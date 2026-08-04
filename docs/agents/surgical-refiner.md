@@ -8,7 +8,7 @@
 | Public Entrypoint | `generate_refinement_feedback(...)` |
 | Graph | `surgical_refiner_graph` |
 | Status | Implemented |
-| Primary Role | Convert deterministic violations into targeted correction instructions |
+| Primary Role | Convert deterministic breaches into targeted correction instructions |
 
 ## Responsibility Boundary
 
@@ -18,17 +18,17 @@ The Surgical Refiner writes feedback only. It does not validate, execute, or ful
 
 ```python
 SURGICAL_REFINER_PERMISSIONS = {
-    "READ": ["validation_report", "violations", "previous_output"],
+    "READ": ["validation_report", "breaches", "previous_output"],
     "WRITE": ["surgical_feedback", "pinpoint_corrections"],
     "NEVER": ["regenerate_entire_system", "override_validation_report"],
-    "HUMAN_CHECKPOINT": ["persistent_unsolvable_violations"]
+    "HUMAN_CHECKPOINT": ["persistent_unsolvable_breaches"]
 }
 ```
 
 ## Input Contract
 
 ```python
-violations: list[str]
+breaches: list[str]
 previous_output: Any | None = None
 thread_id: str = "refiner_session"
 ```
@@ -47,8 +47,8 @@ thread_id: str = "refiner_session"
 
 ### Propose
 
-- Inspect validation violations.
-- Extract target keys from quoted violation strings.
+- Inspect validation breaches.
+- Extract target keys from quoted breach strings.
 
 ### Execute
 
@@ -85,6 +85,6 @@ feedback = generate_refinement_feedback(["Missing mandatory schema key: 'metadat
 
 ## Improvement Plan
 
-- Use structured violations.
+- Use structured breaches.
 - Include JSON path pointers.
 - Generate patch-style instructions.

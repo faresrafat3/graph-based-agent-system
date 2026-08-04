@@ -53,7 +53,7 @@ commits are checked independently of any human commits on the same base.
 
 ## What the agent may NOT do
 
-- Push directly to `main` (blocked by protection; also a policy violation).
+- Push directly to `main` (blocked by protection; also a policy breach).
 - Force-push or delete `main` (blocked by protection).
 - Merge a PR whose `test` check is red.
 - Commit `.env`, secrets, `gbas-agent.gbas_agent_v5.json`, or `__pycache__/`.

@@ -19,7 +19,7 @@ from agents.domain_squads import SQUAD_PERMISSIONS
 
 AGENT_ASSIGNER_PERMISSIONS = {
     "READ": ["tasks", "task_dependencies", "agent_capabilities"],
-    "WRITE": ["assignments", "execution_plan", "routing_violations"],
+    "WRITE": ["assignments", "execution_plan", "routing_breaches"],
     "NEVER": ["source_code", "credentials", "deployment", "database_access"],
     "HUMAN_CHECKPOINT": ["unknown_domain_task", "conflicting_agent_roles"],
 }
@@ -31,7 +31,7 @@ class AgentAssignerState(TypedDict):
     tasks: list[dict]
     assignments: dict[str, dict]
     execution_plan: list[dict]
-    violations: list[str]
+    breaches: list[str]
     retry_count: int
     success: bool
 
@@ -154,20 +154,20 @@ class AgentAssignerEngine:
 
         permissions = SQUAD_PERMISSIONS[squad_key]
         text = cls._task_text(task)
-        violations = []
+        breaches = []
 
         for keyword in permissions["FORBIDDEN_KEYWORDS"]:
             if keyword in text:
-                violations.append(
+                breaches.append(
                     f"Task '{task.get('id')}' routed to {agent} but contains forbidden keyword '{keyword}'."
                 )
 
         if not any(keyword in text for keyword in permissions["ALLOWED_TYPES"]):
-            violations.append(
+            breaches.append(
                 f"Task '{task.get('id')}' routed to {agent} without allowed domain evidence."
             )
 
-        return violations
+        return breaches
 
     @classmethod
     def build_assignments(cls, tasks: list[dict]) -> dict[str, dict]:
@@ -182,7 +182,7 @@ class AgentAssignerEngine:
     @classmethod
     def build_execution_plan(cls, tasks: list[dict], assignments: dict[str, dict]) -> tuple[list[dict], list[str]]:
         """Topologically schedule tasks and compute deterministic parallel groups."""
-        violations = []
+        breaches = []
         task_by_id = {task.get("id"): task for task in tasks if isinstance(task, dict)}
         original_index = {task.get("id"): idx for idx, task in enumerate(tasks) if isinstance(task, dict)}
 
@@ -193,7 +193,7 @@ class AgentAssignerEngine:
         for task_id, task in task_by_id.items():
             for dep in task.get("dependencies", []):
                 if dep not in task_by_id:
-                    violations.append(f"Task '{task_id}' depends on unknown task id '{dep}'.")
+                    breaches.append(f"Task '{task_id}' depends on unknown task id '{dep}'.")
                     continue
                 indegree[task_id] += 1
                 dependents[dep].append(task_id)
@@ -223,7 +223,7 @@ class AgentAssignerEngine:
 
         if len(ordered_ids) != len(task_by_id):
             unresolved = sorted(set(task_by_id) - set(ordered_ids))
-            violations.append(f"Execution plan could not resolve cyclic/unreachable tasks: {unresolved}")
+            breaches.append(f"Execution plan could not resolve cyclic/unreachable tasks: {unresolved}")
 
         plan = []
         for task_id in ordered_ids:
@@ -244,20 +244,20 @@ class AgentAssignerEngine:
             cls.PRIORITY_RANK.get(item.get("priority"), 99),
             original_index[item["task_id"]],
         ))
-        return plan, violations
+        return plan, breaches
 
     @classmethod
     def validate_assignments(cls, tasks: list[dict], assignments: dict[str, dict], execution_plan: list[dict]) -> list[str]:
         """Validate routing completeness, agent names, and domain boundaries."""
-        violations = []
+        breaches = []
         task_ids = {task.get("id") for task in tasks if isinstance(task, dict)}
         assigned_ids = set(assignments)
         planned_ids = {item.get("task_id") for item in execution_plan}
 
         for missing in sorted(task_ids - assigned_ids):
-            violations.append(f"Task '{missing}' has no assignment.")
+            breaches.append(f"Task '{missing}' has no assignment.")
         for missing in sorted(task_ids - planned_ids):
-            violations.append(f"Task '{missing}' is missing from execution plan.")
+            breaches.append(f"Task '{missing}' is missing from execution plan.")
 
         for task in tasks:
             if not isinstance(task, dict):
@@ -265,10 +265,10 @@ class AgentAssignerEngine:
             assignment = assignments.get(task.get("id"), {})
             agent = assignment.get("assigned_agent")
             if agent not in cls.VALID_AGENT_NAMES:
-                violations.append(f"Task '{task.get('id')}' assigned to invalid agent '{agent}'.")
-            violations.extend(cls.validate_squad_scope(task, assignment))
+                breaches.append(f"Task '{task.get('id')}' assigned to invalid agent '{agent}'.")
+            breaches.extend(cls.validate_squad_scope(task, assignment))
 
-        return violations
+        return breaches
 
 
 # Karpathy Loop Implementation
@@ -276,20 +276,20 @@ class AgentAssignerEngine:
 def propose(state: AgentAssignerState) -> dict:
     """Step 1: Propose - validate task structure before routing."""
     tasks = state.get("tasks", [])
-    violations = DeterministicValidatorEngine.validate_tasks_structure(tasks)
-    return {"violations": violations, "success": len(violations) == 0}
+    breaches = DeterministicValidatorEngine.validate_tasks_structure(tasks)
+    return {"breaches": breaches, "success": len(breaches) == 0}
 
 
 def execute(state: AgentAssignerState) -> dict:
     """Step 2: Execute - build assignments and DAG execution plan."""
     tasks = state.get("tasks", [])
     assignments = AgentAssignerEngine.build_assignments(tasks)
-    execution_plan, plan_violations = AgentAssignerEngine.build_execution_plan(tasks, assignments)
-    existing_violations = state.get("violations", [])
+    execution_plan, plan_breaches = AgentAssignerEngine.build_execution_plan(tasks, assignments)
+    existing_breaches = state.get("breaches", [])
     return {
         "assignments": assignments,
         "execution_plan": execution_plan,
-        "violations": existing_violations + plan_violations,
+        "breaches": existing_breaches + plan_breaches,
     }
 
 
@@ -298,12 +298,12 @@ def evaluate(state: AgentAssignerState) -> dict:
     tasks = state.get("tasks", [])
     assignments = state.get("assignments", {})
     execution_plan = state.get("execution_plan", [])
-    violations = state.get("violations", []) + AgentAssignerEngine.validate_assignments(
+    breaches = state.get("breaches", []) + AgentAssignerEngine.validate_assignments(
         tasks,
         assignments,
         execution_plan,
     )
-    return {"violations": violations, "success": len(violations) == 0}
+    return {"breaches": breaches, "success": len(breaches) == 0}
 
 
 def commit(state: AgentAssignerState) -> dict:
@@ -356,14 +356,14 @@ def assign_tasks(tasks: list[dict], thread_id: str = "assigner_session") -> dict
         thread_id: Session thread ID for LangGraph checkpointer.
 
     Returns:
-        Dict containing assignments, execution_plan, violations, and success.
+        Dict containing assignments, execution_plan, breaches, and success.
     """
     result = agent_assigner_graph.invoke(
         {
             "tasks": tasks,
             "assignments": {},
             "execution_plan": [],
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
         },
@@ -374,5 +374,5 @@ def assign_tasks(tasks: list[dict], thread_id: str = "assigner_session") -> dict
         "success": result.get("success", False),
         "assignments": result.get("assignments", {}),
         "execution_plan": result.get("execution_plan", []),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }

@@ -16,25 +16,25 @@ All agents and system components **MUST** adhere to Karpathy's Four Principles:
 - **Requirement**: All agents MUST analyze inputs thoroughly before taking action
 - **Implementation**: Each agent implements a `propose` step in the Karpathy Loop
 - **Validation**: Agents MUST validate inputs before processing
-- **Violation**: Agents that act without thinking MUST be flagged and corrected
+- **Breach**: Agents that act without thinking MUST be flagged and corrected
 
 #### Principle 2: Simplicity First
 - **Requirement**: All agents MUST break tasks into minimum necessary steps
 - **Implementation**: Agents MUST prefer simple solutions over complex ones
 - **Validation**: Code reviews MUST check for unnecessary complexity
-- **Violation**: Over-engineered solutions MUST be refactored
+- **Breach**: Over-engineered solutions MUST be refactored
 
 #### Principle 3: Surgical Changes
 - **Requirement**: All agents MUST only modify what is necessary
 - **Implementation**: Agents MUST have explicit permission boundaries
 - **Validation**: Agents MUST validate outputs before committing
-- **Violation**: Agents that modify outside their scope MUST be stopped
+- **Breach**: Agents that modify outside their scope MUST be stopped
 
 #### Principle 4: Goal-Driven Execution
 - **Requirement**: All agents MUST work towards clear, measurable goals
 - **Implementation**: Each agent MUST have explicit success criteria
 - **Validation**: Agents MUST evaluate their outputs against success criteria
-- **Violation**: Agents that fail to meet goals MUST refine and retry
+- **Breach**: Agents that fail to meet goals MUST refine and retry
 
 ---
 
@@ -45,22 +45,22 @@ All agents **MUST** have explicit permission boundaries:
 #### READ Permissions
 - Agents MUST explicitly declare what they can READ
 - Agents MUST NOT read outside their declared permissions
-- Violation: Agents that read outside permissions MUST be stopped
+- Breach: Agents that read outside permissions MUST be stopped
 
 #### WRITE Permissions
 - Agents MUST explicitly declare what they can WRITE
 - Agents MUST NOT write outside their declared permissions
-- Violation: Agents that write outside permissions MUST be stopped
+- Breach: Agents that write outside permissions MUST be stopped
 
 #### NEVER Permissions
 - Agents MUST explicitly declare what they can NEVER do
 - Agents MUST NEVER perform actions in their NEVER list
-- Violation: Agents that violate NEVER permissions MUST be stopped immediately
+- Breach: Agents that breach NEVER permissions MUST be stopped immediately
 
 #### HUMAN_CHECKPOINT Permissions
 - Agents MUST explicitly declare when they need human approval
 - Agents MUST NOT proceed without human approval when required
-- Violation: Agents that bypass human checkpoints MUST be stopped
+- Breach: Agents that bypass human checkpoints MUST be stopped
 
 ---
 
@@ -72,19 +72,19 @@ All agents **MUST** implement proper failure handling:
 - **Requirement**: Agents MUST fail loudly, not silently
 - **Implementation**: Agents MUST raise exceptions with clear error messages
 - **Validation**: All errors MUST be logged and reported
-- **Violation**: Silent failures MUST be treated as critical bugs
+- **Breach**: Silent failures MUST be treated as critical bugs
 
 #### Surface to Human
 - **Requirement**: Agents MUST surface errors to humans when outside their scope
 - **Implementation**: Agents MUST escalate after 3 failed retries
 - **Validation**: Escalation MUST be logged and tracked
-- **Violation**: Agents that fail to escalate MUST be corrected
+- **Breach**: Agents that fail to escalate MUST be corrected
 
 #### Never Assume
 - **Requirement**: Agents MUST NEVER assume, always validate
 - **Implementation**: Agents MUST validate all inputs and outputs
 - **Validation**: Validation MUST be explicit and logged
-- **Violation**: Agents that make assumptions MUST be corrected
+- **Breach**: Agents that make assumptions MUST be corrected
 
 ---
 
@@ -99,31 +99,31 @@ Propose → Execute → Evaluate → Commit → Refine
 - **Requirement**: Generate a plan or hypothesis
 - **Implementation**: Use memory and tools to analyze inputs
 - **Validation**: Plan MUST be validated before execution
-- **Violation**: Invalid plans MUST be refined
+- **Breach**: Invalid plans MUST be refined
 
 #### Execute Step
 - **Requirement**: Implement the plan
 - **Implementation**: Use LLM and tools to execute
 - **Validation**: Execution MUST be validated
-- **Violation**: Failed executions MUST be refined
+- **Breach**: Failed executions MUST be refined
 
 #### Evaluate Step
 - **Requirement**: Check if the plan worked
 - **Implementation**: Validate outputs against success criteria
 - **Validation**: Evaluation MUST be explicit and logged
-- **Violation**: Invalid evaluations MUST be corrected
+- **Breach**: Invalid evaluations MUST be corrected
 
 #### Commit Step
 - **Requirement**: Commit if successful
 - **Implementation**: Store results in memory
 - **Validation**: Commit MUST be validated
-- **Violation**: Invalid commits MUST be rolled back
+- **Breach**: Invalid commits MUST be rolled back
 
 #### Refine Step
 - **Requirement**: Refine if failed
 - **Implementation**: Adjust plan and retry
 - **Validation**: Refinement MUST be logged
-- **Violation**: Failed refinements MUST escalate after 3 retries
+- **Breach**: Failed refinements MUST escalate after 3 retries
 
 ---
 
@@ -135,19 +135,19 @@ All agents **MUST** be specialized:
 - **Requirement**: Each agent MUST have a single, well-defined responsibility
 - **Implementation**: Each agent MUST do only one thing
 - **Validation**: Code reviews MUST check for single responsibility
-- **Violation**: Agents with multiple responsibilities MUST be split
+- **Breach**: Agents with multiple responsibilities MUST be split
 
 #### Clear Interface
 - **Requirement**: Each agent MUST have a clear interface
 - **Implementation**: Each agent MUST define input and output schemas
 - **Validation**: Interfaces MUST be validated
-- **Violation**: Unclear interfaces MUST be clarified
+- **Breach**: Unclear interfaces MUST be clarified
 
 #### Loose Coupling
 - **Requirement**: Agents MUST be loosely coupled
 - **Implementation**: Agents MUST communicate through state passing
 - **Validation**: Code reviews MUST check for tight coupling
-- **Violation**: Tightly coupled agents MUST be decoupled
+- **Breach**: Tightly coupled agents MUST be decoupled
 
 ---
 
@@ -159,19 +159,19 @@ All agents **MUST** communicate properly:
 - **Requirement**: Agents MUST communicate through state passing
 - **Implementation**: Use LangGraph state management
 - **Validation**: State MUST be validated before passing
-- **Violation**: Invalid state MUST be corrected
+- **Breach**: Invalid state MUST be corrected
 
 #### Explicit Dependencies
 - **Requirement**: Agent dependencies MUST be explicit
 - **Implementation**: Use LangGraph edges to define dependencies
 - **Validation**: Dependencies MUST be validated
-- **Violation**: Implicit dependencies MUST be made explicit
+- **Breach**: Implicit dependencies MUST be made explicit
 
 #### No Side Effects
 - **Requirement**: Agents MUST NOT have side effects
 - **Implementation**: Agents MUST only modify their output state
 - **Validation**: Code reviews MUST check for side effects
-- **Violation**: Agents with side effects MUST be corrected
+- **Breach**: Agents with side effects MUST be corrected
 
 ---
 
@@ -185,19 +185,19 @@ The system **MUST** use LangGraph for orchestration:
 - **Requirement**: System MUST use LangGraph state management
 - **Implementation**: Define TypedDict for each agent state
 - **Validation**: State MUST be validated at each step
-- **Violation**: Invalid state MUST be corrected
+- **Breach**: Invalid state MUST be corrected
 
 #### Conditional Routing
 - **Requirement**: System MUST use conditional routing
 - **Implementation**: Use LangGraph conditional edges
 - **Validation**: Routing MUST be validated
-- **Violation**: Invalid routing MUST be corrected
+- **Breach**: Invalid routing MUST be corrected
 
 #### Parallel Execution
 - **Requirement**: System MUST support parallel execution
 - **Implementation**: Use LangGraph parallel edges
 - **Validation**: Parallel execution MUST be tested
-- **Violation**: Failed parallel execution MUST be corrected
+- **Breach**: Failed parallel execution MUST be corrected
 
 ---
 
@@ -209,19 +209,19 @@ The system **MUST** use Stepfun as the only active LLM provider in the current p
 - **Requirement**: System MUST route all LLM calls through the Stepfun native REST integration
 - **Implementation**: Use `llm.llm_integration.call_llm`, backed only by Stepfun chat completions
 - **Validation**: Tests MUST monkeypatch the Stepfun HTTP boundary rather than using production fallback responses
-- **Violation**: Adding alternate provider routing or silent dry-run fallbacks MUST be rejected
+- **Breach**: Adding alternate provider routing or silent dry-run fallbacks MUST be rejected
 
 #### Fail-Loud Error Handling
 - **Requirement**: System MUST fail loudly when Stepfun credentials, quota, network, or response payloads are invalid
 - **Implementation**: Raise typed configuration/API exceptions with actionable messages
 - **Validation**: Error paths MUST be covered by tests
-- **Violation**: Silent fallback responses MUST be removed immediately
+- **Breach**: Silent fallback responses MUST be removed immediately
 
 #### Rate Limiting
 - **Requirement**: System MUST respect Stepfun rate limits
 - **Implementation**: Implement rate limiting/retry controls before high-volume usage
 - **Validation**: Rate limiting MUST be tested
-- **Violation**: Rate limit violations MUST be fixed
+- **Breach**: Rate limit breaches MUST be fixed
 
 ---
 
@@ -233,19 +233,19 @@ The system **MUST** implement custom memory:
 - **Requirement**: System MUST maintain short-term memory
 - **Implementation**: Use in-memory dictionary
 - **Validation**: Short-term memory MUST be tested
-- **Violation**: Memory leaks MUST be fixed
+- **Breach**: Memory leaks MUST be fixed
 
 #### Long-Term Memory
 - **Requirement**: System MUST maintain long-term memory
 - **Implementation**: Use persistent storage
 - **Validation**: Long-term memory MUST be tested
-- **Violation**: Memory corruption MUST be fixed
+- **Breach**: Memory corruption MUST be fixed
 
 #### Similarity Search
 - **Requirement**: System MUST support similarity search
 - **Implementation**: Use Jaccard similarity
 - **Validation**: Similarity search MUST be tested
-- **Violation**: Inaccurate similarity MUST be corrected
+- **Breach**: Inaccurate similarity MUST be corrected
 
 ---
 
@@ -259,19 +259,19 @@ All code **MUST** be tested:
 - **Requirement**: All functions MUST have unit tests
 - **Implementation**: Use pytest
 - **Validation**: Coverage MUST be > 80%
-- **Violation**: Untested code MUST NOT be merged
+- **Breach**: Untested code MUST NOT be merged
 
 #### Integration Tests
 - **Requirement**: All agents MUST have integration tests
 - **Implementation**: Test full agent workflow
 - **Validation**: Integration tests MUST pass
-- **Violation**: Failed integration tests MUST be fixed
+- **Breach**: Failed integration tests MUST be fixed
 
 #### Edge Case Tests
 - **Requirement**: All agents MUST have edge case tests
 - **Implementation**: Test edge cases and error conditions
 - **Validation**: Edge case tests MUST pass
-- **Violation**: Failed edge case tests MUST be fixed
+- **Breach**: Failed edge case tests MUST be fixed
 
 ---
 
@@ -283,19 +283,19 @@ All code **MUST** be reviewed:
 - **Requirement**: All code MUST be reviewed by peers
 - **Implementation**: Use pull requests
 - **Validation**: Reviews MUST be documented
-- **Violation**: Unreviewed code MUST NOT be merged
+- **Breach**: Unreviewed code MUST NOT be merged
 
 #### Quality Gates
 - **Requirement**: All code MUST pass quality gates
 - **Implementation**: Use automated checks
 - **Validation**: Quality gates MUST be enforced
-- **Violation**: Code that fails quality gates MUST NOT be merged
+- **Breach**: Code that fails quality gates MUST NOT be merged
 
 #### Documentation
 - **Requirement**: All code MUST be documented
 - **Implementation**: Use docstrings and comments
 - **Validation**: Documentation MUST be reviewed
-- **Violation**: Undocumented code MUST NOT be merged
+- **Breach**: Undocumented code MUST NOT be merged
 
 ---
 
@@ -307,19 +307,19 @@ All code **MUST** use CI/CD:
 - **Requirement**: All tests MUST run automatically
 - **Implementation**: Use CI/CD pipeline
 - **Validation**: CI/CD MUST be tested
-- **Violation**: Failed CI/CD MUST be fixed
+- **Breach**: Failed CI/CD MUST be fixed
 
 #### Automated Deployment
 - **Requirement**: All deployments MUST be automated
 - **Implementation**: Use CI/CD pipeline
 - **Validation**: Deployments MUST be tested
-- **Violation**: Failed deployments MUST be rolled back
+- **Breach**: Failed deployments MUST be rolled back
 
 #### Continuous Monitoring
 - **Requirement**: System MUST be monitored continuously
 - **Implementation**: Use monitoring tools
 - **Validation**: Monitoring MUST be tested
-- **Violation**: Monitoring failures MUST be fixed
+- **Breach**: Monitoring failures MUST be fixed
 
 ---
 
@@ -333,19 +333,19 @@ The system **MUST** be fair:
 - **Requirement**: System MUST detect bias
 - **Implementation**: Implement bias detection tools
 - **Validation**: Bias detection MUST be tested
-- **Violation**: Biased outputs MUST be corrected
+- **Breach**: Biased outputs MUST be corrected
 
 #### Fairness Validation
 - **Requirement**: System MUST validate fairness
 - **Implementation**: Test with diverse inputs
 - **Validation**: Fairness MUST be documented
-- **Violation**: Unfair outputs MUST be corrected
+- **Breach**: Unfair outputs MUST be corrected
 
 #### Transparency
 - **Requirement**: System MUST be transparent
 - **Implementation**: Log all decisions
 - **Validation**: Transparency MUST be tested
-- **Violation**: Opaque decisions MUST be explained
+- **Breach**: Opaque decisions MUST be explained
 
 ---
 
@@ -357,19 +357,19 @@ The system **MUST** protect privacy:
 - **Requirement**: System MUST protect user data
 - **Implementation**: Implement data protection measures
 - **Validation**: Data protection MUST be tested
-- **Violation**: Data breaches MUST be reported
+- **Breach**: Data breaches MUST be reported
 
 #### Access Control
 - **Requirement**: System MUST control access
 - **Implementation**: Implement access control
 - **Validation**: Access control MUST be tested
-- **Violation**: Unauthorized access MUST be blocked
+- **Breach**: Unauthorized access MUST be blocked
 
 #### Encryption
 - **Requirement**: System MUST encrypt sensitive data
 - **Implementation**: Use encryption
 - **Validation**: Encryption MUST be tested
-- **Violation**: Unencrypted data MUST be encrypted
+- **Breach**: Unencrypted data MUST be encrypted
 
 ---
 
@@ -381,19 +381,19 @@ The system **MUST** be accountable:
 - **Requirement**: System MUST maintain audit trail
 - **Implementation**: Log all actions
 - **Validation**: Audit trail MUST be tested
-- **Violation**: Missing audit trail MUST be added
+- **Breach**: Missing audit trail MUST be added
 
 #### Human Oversight
 - **Requirement**: System MUST have human oversight
 - **Implementation**: Implement human-in-the-loop
 - **Validation**: Human oversight MUST be tested
-- **Violation**: Lack of oversight MUST be corrected
+- **Breach**: Lack of oversight MUST be corrected
 
 #### Responsibility
 - **Requirement**: System MUST have clear responsibility
 - **Implementation**: Document responsibilities
 - **Validation**: Responsibilities MUST be reviewed
-- **Violation**: Unclear responsibilities MUST be clarified
+- **Breach**: Unclear responsibilities MUST be clarified
 
 ---
 
@@ -407,19 +407,19 @@ This Constitution **MAY** be amended:
 - **Requirement**: Amendments MUST be proposed in writing
 - **Implementation**: Use pull requests
 - **Validation**: Proposals MUST be reviewed
-- **Violation**: Unreviewed proposals MUST NOT be merged
+- **Breach**: Unreviewed proposals MUST NOT be merged
 
 #### Approval
 - **Requirement**: Amendments MUST be approved
 - **Implementation**: Use consensus or voting
 - **Validation**: Approval MUST be documented
-- **Violation**: Unapproved amendments MUST NOT be merged
+- **Breach**: Unapproved amendments MUST NOT be merged
 
 #### Implementation
 - **Requirement**: Amendments MUST be implemented
 - **Implementation**: Update code and documentation
 - **Validation**: Implementation MUST be tested
-- **Violation**: Unimplemented amendments MUST be completed
+- **Breach**: Unimplemented amendments MUST be completed
 
 ---
 
@@ -433,19 +433,19 @@ This Constitution **SHALL** be interpreted:
 - **Authority**: The system operators have primary authority
 - **Implementation**: Operators make final decisions
 - **Validation**: Decisions MUST be documented
-- **Violation**: Undocumented decisions MUST be documented
+- **Breach**: Undocumented decisions MUST be documented
 
 #### Secondary Authority
 - **Authority**: The community has secondary authority
 - **Implementation**: Community provides input
 - **Validation**: Input MUST be considered
-- **Violation**: Ignored input MUST be addressed
+- **Breach**: Ignored input MUST be addressed
 
 #### Tertiary Authority
 - **Authority**: Karpathy's principles have tertiary authority
 - **Implementation**: Use Karpathy's principles as guidance
 - **Validation**: Guidance MUST be followed
-- **Violation**: Ignored guidance MUST be addressed
+- **Breach**: Ignored guidance MUST be addressed
 
 ---
 

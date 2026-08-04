@@ -41,7 +41,7 @@ HumanEval (single function) مش محتاج Domain Dispatcher ولا Auth Squad.
 **Layer 3 - Verification & Repair (اللي كان ناقص):**
 - `DeterministicValidator` (AST)
 - `TestRunner`
-- `SurgicalRefiner` - يصلح AST violations
+- `SurgicalRefiner` - يصلح AST breaches
 - `DebuggerAgent (NEW - Reflexion Debug)` - يصلح test failures بـ traceback
 - `ReflexionAgent (NEW - Verbal RL)` - يولد verbal reflection ويخزنه في long-term memory
 - `Filtering & Clustering (AlphaCode)`: جزء من Sampling + Competitive Slice - يفلتر بالـ execution ويعمل dedup

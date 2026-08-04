@@ -54,7 +54,7 @@ Status: Implemented
 - Treat generated code and generated tests as one package.
 - Require source filename, test filename, code syntax, and test syntax to pass.
 - Mark package failure if tests are invalid, even when source code is valid.
-- Preserve surgical-refinement behavior with exact deterministic violations.
+- Preserve surgical-refinement behavior with exact deterministic breaches.
 
 ---
 
@@ -120,7 +120,7 @@ Status: Implemented
 - Reuse shared parser in Code Executor extraction.
 - Add Domain Dispatcher for execution-plan items routed to implemented domain squads.
 - Enforce dependency completion before dispatching a domain task.
-- Parse squad raw responses and surface missing/invalid JSON as explicit violations.
+- Parse squad raw responses and surface missing/invalid JSON as explicit breaches.
 - Add optional pipeline flag `dispatch_domains=True`.
 
 ---

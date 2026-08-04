@@ -5,7 +5,7 @@ CI runs this on every PR (see .github/workflows/ci.yml). It checks only the
 PR author's own non-merge commits in the range BASE..HEAD, so commits made by
 other collaborators or the autonomous patrol cannot block your PR.
 
-Exit code 1 on any violation.
+Exit code 1 on any breach.
 """
 from __future__ import annotations
 

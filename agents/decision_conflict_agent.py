@@ -14,7 +14,7 @@ from langgraph.graph import END, StateGraph
 DECISION_CONFLICT_PERMISSIONS = {
     "READ": ["agent_disputes", "constitution_rules", "tradeoff_logs"],
     "WRITE": ["conflict_resolutions", "binding_decisions"],
-    "NEVER": ["violate_constitution", "grant_unauthorized_permissions"],
+    "NEVER": ["breach_constitution", "grant_unauthorized_permissions"],
     "HUMAN_CHECKPOINT": ["unresolvable_architectural_dispute"],
 }
 
@@ -23,7 +23,7 @@ class DecisionConflictState(TypedDict):
     disputes: list[dict]
     binding_decisions: list[dict]
     unresolved_conflicts: list[dict]
-    violations: list[str]
+    breaches: list[str]
     retry_count: int
     success: bool
 
@@ -46,7 +46,7 @@ class DecisionConflictEngine:
     def resolve(cls, disputes: list[dict]) -> dict[str, Any]:
         decisions = []
         unresolved = []
-        violations = []
+        breaches = []
 
         if not isinstance(disputes, list):
             return {
@@ -61,13 +61,13 @@ class DecisionConflictEngine:
             options = dispute.get("options", [])
             if not options:
                 unresolved.append(dispute)
-                violations.append(f"Dispute '{dispute_id}' has no options to evaluate.")
+                breaches.append(f"Dispute '{dispute_id}' has no options to evaluate.")
                 continue
 
             ranked_options = []
             for option in options:
                 category = str(option.get("category", "")).lower()
-                if option.get("violates_constitution"):
+                if option.get("breachs_constitution"):
                     continue
                 rank = cls.PRIORITY.get(category, 999)
                 evidence_score = int(option.get("evidence_score", 0) or 0)
@@ -75,14 +75,14 @@ class DecisionConflictEngine:
 
             if not ranked_options:
                 unresolved.append(dispute)
-                violations.append(f"Dispute '{dispute_id}' has no constitution-compliant options.")
+                breaches.append(f"Dispute '{dispute_id}' has no constitution-compliant options.")
                 continue
 
             ranked_options.sort(key=lambda item: (item[0], item[1], str(item[2].get("id", ""))))
             best = ranked_options[0][2]
             if ranked_options[0][0] == 999:
                 unresolved.append(dispute)
-                violations.append(f"Dispute '{dispute_id}' has no known priority category.")
+                breaches.append(f"Dispute '{dispute_id}' has no known priority category.")
                 continue
 
             decisions.append({
@@ -95,8 +95,8 @@ class DecisionConflictEngine:
         return {
             "binding_decisions": decisions,
             "unresolved_conflicts": unresolved,
-            "violations": violations,
-            "success": len(violations) == 0,
+            "breaches": breaches,
+            "success": len(breaches) == 0,
         }
 
 
@@ -104,8 +104,8 @@ class DecisionConflictEngine:
 
 def propose(state: DecisionConflictState) -> dict:
     if not isinstance(state.get("disputes", []), list):
-        return {"violations": ["disputes must be a list."], "success": False}
-    return {"violations": [], "success": True}
+        return {"breaches": ["disputes must be a list."], "success": False}
+    return {"breaches": [], "success": True}
 
 
 def execute(state: DecisionConflictState) -> dict:
@@ -113,7 +113,7 @@ def execute(state: DecisionConflictState) -> dict:
 
 
 def evaluate(state: DecisionConflictState) -> dict:
-    return {"success": len(state.get("violations", [])) == 0}
+    return {"success": len(state.get("breaches", [])) == 0}
 
 
 def commit(state: DecisionConflictState) -> dict:
@@ -158,7 +158,7 @@ def resolve_conflicts(
             "disputes": disputes,
             "binding_decisions": [],
             "unresolved_conflicts": [],
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
         },
@@ -168,5 +168,5 @@ def resolve_conflicts(
         "success": result.get("success", False),
         "binding_decisions": result.get("binding_decisions", []),
         "unresolved_conflicts": result.get("unresolved_conflicts", []),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }

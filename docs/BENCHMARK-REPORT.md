@@ -20,7 +20,7 @@
 | **Delta attributable to the agent scaffold** | **+0.61 pp raw · +0.61 pp adjusted** |
 | **Internal 4-scenario governance suite** | 100% (4/4) |
 | **Unit + integration tests** | 144/144 passing (post-merge with `origin/main`) |
-| **Law-3 violations found and fixed** | 3 (all real bugs, all in the failure-handling path) |
+| **Law-3 breaches found and fixed** | 3 (all real bugs, all in the failure-handling path) |
 
 **Headline finding:** on HumanEval the agent scaffold is **statistically indistinguishable
 from a single raw LLM call** (one problem difference, n=164). This is not a defect in the
@@ -58,7 +58,7 @@ commitment: **the LLM is a sandboxed CPU, never the scheduler and never the judg
                                       ▼                              ▼
                               ┌───────────────────────────────────────────┐
                               │  Surgical Refiner — feeds back ONLY the   │
-                              │  violation list, never the whole context  │
+                              │  breach list, never the whole context  │
                               └───────────────────────────────────────────┘
 ```
 
@@ -84,14 +84,14 @@ propose → execute → evaluate → ┬─ (success) → commit → END
 
 `evaluate` **never calls an LLM** (Law 11). It uses AST parsing, JSON-schema assertions,
 DFS cycle detection, and subprocess exit codes. Quality scores are arithmetic:
-`score = max(0, 1.0 - 0.2 × len(violations))`.
+`score = max(0, 1.0 - 0.2 × len(breaches))`.
 
 ### 2.4 Governance-as-code
 
 - **CONSTITUTION.md** — 7 articles
 - **LAWS.md** — 20 laws, each with statement / rationale / requirements / validation / penalties
 - Every agent declares a 4-quadrant permission matrix: `READ` / `WRITE` / `NEVER` / `HUMAN_CHECKPOINT`
-- Violations raise `PermissionError` at runtime, not at review time
+- Breaches raise `PermissionError` at runtime, not at review time
 
 ### 2.5 How you actually run it
 
@@ -128,7 +128,7 @@ The model's own opinion is never consulted.
 | Arm | Path |
 |---|---|
 | `baseline` | one `call_llm()` → strip fences → execute. **Control group.** |
-| `agent` | Context Curator (sanitize + S/N ratio) → `call_llm()` → **AST Deterministic Validator** → Surgical Refiner loop (≤2, violations-only feedback) → execute |
+| `agent` | Context Curator (sanitize + S/N ratio) → `call_llm()` → **AST Deterministic Validator** → Surgical Refiner loop (≤2, breaches-only feedback) → execute |
 
 **Failure taxonomy (added because the first run was misleading):** every failure is
 classified as `capability` (model produced wrong code) or `infrastructure` (429 /
@@ -234,7 +234,7 @@ are zero-LLM, so there is no prompt to argue with.
 ## 6. Bugs Found and Fixed During This Run
 
 The evaluation itself surfaced **three real defects**, all in the failure-handling path —
-i.e. all direct **Law 3** violations. This is arguably the most valuable output of the run.
+i.e. all direct **Law 3** breaches. This is arguably the most valuable output of the run.
 
 ### Fix 1 — `PYTHONPATH` clobber destroyed the test sandbox
 `agents/test_runner_agent.py:83` overwrote `PYTHONPATH` instead of prepending to it, so
@@ -279,7 +279,7 @@ the pre-fix and post-fix numbers differ.**
 - **Zero-LLM control plane.** Routing, validation, and grading contain no model calls. Fully auditable, fully reproducible.
 - **Physical verification.** `test_runner_agent.py` actually compiles and runs code in a sandbox. No LLM-as-judge, no self-endorsement bias.
 - **Governance is executable, not aspirational.** Permission matrices raise real `PermissionError`s.
-- **Surgical refinement.** Feedback carries only the violation list, not the whole prior context — this is what keeps the retry loop from degenerating.
+- **Surgical refinement.** Feedback carries only the breach list, not the whole prior context — this is what keeps the retry loop from degenerating.
 - **Frontier-competitive end-to-end result** on a published benchmark, locally reproducible.
 
 ### Real limitations

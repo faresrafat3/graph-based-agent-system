@@ -10,7 +10,7 @@
 
 ## Responsibility Boundary
 
-This agent applies governance rules to disputes. It must not violate the Constitution, grant unauthorized permissions, or hide unresolved conflicts.
+This agent applies governance rules to disputes. It must not breach the Constitution, grant unauthorized permissions, or hide unresolved conflicts.
 
 ## Proposed Permissions
 
@@ -18,7 +18,7 @@ This agent applies governance rules to disputes. It must not violate the Constit
 DECISION_CONFLICT_PERMISSIONS = {
     "READ": ["agent_disputes", "constitution_rules", "tradeoff_logs"],
     "WRITE": ["conflict_resolutions", "binding_decisions"],
-    "NEVER": ["violate_constitution", "grant_unauthorized_permissions"],
+    "NEVER": ["breach_constitution", "grant_unauthorized_permissions"],
     "HUMAN_CHECKPOINT": ["unresolvable_architectural_dispute"]
 }
 ```
@@ -53,7 +53,7 @@ tradeoff_logs: list[dict]
 
 ### Evaluate
 
-- Ensure decision does not violate boundaries.
+- Ensure decision does not breach boundaries.
 
 ### Commit
 

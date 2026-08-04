@@ -33,7 +33,7 @@ ROUTING_TABLE = {
     "TESTS_FAILED":           "surgical_refiner",
     "ARCHITECTURE_INCOMPLETE":"surgical_refiner",
     "INTEGRATION_FAILED":     "surgical_refiner",
-    "SECURITY_VIOLATION":     "human_checkpoint",
+    "SECURITY_BREACH":     "human_checkpoint",
     "CONTEXT_ROT_DETECTED":   "context_curator",
     "NEEDS_CLARIFICATION":    "human_checkpoint",
     "HUMAN_CHECKPOINT":       "human_checkpoint",
@@ -166,12 +166,12 @@ class DispatchKernel:
                 self.emit(AgentSignal(
                     signal_type="VALIDATION_FAILED",
                     source_agent="deterministic_validator",
-                    data={"violations": validation["violations"]},
+                    data={"breaches": validation["breaches"]},
                     retry_count=attempt
                 ))
                 
                 refinement = generate_refinement_feedback(
-                    violations=validation["violations"],
+                    breaches=validation["breaches"],
                     previous_output=decomposition
                 )
                 

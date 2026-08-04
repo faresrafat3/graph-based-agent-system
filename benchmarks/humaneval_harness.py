@@ -8,7 +8,7 @@ than a raw LLM call:
     Context Curator (zero-LLM sanitation)
         -> Code Executor prompt path (LLM as sandboxed CPU)
         -> AST Deterministic Validator (zero-LLM structural + security gate)
-        -> Surgical Refiner loop (bounded retries on validator violations)
+        -> Surgical Refiner loop (bounded retries on validator breaches)
         -> Test Runner Agent (physical pytest/exec sandbox = empirical ground truth)
 
 Two modes let us isolate what the agent scaffold actually contributes:
@@ -229,18 +229,18 @@ def solve_agent(problem: dict, max_retries: int = 2) -> dict:
     # Stage 3: AST Deterministic Validator (zero-LLM ground truth on structure)
     validation = validate_python_syntax(code)
 
-    # Stage 4: Surgical Refiner loop — feed ONLY the violations back
+    # Stage 4: Surgical Refiner loop — feed ONLY the breaches back
     attempt = 0
     while not validation["success"] and attempt < max_retries:
         attempt += 1
-        violations = "\n".join(f"- {v}" for v in validation["violations"])
+        breaches = "\n".join(f"- {v}" for v in validation["breaches"])
         fix_prompt = (
             "SURGICAL CORRECTION REQUIRED.\n"
-            "Your previous implementation had these deterministic violations:\n"
-            f"{violations}\n\n"
+            "Your previous implementation had these deterministic breaches:\n"
+            f"{breaches}\n\n"
             "Original function specification:\n"
             f"{sanitized}\n\n"
-            "Fix ONLY the violations. Output ONLY the complete corrected Python function."
+            "Fix ONLY the breaches. Output ONLY the complete corrected Python function."
         )
         response = call_llm(prompt=fix_prompt, system_prompt=CODE_SYSTEM_PROMPT)
         llm_calls += 1
@@ -253,7 +253,7 @@ def solve_agent(problem: dict, max_retries: int = 2) -> dict:
         "refinements": attempt,
         "signal_to_noise": stn,
         "ast_valid": validation["success"],
-        "ast_violations": validation["violations"],
+        "ast_breaches": validation["breaches"],
     }
 
 

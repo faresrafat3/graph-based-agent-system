@@ -147,7 +147,7 @@ def generate_markdown_report(benchmark_result: Dict[str, Any], reports_dir: str 
     for d in details:
         if not d.get("success") or d.get("error"):
             has_failures = True
-            md_lines.append(f"- **{d.get('scenario_id')} - {d.get('name')}**: Success={d.get('success')}, Error={d.get('error')}, Violations={d.get('violations_count')}")
+            md_lines.append(f"- **{d.get('scenario_id')} - {d.get('name')}**: Success={d.get('success')}, Error={d.get('error')}, Breaches={d.get('breaches_count')}")
     if not has_failures:
         md_lines.append("- No failures - all scenarios passed or correctly blocked.")
     md_lines.append("")

@@ -2,7 +2,7 @@
 
 ## Overview
 
-These Laws govern the implementation and operation of the Graph-Based Agent System. All code, documentation, and operations **MUST** comply with these Laws. Violations **MUST** be corrected immediately.
+These Laws govern the implementation and operation of the Graph-Based Agent System. All code, documentation, and operations **MUST** comply with these Laws. Breaches **MUST** be corrected immediately.
 
 ---
 
@@ -47,12 +47,12 @@ class GeneralAgent:
 ### Validation
 - Code reviews MUST check for single responsibility
 - Agents with multiple responsibilities MUST be split
-- Violations MUST be corrected before merging
+- Breaches MUST be corrected before merging
 
 ### Penalties
-- First violation: Warning and required refactoring
-- Second violation: Code review rejection
-- Third violation: Temporary suspension from contributing
+- First breach: Warning and required refactoring
+- Second breach: Code review rejection
+- Third breach: Temporary suspension from contributing
 
 ---
 
@@ -69,7 +69,7 @@ Explicit permission boundaries prevent agents from acting outside their scope, r
 2. Each agent MUST declare WRITE permissions
 3. Each agent MUST declare NEVER permissions
 4. Each agent MUST declare HUMAN_CHECKPOINT permissions
-5. Agents MUST NOT violate their permission boundaries
+5. Agents MUST NOT breach their permission boundaries
 
 ### Implementation
 ```python
@@ -98,12 +98,12 @@ class TaskDecomposerAgent:
 ### Validation
 - Code reviews MUST check for permission boundaries
 - Agents without permission boundaries MUST add them
-- Agents that violate boundaries MUST be stopped
+- Agents that breach boundaries MUST be stopped
 
 ### Penalties
-- First violation: Warning and required fix
-- Second violation: Code review rejection
-- Third violation: Agent disabled
+- First breach: Warning and required fix
+- Second breach: Code review rejection
+- Third breach: Agent disabled
 
 ---
 
@@ -157,9 +157,9 @@ class TaskDecomposerAgent:
 - Agents that fail to escalate MUST be corrected
 
 ### Penalties
-- First violation: Warning and required fix
-- Second violation: Code review rejection
-- Third violation: Agent disabled
+- First breach: Warning and required fix
+- Second breach: Code review rejection
+- Third breach: Agent disabled
 
 ---
 
@@ -231,9 +231,9 @@ class TaskDecomposerAgent:
 - Agents with incomplete loops MUST complete them
 
 ### Penalties
-- First violation: Warning and required implementation
-- Second violation: Code review rejection
-- Third violation: Agent disabled
+- First breach: Warning and required implementation
+- Second breach: Code review rejection
+- Third breach: Agent disabled
 
 ---
 
@@ -279,9 +279,9 @@ def test_task_decomposer():
 - Code with low coverage MUST NOT be merged
 
 ### Penalties
-- First violation: Warning and required tests
-- Second violation: Code review rejection
-- Third violation: Temporary suspension from contributing
+- First breach: Warning and required tests
+- Second breach: Code review rejection
+- Third breach: Temporary suspension from contributing
 
 ---
 
@@ -361,9 +361,9 @@ class TaskDecomposerAgent:
 - Incomplete documentation MUST be completed
 
 ### Penalties
-- First violation: Warning and required documentation
-- Second violation: Code review rejection
-- Third violation: Temporary suspension from contributing
+- First breach: Warning and required documentation
+- Second breach: Code review rejection
+- Third breach: Temporary suspension from contributing
 
 ---
 
@@ -410,9 +410,9 @@ def add(a: int, b: int) -> int:
 - Unnecessary abstractions MUST be removed
 
 ### Penalties
-- First violation: Warning and required simplification
-- Second violation: Code review rejection
-- Third violation: Temporary suspension from contributing
+- First breach: Warning and required simplification
+- Second breach: Code review rejection
+- Third breach: Temporary suspension from contributing
 
 ---
 
@@ -460,9 +460,9 @@ class TaskDecomposerAgent:
 - Inaccessible logs MUST be made accessible
 
 ### Penalties
-- First violation: Warning and required transparency
-- Second violation: Code review rejection
-- Third violation: Temporary suspension from contributing
+- First breach: Warning and required transparency
+- Second breach: Code review rejection
+- Third breach: Temporary suspension from contributing
 
 ---
 
@@ -506,9 +506,9 @@ class TaskDecomposerAgent:
 - Agents that bypass oversight MUST be corrected
 
 ### Penalties
-- First violation: Warning and required oversight
-- Second violation: Code review rejection
-- Third violation: Agent disabled
+- First breach: Warning and required oversight
+- Second breach: Code review rejection
+- Third breach: Agent disabled
 
 ---
 
@@ -569,9 +569,9 @@ class System:
 - Systems that fail to improve MUST be corrected
 
 ### Penalties
-- First violation: Warning and required improvement mechanism
-- Second violation: System review rejection
-- Third violation: System deprecated
+- First breach: Warning and required improvement mechanism
+- Second breach: System review rejection
+- Third breach: System deprecated
 
 ---
 
@@ -581,14 +581,14 @@ class System:
 The system operators have authority to enforce these Laws.
 
 ### Enforcement Process
-- **Detection**: Violations are detected through code reviews, testing, and monitoring
-- **Notification**: Violators are notified of violations
-- **Correction**: Violators must correct violations
+- **Detection**: Breaches are detected through code reviews, testing, and monitoring
+- **Notification**: Offenders are notified of breaches
+- **Correction**: Offenders must correct breaches
 - **Verification**: Corrections are verified
-- **Penalties**: Penalties are applied for repeated violations
+- **Penalties**: Penalties are applied for repeated breaches
 
 ### Appeals
-Violators may appeal penalties to the system operators.
+Offenders may appeal penalties to the system operators.
 
 ### Amendments
 These Laws may be amended through the process defined in the Constitution.
@@ -614,11 +614,11 @@ LLM-as-a-Judge leads to "self-endorsement bias" where the model validates its ow
 ```python
 # ✅ Good: Execution-Grounded Validation (Zero LLM)
 def evaluate(state):
-    violations = DeterministicValidatorEngine.validate_schema(
+    breaches = DeterministicValidatorEngine.validate_schema(
         state["output"], required_keys=["tasks", "metadata"]
     )
-    score = DeterministicValidatorEngine.calculate_quality_score(violations)
-    return {"success": len(violations) == 0 and score >= 0.8}
+    score = DeterministicValidatorEngine.calculate_quality_score(breaches)
+    return {"success": len(breaches) == 0 and score >= 0.8}
 
 # ❌ Bad: LLM-as-a-Judge
 def evaluate(state):
@@ -631,9 +631,9 @@ def evaluate(state):
 - Any `evaluate` step that invokes an LLM MUST be immediately refactored
 
 ### Penalties
-- First violation: Mandatory refactoring to deterministic validation
-- Second violation: Agent disabled until fixed
-- Third violation: Agent removed from the system
+- First breach: Mandatory refactoring to deterministic validation
+- Second breach: Agent disabled until fixed
+- Third breach: Agent removed from the system
 
 ---
 
@@ -672,9 +672,9 @@ response = call_llm(raw_prompt + "\n" + full_history + "\n" + error_logs)
 - Direct LLM calls with unsanitized input MUST be rejected
 
 ### Penalties
-- First violation: Mandatory Context Curator integration
-- Second violation: Code review rejection
-- Third violation: Agent disabled until pipeline compliance is verified
+- First breach: Mandatory Context Curator integration
+- Second breach: Code review rejection
+- Third breach: Agent disabled until pipeline compliance is verified
 
 ---
 
@@ -697,7 +697,7 @@ Full regeneration wastes tokens, destroys correct partial work, and increases th
 ```python
 # ✅ Good: Surgical, targeted refinement
 feedback = SurgicalRefinerEngine.generate_surgical_instructions(
-    violations=["Missing mandatory schema key: 'metadata'"],
+    breaches=["Missing mandatory schema key: 'metadata'"],
     failing_keys=["metadata"]
 )
 # Output: "SURGICAL CORRECTION REQUIRED: Fix ONLY 'metadata' key. Do NOT regenerate unchanged parts."
@@ -711,8 +711,8 @@ feedback = "The output was wrong. Please try again from scratch."
 - Refinement prompts without "SURGICAL CORRECTION" invariant MUST be rejected
 
 ### Penalties
-- First violation: Mandatory refactoring to surgical refinement
-- Second violation: Code review rejection
+- First breach: Mandatory refactoring to surgical refinement
+- Second breach: Code review rejection
 ---
 
 ## Law 14: The Law of Signal Determinism
@@ -742,9 +742,9 @@ def route(self, signal: AgentSignal) -> str:
 - Any dynamic/LLM-based next-step selection MUST be rejected.
 
 ### Penalties
-- First violation: Mandatory refactor to static `ROUTING_TABLE`.
-- Second violation: Code review rejection.
-- Third violation: Router disabled until compliant.
+- First breach: Mandatory refactor to static `ROUTING_TABLE`.
+- Second breach: Code review rejection.
+- Third breach: Router disabled until compliant.
 
 ---
 
@@ -778,8 +778,8 @@ def _acquire_rate_token():
 - Load tests MUST confirm no deadlock under N parallel workers.
 
 ### Penalties
-- First violation: Mandatory integration with the global limiter.
-- Second violation: Code review rejection.
+- First breach: Mandatory integration with the global limiter.
+- Second breach: Code review rejection.
 
 ---
 
@@ -808,8 +808,8 @@ score = run_tests_in_worktree(patch, instance)  # pytest FTP/PTP, same signal as
 - Any report citing model-stated scores MUST be rejected.
 
 ### Penalties
-- First violation: Mandatory re-run with physical execution.
-- Second violation: Report rejected.
+- First breach: Mandatory re-run with physical execution.
+- Second breach: Report rejected.
 
 ---
 
@@ -859,14 +859,14 @@ Strict permission boundaries prevent agent scope creep and enforce single-respon
 The system operators have authority to enforce these Laws.
 
 ### Enforcement Process
-- **Detection**: Violations are detected through code reviews, testing, and monitoring
-- **Notification**: Violators are notified of violations
-- **Correction**: Violators must correct violations
+- **Detection**: Breaches are detected through code reviews, testing, and monitoring
+- **Notification**: Offenders are notified of breaches
+- **Correction**: Offenders must correct breaches
 - **Verification**: Corrections are verified
-- **Penalties**: Penalties are applied for repeated violations
+- **Penalties**: Penalties are applied for repeated breaches
 
 ### Appeals
-Violators may appeal penalties to the system operators.
+Offenders may appeal penalties to the system operators.
 
 ### Amendments
 These Laws may be amended through the process defined in the Constitution.

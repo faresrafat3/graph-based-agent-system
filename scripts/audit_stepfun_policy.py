@@ -21,7 +21,16 @@ TEXT_SUFFIXES = {".py", ".md", ".txt", ".yml", ".yaml", ".example", ""}
 # The policy governs which providers this code CALLS, not which ones it may name.
 # Benchmark reports must be free to cite competitor scores by vendor, and .env is
 # gitignored local state rather than shipped source.
-SKIP_FILES = {".env", "docs/BENCHMARK-REPORT.md", "docs/CODE-AUDIT-2026-08-03.md"}
+# Docs/history may *name* removed params (e.g. a past `allow_mock` kwarg) for context
+# without reintroducing them — skip them so the audit does not flag its own deny list
+# or historical references (CONTRIBUTING.md commit log, the audit report itself).
+SKIP_FILES = {
+    ".env",
+    "docs/BENCHMARK-REPORT.md",
+    "docs/CODE-AUDIT-2026-08-03.md",
+    "CONTRIBUTING.md",
+    "scripts/audit_stepfun_policy.py",
+}
 
 
 def should_scan(path: Path) -> bool:
@@ -36,7 +45,7 @@ def should_scan(path: Path) -> bool:
 
 
 def main() -> int:
-    violations = []
+    breaches = []
     for path in Path(".").rglob("*"):
         if not should_scan(path):
             continue
@@ -46,11 +55,11 @@ def main() -> int:
             continue
         for marker in DENY_MARKERS:
             if marker in text:
-                violations.append((str(path), marker))
+                breaches.append((str(path), marker))
 
-    if violations:
-        print("Stepfun-only policy violations detected:")
-        for path, marker in violations:
+    if breaches:
+        print("Stepfun-only policy breaches detected:")
+        for path, marker in breaches:
             print(f"- {path}: contains {marker!r}")
         return 1
 

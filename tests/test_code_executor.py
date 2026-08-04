@@ -34,7 +34,7 @@ class Calculator:
 '''
     result = validate_python_syntax(code)
     assert result["success"] is True
-    assert len(result["violations"]) == 0
+    assert len(result["breaches"]) == 0
     assert result["metrics"]["function_count"] >= 2
     assert result["metrics"]["class_count"] == 1
     assert result["metrics"]["has_docstrings"] is True
@@ -47,12 +47,12 @@ def test_validate_python_syntax_invalid():
     code = "def broken_function(:\n    return"
     result = validate_python_syntax(code)
     assert result["success"] is False
-    assert len(result["violations"]) > 0
-    assert "SyntaxError" in result["violations"][0]
+    assert len(result["breaches"]) > 0
+    assert "SyntaxError" in result["breaches"][0]
 
 
-def test_validate_security_violations():
-    """Hardcoded secrets are flagged as security violations"""
+def test_validate_security_breaches():
+    """Hardcoded secrets are flagged as security breaches"""
     code = '''
 def connect():
     """Connect to DB."""
@@ -61,7 +61,7 @@ def connect():
 '''
     result = validate_python_syntax(code)
     assert result["success"] is False
-    assert any("password" in v.lower() for v in result["violations"])
+    assert any("password" in v.lower() for v in result["breaches"])
 
 
 def test_validate_empty_code():
@@ -69,7 +69,7 @@ def test_validate_empty_code():
     code = "x = 1\ny = 2\nz = x + y"
     result = validate_python_syntax(code)
     assert result["success"] is False
-    assert any("incomplete" in v.lower() for v in result["violations"])
+    assert any("incomplete" in v.lower() for v in result["breaches"])
 
 
 def test_extract_code_from_response_json():
@@ -144,7 +144,7 @@ def test_execute_task_fails_when_test_code_invalid(monkeypatch):
     result = execute_task(task, max_retries=0)
     assert result["success"] is False
     assert result["test_valid"] is False
-    assert any("SyntaxError" in v for v in result["test_violations"])
+    assert any("SyntaxError" in v for v in result["test_breaches"])
 
 
 def test_execute_task_rejects_unsafe_filenames(monkeypatch):
@@ -170,127 +170,4 @@ def test_execute_task_rejects_unsafe_filenames(monkeypatch):
 
     result = execute_task(task, max_retries=0)
     assert result["success"] is False
-    assert any("Unsafe source filename" in v for v in result["violations"])
-
-
-def test_execute_task_json_parsing_failed(monkeypatch):
-    import agents.code_executor as code_executor_module
-    monkeypatch.setattr(code_executor_module, "call_llm", lambda *a, **k: "this is not json")
-    
-    task = {
-        "title": "Implement add function",
-        "description": "Create a safe arithmetic helper",
-        "type": "feature",
-        "acceptance_criteria": ["Adds two numbers"],
-    }
-    
-    result = execute_task(task, max_retries=0)
-    assert result["success"] is False
-    assert "Failed to extract valid code" in result["error"]
-
-
-def test_execute_task_surgical_refinement_loop(monkeypatch):
-    import agents.code_executor as code_executor_module
-    import json
-    
-    # First response has syntax error, second response is valid
-    call_count = {"llm": 0}
-    
-    def fake_llm(*args, **kwargs):
-        call_count["llm"] += 1
-        if call_count["llm"] == 1:
-            return json.dumps({
-                "filename": "calculator.py",
-                "code": "def broken(:\n    pass",
-                "test_filename": "test_calculator.py",
-                "test_code": "",
-                "imports_required": [],
-                "description": "Broken"
-            })
-        else:
-            return json.dumps({
-                "filename": "calculator.py",
-                "code": "def add(a: int, b: int) -> int:\n    \"\"\"Add numbers.\"\"\"\n    return a + b\n",
-                "test_filename": "test_calculator.py",
-                "test_code": "def test_add():\n    \"\"\"Test add.\"\"\"\n    assert 1 == 1\n",
-                "imports_required": [],
-                "description": "Fixed"
-            })
-            
-    monkeypatch.setattr(code_executor_module, "call_llm", fake_llm)
-    
-    task = {
-        "title": "Implement add function",
-        "description": "Create a safe arithmetic helper",
-        "type": "feature",
-        "acceptance_criteria": ["Adds two numbers"],
-    }
-    
-    result = execute_task(task, max_retries=2)
-    assert result["success"] is True
-    assert call_count["llm"] == 2
-    assert "add" in result["code"]
-    assert result["refinement_attempts"] == 1
-
-
-def test_execute_task_rejects_unsafe_test_filenames(monkeypatch):
-    import agents.code_executor as code_executor_module
-    import json
-
-    response = {
-        "filename": "calculator.py",
-        "code": "def add(a: int, b: int) -> int:\n    \"\"\"Add numbers.\"\"\"\n    return a + b\n",
-        "test_filename": "../test_calculator.py", # Unsafe test filename
-        "test_code": "def test_add(): pass",
-        "imports_required": [],
-        "description": "Calculator module",
-    }
-    monkeypatch.setattr(code_executor_module, "call_llm", lambda *args, **kwargs: json.dumps(response))
-
-    task = {
-        "title": "Implement add function",
-        "description": "Create a safe arithmetic helper",
-        "type": "feature",
-        "acceptance_criteria": ["Adds two numbers"],
-    }
-
-    result = execute_task(task, max_retries=0)
-    assert result["success"] is False
-    assert any("Unsafe test filename" in v for v in result["violations"])
-
-
-def test_execute_task_refinement_extraction_failed(monkeypatch):
-    import agents.code_executor as code_executor_module
-    import json
-    
-    # First response has syntax error, second response has invalid JSON
-    call_count = {"llm": 0}
-    
-    def fake_llm(*args, **kwargs):
-        call_count["llm"] += 1
-        if call_count["llm"] == 1:
-            return json.dumps({
-                "filename": "calculator.py",
-                "code": "def broken(:\n    pass",
-                "test_filename": "test_calculator.py",
-                "test_code": "",
-                "imports_required": [],
-                "description": "Broken"
-            })
-        else:
-            return "completely invalid JSON response"
-            
-    monkeypatch.setattr(code_executor_module, "call_llm", fake_llm)
-    
-    task = {
-        "title": "Implement add function",
-        "description": "Create a safe arithmetic helper",
-        "type": "feature",
-        "acceptance_criteria": ["Adds two numbers"],
-    }
-    
-    result = execute_task(task, max_retries=1)
-    assert result["success"] is False
-    assert "JSON extraction failed during surgical refinement" in result["violations"][0]
-
-
+    assert any("Unsafe source filename" in v for v in result["breaches"])

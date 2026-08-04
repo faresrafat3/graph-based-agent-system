@@ -9,17 +9,17 @@ from typing import TypedDict, List, Any
 
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)
 SURGICAL_REFINER_PERMISSIONS = {
-    "READ": ["validation_report", "violations", "previous_output"],
+    "READ": ["validation_report", "breaches", "previous_output"],
     "WRITE": ["surgical_feedback", "pinpoint_corrections"],
     "NEVER": ["regenerate_entire_system", "override_validation_report"],
-    "HUMAN_CHECKPOINT": ["persistent_unsolvable_violations"]
+    "HUMAN_CHECKPOINT": ["persistent_unsolvable_breaches"]
 }
 
 
 # State Definition
 class SurgicalRefinerState(TypedDict):
     # Inputs
-    violations: List[str]
+    breaches: List[str]
     previous_output: Any
     
     # Outputs
@@ -32,13 +32,13 @@ class SurgicalRefinerState(TypedDict):
 
 
 class SurgicalRefinerEngine:
-    """Core logic for extracting pinpoint surgical feedback from deterministic violations"""
+    """Core logic for extracting pinpoint surgical feedback from deterministic breaches"""
     
     @staticmethod
-    def extract_target_keys(violations: List[str]) -> List[str]:
-        """Extracts specific failing keys from deterministic violations list"""
+    def extract_target_keys(breaches: List[str]) -> List[str]:
+        """Extracts specific failing keys from deterministic breaches list"""
         failing_keys = []
-        for v in violations:
+        for v in breaches:
             if "'" in v:
                 parts = v.split("'")
                 if len(parts) >= 2:
@@ -46,9 +46,9 @@ class SurgicalRefinerEngine:
         return list(set(failing_keys))
 
     @staticmethod
-    def generate_surgical_instructions(violations: List[str], failing_keys: List[str]) -> str:
+    def generate_surgical_instructions(breaches: List[str], failing_keys: List[str]) -> str:
         """Constructs surgical, non-destructive feedback instructions"""
-        if not violations:
+        if not breaches:
             return "No surgical corrections required."
             
         instructions = [
@@ -56,8 +56,8 @@ class SurgicalRefinerEngine:
             "Do NOT regenerate unchanged parts. Focus ONLY on fixing the following specific issues:"
         ]
         
-        for i, violation in enumerate(violations, 1):
-            instructions.append(f"  {i}. {violation}")
+        for i, breach in enumerate(breaches, 1):
+            instructions.append(f"  {i}. {breach}")
             
         if failing_keys:
             instructions.append(f"Target Keys to Fix: {', '.join(failing_keys)}")
@@ -68,17 +68,17 @@ class SurgicalRefinerEngine:
 # Karpathy Loop Implementation
 
 def propose(state: SurgicalRefinerState) -> dict:
-    """Step 1: Propose - Inspect violations and identify target keys"""
-    violations = state.get("violations", [])
+    """Step 1: Propose - Inspect breaches and identify target keys"""
+    breaches = state.get("breaches", [])
     
-    if not violations:
+    if not breaches:
         return {
-            "surgical_feedback": "No violations detected.",
+            "surgical_feedback": "No breaches detected.",
             "target_keys_to_fix": [],
             "success": True
         }
         
-    failing_keys = SurgicalRefinerEngine.extract_target_keys(violations)
+    failing_keys = SurgicalRefinerEngine.extract_target_keys(breaches)
     return {
         "target_keys_to_fix": failing_keys,
         "success": False
@@ -87,10 +87,10 @@ def propose(state: SurgicalRefinerState) -> dict:
 
 def execute(state: SurgicalRefinerState) -> dict:
     """Step 2: Execute - Generate targeted surgical feedback instructions"""
-    violations = state.get("violations", [])
+    breaches = state.get("breaches", [])
     failing_keys = state.get("target_keys_to_fix", [])
     
-    feedback = SurgicalRefinerEngine.generate_surgical_instructions(violations, failing_keys)
+    feedback = SurgicalRefinerEngine.generate_surgical_instructions(breaches, failing_keys)
     return {"surgical_feedback": feedback}
 
 
@@ -156,7 +156,7 @@ surgical_refiner_graph = workflow.compile(checkpointer=checkpointer)
 
 
 def generate_refinement_feedback(
-    violations: List[str],
+    breaches: List[str],
     previous_output: Any = None,
     thread_id: str = "refiner_session"
 ) -> dict:
@@ -164,7 +164,7 @@ def generate_refinement_feedback(
     Generates pinpoint surgical feedback for targeted LLM self-correction.
     
     Args:
-        violations: List of violation strings from DeterministicValidator
+        breaches: List of breach strings from DeterministicValidator
         previous_output: Previous output object
         thread_id: Session thread ID for LangGraph checkpointer
     
@@ -173,7 +173,7 @@ def generate_refinement_feedback(
     """
     result = surgical_refiner_graph.invoke(
         {
-            "violations": violations,
+            "breaches": breaches,
             "previous_output": previous_output,
             "surgical_feedback": "",
             "target_keys_to_fix": [],

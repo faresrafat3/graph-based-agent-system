@@ -180,7 +180,7 @@ PERMISSIONS = {
 PERMISSIONS = {
     "READ": ["agent_disputes", "constitution_rules", "tradeoff_logs"],
     "WRITE": ["conflict_resolutions", "binding_decisions"],
-    "NEVER": ["violate_constitution", "grant_unauthorized_permissions"],
+    "NEVER": ["breach_constitution", "grant_unauthorized_permissions"],
     "HUMAN_CHECKPOINT": ["unresolvable_architectural_dispute"]
 }
 ```

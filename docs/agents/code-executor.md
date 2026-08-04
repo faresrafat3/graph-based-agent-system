@@ -44,10 +44,10 @@ max_retries: int = 3
   "imports_required": list[str],
   "description": str,
   "code_metrics": dict,
-  "code_violations": list[str],
+  "code_breaches": list[str],
   "test_valid": bool,
-  "test_violations": list[str],
-  "violations": list[str],
+  "test_breaches": list[str],
+  "breaches": list[str],
   "refinement_attempts": int
 }
 ```
@@ -80,7 +80,7 @@ max_retries: int = 3
 
 ### Refine
 
-- If validation fails, request surgical package correction with exact violations.
+- If validation fails, request surgical package correction with exact breaches.
 
 ### Commit
 

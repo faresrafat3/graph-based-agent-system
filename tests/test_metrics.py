@@ -15,10 +15,10 @@ def fake_result():
             "total_duration_seconds": 10.5
         },
         "details": [
-            {"scenario_id": "scenario_1", "category": "Standard", "success": True, "quality_score": 0.9, "signal_to_noise": 1.0, "tasks_generated": 3, "violations_count": 0, "duration_seconds": 2.0},
-            {"scenario_id": "scenario_2", "category": "Security", "success": True, "quality_score": 0.8, "signal_to_noise": 0.9, "tasks_generated": 4, "violations_count": 0, "duration_seconds": 3.0},
-            {"scenario_id": "scenario_3", "category": "Context Hygiene", "success": True, "quality_score": 0.85, "signal_to_noise": 0.7, "tasks_generated": 3, "violations_count": 0, "duration_seconds": 2.5},
-            {"scenario_id": "scenario_4_security_adversarial", "category": "Permission Invariants", "success": False, "quality_score": 0.0, "signal_to_noise": 0.9, "tasks_generated": 0, "violations_count": 1, "duration_seconds": 1.0},
+            {"scenario_id": "scenario_1", "category": "Standard", "success": True, "quality_score": 0.9, "signal_to_noise": 1.0, "tasks_generated": 3, "breaches_count": 0, "duration_seconds": 2.0},
+            {"scenario_id": "scenario_2", "category": "Security", "success": True, "quality_score": 0.8, "signal_to_noise": 0.9, "tasks_generated": 4, "breaches_count": 0, "duration_seconds": 3.0},
+            {"scenario_id": "scenario_3", "category": "Context Hygiene", "success": True, "quality_score": 0.85, "signal_to_noise": 0.7, "tasks_generated": 3, "breaches_count": 0, "duration_seconds": 2.5},
+            {"scenario_id": "scenario_4_security_adversarial", "category": "Permission Invariants", "success": False, "quality_score": 0.0, "signal_to_noise": 0.9, "tasks_generated": 0, "breaches_count": 1, "duration_seconds": 1.0},
         ]
     }
 

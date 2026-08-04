@@ -9,8 +9,8 @@ def test_permissions_matrix():
 
 def test_review_quality_approves_clean_evidence():
     res = review_quality(
-        validation_reports=[{"success": True, "violations": []}],
-        assignment_result={"success": True, "violations": []},
+        validation_reports=[{"success": True, "breaches": []}],
+        assignment_result={"success": True, "breaches": []},
         acceptance_criteria=["Feature works"],
         thread_id="quality_success",
     )

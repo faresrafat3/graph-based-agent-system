@@ -55,7 +55,7 @@ security_reports: list[dict]
 
 ### Evaluate
 
-- Require no critical violations.
+- Require no critical breaches.
 - Require passing tests when execution is requested.
 - Require acceptance criteria evidence.
 
@@ -75,7 +75,7 @@ security_reports: list[dict]
 
 - All gates pass.
 - Failed tests block approval.
-- Critical security violation blocks approval.
+- Critical security breach blocks approval.
 - Missing acceptance evidence blocks approval.
 
 ## Implementation Notes

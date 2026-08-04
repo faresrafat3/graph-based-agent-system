@@ -12,7 +12,7 @@ Pipeline (agent arm):
         -> Context Curator    -- sanitation + signal-to-noise on the issue text
         -> Patch Generator    -- LLM as sandboxed CPU, emits a unified diff
         -> Patch Validator    -- zero-LLM: does `git apply --check` accept it?
-        -> Surgical Refiner   -- bounded retry, violations-only feedback
+        -> Surgical Refiner   -- bounded retry, breaches-only feedback
         -> emit prediction
 
 The baseline arm is one LLM call with the issue text and the same file context, no
@@ -305,7 +305,7 @@ def repair_hunk_counts(patch: str) -> str:
     deterministic check is stricter than ground truth and silently discards good work.
 
     Counting lines is not a judgement call, so this belongs in the zero-LLM layer
-    rather than being fed back to the model as a "violation" it cannot see.
+    rather than being fed back to the model as a "breach" it cannot see.
     """
     lines = patch.split("\n")
     out = []
@@ -361,26 +361,26 @@ def validate_patch(patch: str, root: str) -> dict:
     Returns the (possibly repaired) patch under "patch" so callers propagate the
     corrected text rather than the model's original malformed counts.
     """
-    violations = []
+    breaches = []
 
     if not patch.strip():
-        return {"success": False, "violations": ["Patch is empty."], "patch": patch}
+        return {"success": False, "breaches": ["Patch is empty."], "patch": patch}
 
     patch = repair_hunk_counts(patch)
 
     if not patch.lstrip().startswith("--- a/"):
-        violations.append("Patch does not start with a '--- a/<path>' header.")
+        breaches.append("Patch does not start with a '--- a/<path>' header.")
     if "+++ b/" not in patch:
-        violations.append("Patch is missing a '+++ b/<path>' header.")
+        breaches.append("Patch is missing a '+++ b/<path>' header.")
     if "@@" not in patch:
-        violations.append("Patch contains no @@ hunk header.")
+        breaches.append("Patch contains no @@ hunk header.")
 
     for rel in re.findall(r"^--- a/(.+)$", patch, re.MULTILINE):
         if not os.path.isfile(os.path.join(root, rel.strip())):
-            violations.append(f"Patch targets '{rel.strip()}', which does not exist in the repo.")
+            breaches.append(f"Patch targets '{rel.strip()}', which does not exist in the repo.")
 
-    if violations:
-        return {"success": False, "violations": violations, "patch": patch}
+    if breaches:
+        return {"success": False, "breaches": breaches, "patch": patch}
 
     with tempfile.NamedTemporaryFile("w", suffix=".diff", delete=False) as f:
         f.write(patch)
@@ -406,13 +406,13 @@ def validate_patch(patch: str, root: str) -> dict:
                 timeout=120,
             )
             if proc.returncode == 0:
-                return {"success": True, "violations": [], "patch": patch}
+                return {"success": True, "breaches": [], "patch": patch}
 
         detail = ((proc.stderr or proc.stdout) if proc else "").strip().splitlines()
-        violations.extend(line.strip() for line in detail[:6])
-        return {"success": False, "violations": violations, "patch": patch}
+        breaches.extend(line.strip() for line in detail[:6])
+        return {"success": False, "breaches": breaches, "patch": patch}
     except subprocess.TimeoutExpired:
-        return {"success": False, "violations": ["git apply --check timed out."], "patch": patch}
+        return {"success": False, "breaches": ["git apply --check timed out."], "patch": patch}
     finally:
         os.unlink(patch_file)
 
@@ -462,16 +462,16 @@ def solve_agent(instance: dict, root: str, files: list, max_refinements: int = 2
     refinements = 0
     while not validation["success"] and refinements < max_refinements:
         refinements += 1
-        violations = "\n".join(f"- {v}" for v in validation["violations"])
+        breaches = "\n".join(f"- {v}" for v in validation["breaches"])
         fix_prompt = (
             "SURGICAL CORRECTION REQUIRED.\n"
-            "Your previous patch could not be applied. Deterministic violations:\n"
-            f"{violations}\n\n"
+            "Your previous patch could not be applied. Deterministic breaches:\n"
+            f"{breaches}\n\n"
             "Your previous patch:\n"
             f"{patch}\n\n"
             f"# Issue\n\n{sanitized}\n\n"
             f"# Relevant source\n\n{context}\n\n"
-            "Fix ONLY these violations. Re-read the source and make the context lines "
+            "Fix ONLY these breaches. Re-read the source and make the context lines "
             "match the file exactly, character for character. Output ONLY the corrected "
             "unified diff."
         )
@@ -486,7 +486,7 @@ def solve_agent(instance: dict, root: str, files: list, max_refinements: int = 2
         "llm_calls": llm_calls,
         "refinements": refinements,
         "patch_applies": validation["success"],
-        "violations": validation["violations"],
+        "breaches": validation["breaches"],
         "files": files,
     }
 
@@ -610,7 +610,7 @@ def solve_alphacode_swebench(instance: dict, root: str, files: list, n_samples: 
     if not candidates:
         return {
             "patch": "", "llm_calls": total_llm_calls, "refinements": 0,
-            "patch_applies": False, "violations": ["all samples empty"], "files": files,
+            "patch_applies": False, "breaches": ["all samples empty"], "files": files,
             "samples": 0, "best_local_resolved": False,
         }
 
@@ -621,7 +621,7 @@ def solve_alphacode_swebench(instance: dict, root: str, files: list, n_samples: 
         "llm_calls": total_llm_calls,
         "refinements": 0,
         "patch_applies": best["applies"],
-        "violations": [],
+        "breaches": [],
         "files": files,
         "samples": len(candidates),
         "best_local_resolved": best["local_resolved"],

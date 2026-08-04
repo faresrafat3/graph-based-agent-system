@@ -336,7 +336,7 @@ Local evaluation is heuristic. Strict output validation is performed downstream 
 |---|---|
 | Production delete/deployment instruction | Raises permission error |
 | Invalid LLM JSON | Returns clarification failure |
-| Circular dependency | Adds clarification/violation |
+| Circular dependency | Adds clarification/breach |
 | Low coverage | Refines/retries |
 | Vague requirements | Returns clarifications |
 
@@ -384,7 +384,7 @@ The validator only reads and reports. It does not mutate target output, grant ex
 ```python
 DETERMINISTIC_VALIDATOR_PERMISSIONS = {
     "READ": ["target_output", "expected_schema", "invariant_rules"],
-    "WRITE": ["validation_report", "quality_score", "violations"],
+    "WRITE": ["validation_report", "quality_score", "breaches"],
     "NEVER": ["modify_target_output", "grant_exceptions", "bypass_schema"],
     "HUMAN_CHECKPOINT": ["fatal_schema_corruption"]
 }
@@ -403,7 +403,7 @@ thread_id: str
 ```python
 {
   "quality_score": float,
-  "violations": list[str],
+  "breaches": list[str],
   "validation_report": dict,
   "success": bool
 }
@@ -431,7 +431,7 @@ Performs deterministic checks:
 
 #### Evaluate
 
-- Passes only if quality score is above threshold and violations are empty.
+- Passes only if quality score is above threshold and breaches are empty.
 
 #### Commit
 
@@ -454,11 +454,11 @@ All validation is deterministic and local. LLM calls are forbidden in `evaluate`
 
 | Failure | Behavior |
 |---|---|
-| Missing schema key | Adds violation |
-| Invalid task field | Adds violation |
-| Unknown dependency | Adds violation |
-| Circular dependency | Adds violation |
-| Metadata mismatch | Adds violation |
+| Missing schema key | Adds breach |
+| Invalid task field | Adds breach |
+| Unknown dependency | Adds breach |
+| Circular dependency | Adds breach |
+| Metadata mismatch | Adds breach |
 
 ### Tests
 
@@ -474,9 +474,9 @@ report = validate_output(task_payload, required_keys=["tasks", "metadata"])
 
 ### Future Improvements
 
-- Replace plain strings with structured `ValidationViolation` objects.
+- Replace plain strings with structured `ValidationBreach` objects.
 - Add severity levels.
-- Add machine-readable violation codes.
+- Add machine-readable breach codes.
 - Add schema versioning.
 
 ---
@@ -488,7 +488,7 @@ report = validate_output(task_payload, required_keys=["tasks", "metadata"])
 - **Module**: `agents/surgical_refiner.py`
 - **Public entrypoint**: `generate_refinement_feedback(...)`
 - **Graph object**: `surgical_refiner_graph`
-- **Primary responsibility**: transform deterministic violations into precise correction instructions.
+- **Primary responsibility**: transform deterministic breaches into precise correction instructions.
 
 ### Responsibility Boundary
 
@@ -498,17 +498,17 @@ The Surgical Refiner does not regenerate outputs directly. It only creates targe
 
 ```python
 SURGICAL_REFINER_PERMISSIONS = {
-    "READ": ["validation_report", "violations", "previous_output"],
+    "READ": ["validation_report", "breaches", "previous_output"],
     "WRITE": ["surgical_feedback", "pinpoint_corrections"],
     "NEVER": ["regenerate_entire_system", "override_validation_report"],
-    "HUMAN_CHECKPOINT": ["persistent_unsolvable_violations"]
+    "HUMAN_CHECKPOINT": ["persistent_unsolvable_breaches"]
 }
 ```
 
 ### Input Contract
 
 ```python
-violations: list[str]
+breaches: list[str]
 previous_output: Any | None
 thread_id: str
 ```
@@ -527,8 +527,8 @@ thread_id: str
 
 #### Propose
 
-- Reads violations.
-- Extracts target keys from quoted violation strings.
+- Reads breaches.
+- Extracts target keys from quoted breach strings.
 
 #### Execute
 
@@ -570,7 +570,7 @@ feedback = generate_refinement_feedback([
 
 ### Future Improvements
 
-- Accept structured validation violations.
+- Accept structured validation breaches.
 - Preserve and reference exact JSON paths.
 - Generate patch-style correction instructions.
 
@@ -594,7 +594,7 @@ The Agent Assigner assigns and schedules only. It does not execute tasks, genera
 ```python
 AGENT_ASSIGNER_PERMISSIONS = {
     "READ": ["tasks", "task_dependencies", "agent_capabilities"],
-    "WRITE": ["assignments", "execution_plan", "routing_violations"],
+    "WRITE": ["assignments", "execution_plan", "routing_breaches"],
     "NEVER": ["source_code", "credentials", "deployment", "database_access"],
     "HUMAN_CHECKPOINT": ["unknown_domain_task", "conflicting_agent_roles"]
 }
@@ -616,7 +616,7 @@ Tasks are expected to have already passed strict deterministic validation.
   "success": bool,
   "assignments": dict[str, dict],
   "execution_plan": list[dict],
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 
@@ -763,10 +763,10 @@ max_retries: int = 3
   "imports_required": list[str],
   "description": str,
   "code_metrics": dict,
-  "code_violations": list[str],
+  "code_breaches": list[str],
   "test_valid": bool,
-  "test_violations": list[str],
-  "violations": list[str],
+  "test_breaches": list[str],
+  "breaches": list[str],
   "refinement_attempts": int
 }
 ```
@@ -798,7 +798,7 @@ max_retries: int = 3
 
 #### Refine
 
-- If package validation fails, requests surgical correction using exact deterministic violations.
+- If package validation fails, requests surgical correction using exact deterministic breaches.
 
 #### Commit
 
@@ -871,7 +871,7 @@ timeout_seconds: int = 15
   "passed_tests": int,
   "failed_tests": int,
   "traceback": str,
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 
@@ -1125,7 +1125,7 @@ max_retries: int = 3
   "tasks": list[dict],
   "metadata": dict,
   "quality_score": float,
-  "violations": list[str],
+  "breaches": list[str],
   "refinement_attempts": int,
   "context_signal_to_noise": float,
   "agent_assignments": dict,
@@ -1189,7 +1189,7 @@ timeouts: dict
   "progress_metrics": dict,
   "stalled_tasks": list[str],
   "success": bool,
-  "violations": list[str]
+  "breaches": list[str]
 }
 ```
 
@@ -1239,7 +1239,7 @@ acceptance_criteria: list[str]
 
 - **Propose**: collect quality evidence.
 - **Execute**: compute aggregate deterministic quality score.
-- **Evaluate**: require no critical violations and passing tests.
+- **Evaluate**: require no critical breaches and passing tests.
 - **Commit**: approve output.
 - **Refine**: send targeted feedback to failing agents.
 - **Escalate**: human checkpoint for critical quality gate failure.
@@ -1247,7 +1247,7 @@ acceptance_criteria: list[str]
 ### Future Tests
 
 - all gates pass
-- critical violation blocks approval
+- critical breach blocks approval
 - failing tests block approval
 - missing acceptance evidence blocks approval
 
@@ -1315,7 +1315,7 @@ tradeoff_logs: list[dict]
 
 - **Propose**: classify conflict type.
 - **Execute**: apply Constitution/Laws priority rules.
-- **Evaluate**: ensure no rule violation.
+- **Evaluate**: ensure no rule breach.
 - **Commit**: publish decision.
 - **Refine**: request missing evidence.
 - **Escalate**: unresolved architectural dispute.
@@ -1408,7 +1408,7 @@ A new agent is not ready unless all items below are complete.
 - [ ] `refine` implementation.
 - [ ] `should_continue` routing.
 - [ ] Public entrypoint function.
-- [ ] Tests for success, failure, boundary violations, and edge cases.
+- [ ] Tests for success, failure, boundary breaches, and edge cases.
 
 ## Required Documentation
 
@@ -1457,7 +1457,7 @@ pytest --cov=. --cov-report=term-missing --cov-fail-under=80
 
 ## Debugging Failed Agent Output
 
-1. Check returned `violations`.
+1. Check returned `breaches`.
 2. Confirm whether failure occurred in:
    - context sanitation
    - decomposition
@@ -1465,7 +1465,7 @@ pytest --cov=. --cov-report=term-missing --cov-fail-under=80
    - assignment
    - code generation
    - test execution
-3. If validation failed, send violations to Surgical Refiner.
+3. If validation failed, send breaches to Surgical Refiner.
 4. If permission boundary failed, do not retry automatically.
 5. If human checkpoint is required, stop automation.
 
@@ -1476,7 +1476,7 @@ pytest --cov=. --cov-report=term-missing --cov-fail-under=80
 1. Validate domain-dispatched code packages immediately after JSON parsing.
 2. Add `QualityReviewerAgent` as a deterministic global gate.
 3. Add a real container-backed execution backend for untrusted code.
-4. Convert validation violation strings into structured violation objects.
+4. Convert validation breach strings into structured breach objects.
 5. Upgrade Graph Execution Orchestrator from group-loop execution to true runtime-parallel fan-out/fan-in.
 
 ---

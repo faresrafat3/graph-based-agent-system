@@ -68,7 +68,7 @@ def validate_python_syntax(code: str) -> dict:
     Returns:
         Dict with success, errors list, and metrics
     """
-    violations = []
+    breaches = []
     metrics = {
         "has_docstrings": False,
         "has_type_hints": False,
@@ -81,8 +81,8 @@ def validate_python_syntax(code: str) -> dict:
     try:
         tree = ast.parse(code)
     except SyntaxError as e:
-        violations.append(f"SyntaxError at line {e.lineno}: {e.msg}")
-        return {"success": False, "violations": violations, "metrics": metrics}
+        breaches.append(f"SyntaxError at line {e.lineno}: {e.msg}")
+        return {"success": False, "breaches": breaches, "metrics": metrics}
     
     # Stage 2: Structural analysis
     for node in ast.walk(tree):
@@ -110,7 +110,7 @@ def validate_python_syntax(code: str) -> dict:
             metrics["has_error_handling"] = True
     
     # Stage 3: Security boundary checks (NEVER permissions)
-    security_violations = []
+    security_breaches = []
     forbidden_patterns = [
         ("password", r'password\s*=\s*["\'][^"\']+["\']'),
         ("secret_key", r'secret[_]?key\s*=\s*["\'][^"\']+["\']'),
@@ -122,17 +122,17 @@ def validate_python_syntax(code: str) -> dict:
     
     for name, pattern in forbidden_patterns:
         if re.search(pattern, code, re.IGNORECASE):
-            security_violations.append(f"Security violation: {name} detected in generated code")
+            security_breaches.append(f"Security breach: {name} detected in generated code")
     
-    violations.extend(security_violations)
+    breaches.extend(security_breaches)
     
     # Stage 4: Quality gate
     if metrics["function_count"] == 0 and metrics["class_count"] == 0:
-        violations.append("No functions or classes found — code appears to be incomplete")
+        breaches.append("No functions or classes found — code appears to be incomplete")
     
     return {
-        "success": len(violations) == 0,
-        "violations": violations,
+        "success": len(breaches) == 0,
+        "breaches": breaches,
         "metrics": metrics
     }
 
@@ -170,39 +170,39 @@ def extract_code_from_response(llm_response: str) -> dict:
 
 def _validate_generated_filenames(extracted: dict) -> list:
     """Validate generated filenames before downstream file writes or execution."""
-    violations = []
+    breaches = []
     source = extracted.get("filename", "")
     test = extracted.get("test_filename", "")
 
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\.py", str(source)):
-        violations.append(f"Unsafe source filename: {source!r}")
+        breaches.append(f"Unsafe source filename: {source!r}")
 
     if test and not re.fullmatch(r"test_[A-Za-z0-9_]+\.py", str(test)):
-        violations.append(f"Unsafe test filename: {test!r}")
+        breaches.append(f"Unsafe test filename: {test!r}")
 
-    return violations
+    return breaches
 
 
 def _validate_extracted_code_package(extracted: dict) -> tuple:
     """Validate generated code, test code, and filenames as one package."""
-    filename_violations = _validate_generated_filenames(extracted)
+    filename_breaches = _validate_generated_filenames(extracted)
     code_validation = validate_python_syntax(extracted.get("code", ""))
     test_code = extracted.get("test_code", "")
-    test_validation = {"success": True, "violations": [], "metrics": {}}
+    test_validation = {"success": True, "breaches": [], "metrics": {}}
     if test_code:
         test_validation = validate_python_syntax(test_code)
 
-    combined_violations = []
-    combined_violations.extend(filename_violations)
-    combined_violations.extend(code_validation["violations"])
-    combined_violations.extend([f"Test code: {v}" for v in test_validation["violations"]])
+    combined_breaches = []
+    combined_breaches.extend(filename_breaches)
+    combined_breaches.extend(code_validation["breaches"])
+    combined_breaches.extend([f"Test code: {v}" for v in test_validation["breaches"]])
 
     success = (
-        not filename_violations
+        not filename_breaches
         and code_validation["success"]
         and test_validation["success"]
     )
-    return success, code_validation, test_validation, combined_violations
+    return success, code_validation, test_validation, combined_breaches
 
 
 def execute_task(task: dict, project_context: str = "", max_retries: int = 3) -> dict:
@@ -233,7 +233,7 @@ def execute_task(task: dict, project_context: str = "", max_retries: int = 3) ->
                 "error": f"PermissionError: Task touches NEVER boundary '{forbidden}'",
                 "code": "",
                 "test_code": "",
-                "violations": [f"NEVER permission violated: {forbidden}"]
+                "breaches": [f"NEVER permission breachd: {forbidden}"]
             }
     
     # === Stage 1: Propose — Build the prompt ===
@@ -264,11 +264,11 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
             "error": "Failed to extract valid code from LLM response",
             "code": "",
             "test_code": "",
-            "violations": ["JSON extraction failed"]
+            "breaches": ["JSON extraction failed"]
         }
     
     # === Stage 4: Evaluate package — code, tests, filenames (Zero-LLM) ===
-    package_success, validation, test_validation, combined_violations = _validate_extracted_code_package(extracted)
+    package_success, validation, test_validation, combined_breaches = _validate_extracted_code_package(extracted)
 
     # === Stage 5: Surgical Refinement Loop ===
     attempt = 0
@@ -277,10 +277,10 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
 
         fix_prompt = (
             "SURGICAL CORRECTION REQUIRED.\n"
-            "The following deterministic violations were found in the generated package:\n"
-            + "\n".join(f"- {v}" for v in combined_violations) +
+            "The following deterministic breaches were found in the generated package:\n"
+            + "\n".join(f"- {v}" for v in combined_breaches) +
             f"\n\nOriginal task: {task.get('title')}\n"
-            "Fix ONLY the violations listed above. Preserve unchanged correct code and tests.\n"
+            "Fix ONLY the breaches listed above. Preserve unchanged correct code and tests.\n"
             "Output ONLY valid JSON with filename, code, test_filename, test_code, imports_required, and description."
         )
 
@@ -289,9 +289,9 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
 
         if refined["success"]:
             extracted = refined
-            package_success, validation, test_validation, combined_violations = _validate_extracted_code_package(extracted)
+            package_success, validation, test_validation, combined_breaches = _validate_extracted_code_package(extracted)
         else:
-            combined_violations = ["JSON extraction failed during surgical refinement"]
+            combined_breaches = ["JSON extraction failed during surgical refinement"]
 
     test_code = extracted.get("test_code", "")
 
@@ -304,9 +304,9 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
         "imports_required": extracted["imports_required"],
         "description": extracted["description"],
         "code_metrics": validation["metrics"],
-        "code_violations": validation["violations"],
+        "code_breaches": validation["breaches"],
         "test_valid": test_validation["success"],
-        "test_violations": test_validation["violations"],
-        "violations": combined_violations,
+        "test_breaches": test_validation["breaches"],
+        "breaches": combined_breaches,
         "refinement_attempts": attempt
     }

@@ -4,7 +4,7 @@ from agents.decision_conflict_agent import DECISION_CONFLICT_PERMISSIONS, resolv
 def test_permissions_matrix():
     assert "agent_disputes" in DECISION_CONFLICT_PERMISSIONS["READ"]
     assert "binding_decisions" in DECISION_CONFLICT_PERMISSIONS["WRITE"]
-    assert "violate_constitution" in DECISION_CONFLICT_PERMISSIONS["NEVER"]
+    assert "breach_constitution" in DECISION_CONFLICT_PERMISSIONS["NEVER"]
 
 
 def test_resolve_conflict_selects_security_over_speed():
@@ -22,12 +22,12 @@ def test_resolve_conflict_selects_security_over_speed():
     assert res["binding_decisions"][0]["selected_option_id"] == "secure"
 
 
-def test_resolve_conflict_rejects_constitution_violating_options():
+def test_resolve_conflict_rejects_constitution_breaching_options():
     disputes = [
         {
             "id": "dispute_2",
             "options": [
-                {"id": "bad", "category": "security", "violates_constitution": True},
+                {"id": "bad", "category": "security", "breachs_constitution": True},
             ],
         }
     ]

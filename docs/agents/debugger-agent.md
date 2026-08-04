@@ -6,7 +6,7 @@
 
 Fixes failing code based on test failure output. This was the missing piece that prevented HumanEval from reaching 100% (tasks 76, 116, 145 failed without test-driven repair).
 
-Unlike Surgical Refiner which fixes AST violations, Debugger fixes **runtime failures** (assertions, tracebacks).
+Unlike Surgical Refiner which fixes AST breaches, Debugger fixes **runtime failures** (assertions, tracebacks).
 
 ## Permission Matrix (Law 2)
 
@@ -27,7 +27,7 @@ HUMAN_CHECKPOINT: [security_critical_fix, infinite_retry_loop]
 ## Inputs / Outputs
 
 - Input: failed_code (str), test_failure (str), problem_spec (str), past_reflections (List[str])
-- Output: fixed_code (str), success (bool), violations, debug_summary, fix_attempts
+- Output: fixed_code (str), success (bool), breaches, debug_summary, fix_attempts
 
 ## Context Integration
 

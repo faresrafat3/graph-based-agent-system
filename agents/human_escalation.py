@@ -27,7 +27,7 @@ class HumanEscalationState(TypedDict):
     requires_human: bool
     decision: str | None
     resume_signal: dict | None
-    violations: list[str]
+    breaches: list[str]
     retry_count: int
     success: bool
 
@@ -43,30 +43,30 @@ class HumanEscalationEngine:
         human_decision: str | None,
     ) -> dict[str, Any]:
         """Validate optional human decision and prepare resume signal."""
-        violations = []
+        breaches = []
         options = [option for option in available_options or [] if isinstance(option, str) and option.strip()]
 
         if not escalation_reason:
-            violations.append("Escalation reason is required.")
+            breaches.append("Escalation reason is required.")
         if not options:
-            violations.append("At least one human decision option is required.")
+            breaches.append("At least one human decision option is required.")
 
         if human_decision is None:
             return {
                 "requires_human": True,
                 "decision": None,
                 "resume_signal": None,
-                "violations": violations,
+                "breaches": breaches,
                 "success": False,
             }
 
         if human_decision not in options:
-            violations.append(f"Human decision '{human_decision}' is not one of the allowed options: {options}.")
+            breaches.append(f"Human decision '{human_decision}' is not one of the allowed options: {options}.")
             return {
                 "requires_human": True,
                 "decision": human_decision,
                 "resume_signal": None,
-                "violations": violations,
+                "breaches": breaches,
                 "success": False,
             }
 
@@ -79,15 +79,15 @@ class HumanEscalationEngine:
             "requires_human": False,
             "decision": human_decision,
             "resume_signal": resume_signal,
-            "violations": violations,
-            "success": len(violations) == 0,
+            "breaches": breaches,
+            "success": len(breaches) == 0,
         }
 
 
 # Karpathy Loop
 
 def propose(state: HumanEscalationState) -> dict:
-    return {"requires_human": True, "violations": [], "success": False}
+    return {"requires_human": True, "breaches": [], "success": False}
 
 
 def execute(state: HumanEscalationState) -> dict:
@@ -149,7 +149,7 @@ def handle_escalation(
             "requires_human": True,
             "decision": None,
             "resume_signal": None,
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
         },
@@ -160,5 +160,5 @@ def handle_escalation(
         "requires_human": result.get("requires_human", True),
         "decision": result.get("decision"),
         "resume_signal": result.get("resume_signal"),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }

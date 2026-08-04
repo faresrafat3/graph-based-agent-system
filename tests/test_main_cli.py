@@ -25,7 +25,7 @@ def test_compact_summary():
         "execution_plan": [{"task_id": "task_1"}],
         "domain_dispatch": {"success": True},
         "graph_execution": {"success": True},
-        "violations": [],
+        "breaches": [],
     }
     summary = main_module.compact_summary(result)
     assert summary["tasks"] == 1
@@ -42,7 +42,7 @@ def test_main_cli_success_json(monkeypatch, capsys):
             "stage": "complete",
             "tasks": [],
             "execution_plan": [],
-            "violations": [],
+            "breaches": [],
         }
 
     monkeypatch.setattr(main_module, "run_karpathy_pipeline", fake_pipeline)
@@ -56,6 +56,6 @@ def test_main_cli_failure_exit_code(monkeypatch):
     monkeypatch.setattr(
         main_module,
         "run_karpathy_pipeline",
-        lambda **kwargs: {"success": False, "stage": "complete", "tasks": [], "execution_plan": [], "violations": ["x"]},
+        lambda **kwargs: {"success": False, "stage": "complete", "tasks": [], "execution_plan": [], "breaches": ["x"]},
     )
     assert main_module.main(["--requirements", "Broken"]) == 1

@@ -27,7 +27,7 @@ class ResourcePriorityState(TypedDict):
     queue_order: list[str]
     deferred_tasks: list[str]
     rate_limit_actions: list[str]
-    violations: list[str]
+    breaches: list[str]
     retry_count: int
     success: bool
 
@@ -46,7 +46,7 @@ class ResourcePriorityEngine:
         api_rate_limits: dict,
     ) -> dict[str, Any]:
         """Order ready tasks and defer blocked or over-budget tasks."""
-        violations = []
+        breaches = []
         actions = []
         deferred = []
 
@@ -65,17 +65,17 @@ class ResourcePriorityEngine:
 
         if token_budget and tokens_used >= token_budget:
             actions.append("token_budget_exhausted")
-            violations.append("Token budget exhausted; queue execution must pause.")
+            breaches.append("Token budget exhausted; queue execution must pause.")
         if remaining_requests <= 0:
             actions.append("api_rate_limit_exhausted")
-            violations.append("API request budget exhausted; queue execution must pause.")
+            breaches.append("API request budget exhausted; queue execution must pause.")
 
         ready = []
         for index, item in enumerate(queue or []):
             task_id = item.get("task_id") or item.get("id")
             deps = set(item.get("depends_on", item.get("dependencies", [])) or [])
             if not task_id:
-                violations.append(f"Queue item {index + 1} missing task id.")
+                breaches.append(f"Queue item {index + 1} missing task id.")
                 continue
             if deps - completed_task_ids:
                 deferred.append(task_id)
@@ -88,16 +88,16 @@ class ResourcePriorityEngine:
             ))
 
         ready.sort()
-        queue_order = [] if violations else [item[-1] for item in ready]
-        if violations and ready:
+        queue_order = [] if breaches else [item[-1] for item in ready]
+        if breaches and ready:
             deferred.extend(item[-1] for item in ready)
 
         return {
             "queue_order": queue_order,
             "deferred_tasks": sorted(set(deferred)),
             "rate_limit_actions": actions,
-            "violations": violations,
-            "success": len(violations) == 0,
+            "breaches": breaches,
+            "success": len(breaches) == 0,
         }
 
 
@@ -105,8 +105,8 @@ class ResourcePriorityEngine:
 
 def propose(state: ResourcePriorityState) -> dict:
     if not isinstance(state.get("queue", []), list):
-        return {"violations": ["queue must be a list."], "success": False}
-    return {"violations": [], "success": True}
+        return {"breaches": ["queue must be a list."], "success": False}
+    return {"breaches": [], "success": True}
 
 
 def execute(state: ResourcePriorityState) -> dict:
@@ -119,7 +119,7 @@ def execute(state: ResourcePriorityState) -> dict:
 
 
 def evaluate(state: ResourcePriorityState) -> dict:
-    return {"success": len(state.get("violations", [])) == 0}
+    return {"success": len(state.get("breaches", [])) == 0}
 
 
 def commit(state: ResourcePriorityState) -> dict:
@@ -171,7 +171,7 @@ def prioritize_resources(
             "queue_order": [],
             "deferred_tasks": [],
             "rate_limit_actions": [],
-            "violations": [],
+            "breaches": [],
             "retry_count": 0,
             "success": False,
         },
@@ -182,5 +182,5 @@ def prioritize_resources(
         "queue_order": result.get("queue_order", []),
         "deferred_tasks": result.get("deferred_tasks", []),
         "rate_limit_actions": result.get("rate_limit_actions", []),
-        "violations": result.get("violations", []),
+        "breaches": result.get("breaches", []),
     }

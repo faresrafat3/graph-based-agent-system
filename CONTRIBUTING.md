@@ -92,7 +92,7 @@ storage, not git history.
 
 All code MUST respect `LAWS.md` and `CONSTITUTION.md`. The governance check
 (`system/governance_checks.py`, run via `make audit`) validates this and is
-part of CI. A PR that violates a Law is not mergeable.
+part of CI. A PR that breachs a Law is not mergeable.
 
 ## 6. Emergency direct push
 

@@ -36,7 +36,7 @@ max_retries: int = 3
   "metadata": dict,
   "quality_score": float,
   "final_quality_score": float,
-  "violations": list[str],
+  "breaches": list[str],
   "refinement_attempts": int,
   "context_signal_to_noise": float,
   "agent_assignments": dict,
@@ -92,7 +92,7 @@ max_retries: int = 3
 
 ### Final Report
 
-- Return combined success, tasks, assignments, execution plan, quality review, violations, and executed modules.
+- Return combined success, tasks, assignments, execution plan, quality review, breaches, and executed modules.
 
 ## Current Success Definition
 
