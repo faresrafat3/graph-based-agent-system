@@ -41,3 +41,6 @@ benchmarks/results/*requests*.json
 node_modules/
 *.swp
 Thumbs.db
+
+# Local graph-agent working file (changes every run; not source of truth)
+gbas-agent.gbas_agent_v5.json
