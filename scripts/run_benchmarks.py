@@ -135,9 +135,9 @@ def main():
         print("❌ --live-only requires STEPFUN_API_KEY env var")
         return 1
     if api_key:
-        print("🔑 STEPFUN_API_KEY detected, will run live LLM calls")
+        print(f"🔑 STEPFUN_API_KEY detected, will run live LLM calls")
     else:
-        print("⚠️  No STEPFUN_API_KEY, running with whatever pipeline provides (may use fallback in tests)")
+        print(f"⚠️  No STEPFUN_API_KEY, running with whatever pipeline provides (may use fallback in tests)")
     
     # Run
     if args.extended:

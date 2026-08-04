@@ -115,3 +115,62 @@ def test_pipeline_optional_graph_orchestration():
     assert result["graph_execution"]["success"] is True
     assert result["graph_execution"]["completed_task_ids"]
     assert result["quality_review"]["approved"] is True
+
+
+def test_pipeline_context_curation_fails(monkeypatch):
+    """Verify pipeline failure path when context curation fails"""
+    import agents.karpathy_pipeline as pipeline_module
+    monkeypatch.setattr(pipeline_module, "curate_context", lambda *a, **k: {"success": False})
+    
+    result = run_karpathy_pipeline(requirements="test prompt")
+    assert result["success"] is False
+    assert result["stage"] == "context_curation"
+    assert "Context sanitation failed" in result["error"]
+
+
+def test_pipeline_surgical_refinement_loop(monkeypatch):
+    """Verify pipeline surgical refiner loop on decomposition validation failures"""
+    import agents.karpathy_pipeline as pipeline_module
+    
+    validation_calls = []
+    
+    def fake_validate_output(target_output, required_keys):
+        if not validation_calls:
+            validation_calls.append("fail")
+            return {"success": False, "violations": ["Mock Violation"], "quality_score": 0.5}
+        else:
+            validation_calls.append("pass")
+            return {"success": True, "violations": [], "quality_score": 1.0}
+            
+    monkeypatch.setattr(pipeline_module, "validate_output", fake_validate_output)
+    monkeypatch.setattr(pipeline_module, "generate_refinement_feedback", lambda *a, **k: {"surgical_feedback": "Please fix"})
+    
+    result = run_karpathy_pipeline(requirements="test prompt")
+    assert result["success"] is True
+    assert len(validation_calls) == 2
+
+
+def test_pipeline_code_execution_loop(monkeypatch):
+    """Verify code generation, execution, and test runner loop inside the pipeline"""
+    import agents.karpathy_pipeline as pipeline_module
+    
+    def fake_execute_task(task, **k):
+        return {
+            "success": True, 
+            "code": "def solve(): pass", 
+            "filename": "solve.py", 
+            "test_filename": "test_solve.py", 
+            "test_code": "def test_solve(): pass"
+        }
+        
+    def fake_run_code_and_tests(*a, **k):
+        return {"success": True, "passed_tests": 1, "failed_tests": 0}
+        
+    monkeypatch.setattr(pipeline_module, "execute_task", fake_execute_task)
+    monkeypatch.setattr(pipeline_module, "run_code_and_tests", fake_run_code_and_tests)
+    
+    result = run_karpathy_pipeline(requirements="test prompt", execute_code=True)
+    assert result["success"] is True
+    assert len(result["executed_modules"]) == 1
+    assert result["executed_modules"][0]["test_execution"]["success"] is True
+

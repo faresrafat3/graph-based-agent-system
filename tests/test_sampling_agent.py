@@ -64,3 +64,67 @@ def test_excessive_samples_raises():
         assert False, "Should have raised for >20"
     except ValueError as e:
         assert "HUMAN_CHECKPOINT" in str(e)
+
+
+def test_sample_candidates_empty_or_forbidden():
+    """Verify input validations on empty or security-violating specifications"""
+    import pytest
+    with pytest.raises(ValueError, match="problem_spec must be non-empty"):
+        sample_candidates("")
+        
+    with pytest.raises(PermissionError, match="detected NEVER permission violation"):
+        sample_candidates("delete production database")
+
+
+def test_sample_candidates_fenced_and_exception(monkeypatch):
+    """Verify that fenced markdown is stripped and exceptions on single calls are recorded safely per Law 3"""
+    call_count = {"llm": 0}
+    
+    def fake_llm(*a, **k):
+        call_count["llm"] += 1
+        if call_count["llm"] == 1:
+            return "```python\ndef solve():\n    return 1\n```"
+        else:
+            raise RuntimeError("LLM offline")
+            
+    monkeypatch.setattr(sampling_module, "call_llm", fake_llm)
+    
+    res = sample_candidates(
+        problem_spec="def solve():",
+        n_samples=2,
+    )
+    
+    assert res["success"] is True
+    assert len(res["candidates"]) == 2
+    assert res["candidates"][0]["code"] == "def solve():\n    return 1"
+    assert res["candidates"][1]["failed"] is True
+    assert "LLM offline" in res["candidates"][1]["error"]
+
+
+def test_sampling_refine_and_should_continue():
+    """Verify refine and should_continue decisions in the sampling agent graph"""
+    from agents.sampling_agent import refine, should_continue
+    
+    res = refine({"retry_count": 0})
+    assert res["retry_count"] == 1
+    assert res["success"] is False
+    
+    assert should_continue({"success": True}) == "commit"
+    assert should_continue({"success": False, "retry_count": 2}) == "escalate"
+    assert should_continue({"success": False, "retry_count": 0}) == "refine"
+
+
+def test_sample_candidates_no_valid_candidates(monkeypatch):
+    """Verify evaluation and violations when all candidates fail AST parsing"""
+    monkeypatch.setattr(sampling_module, "call_llm", lambda *a, **k: "def broken_syntax(:")
+    
+    res = sample_candidates(
+        problem_spec="def solve():",
+        n_samples=2,
+        thread_id="sampling_no_valid_session"
+    )
+    
+    assert res["success"] is False
+    assert any("No valid candidates" in v for v in res["violations"])
+
+

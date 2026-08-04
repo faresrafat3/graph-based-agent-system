@@ -3,6 +3,8 @@ from agents.domain_context_managers import (
     BaseDomainContextManager,
     AuthContextManager,
     DBContextManager,
+    APIContextManager,
+    UIContextManager
 )
 
 
@@ -38,3 +40,12 @@ def test_db_context_manager():
     
     assert res["success"] is True
     assert "database" in res["filtered_context"].lower()
+
+
+def test_base_domain_context_manager_truncation():
+    """Verify context truncation works when budget is exceeded"""
+    mgr = BaseDomainContextManager(domain_name="test_domain", max_domain_budget=5)
+    raw = "Short prompt"
+    res = mgr.filter_context(raw, domain_specific_data="This is a very long schema that will definitely exceed the 20 character budget limit.")
+    assert "Truncated" in res["filtered_context"]
+

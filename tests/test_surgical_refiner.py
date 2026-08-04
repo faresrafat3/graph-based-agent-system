@@ -33,3 +33,36 @@ def test_generate_refinement_feedback_pipeline():
     assert res["success"] is True
     assert "metadata" in res["target_keys_to_fix"]
     assert "SURGICAL CORRECTION REQUIRED" in res["surgical_feedback"]
+
+
+def test_generate_surgical_instructions_empty():
+    """Verify fallback message when no violations are provided"""
+    feedback = SurgicalRefinerEngine.generate_surgical_instructions([], [])
+    assert feedback == "No surgical corrections required."
+
+
+def test_generate_refinement_feedback_empty_violations():
+    """Verify pipeline output when no violations are detected"""
+    res = generate_refinement_feedback([])
+    assert res["success"] is False
+    assert "No violations detected" in res["surgical_feedback"] or "surgical corrections" in res["surgical_feedback"]
+
+
+def test_surgical_refiner_refine_and_should_continue():
+    """Verify refine and should_continue branch decisions in Karpathy loop"""
+    from agents.surgical_refiner import refine, should_continue
+    
+    # Test refine node
+    ref_res = refine({"retry_count": 1})
+    assert ref_res["retry_count"] == 2
+    assert ref_res["success"] is False
+    
+    # Test should_continue commit branch
+    assert should_continue({"success": True}) == "commit"
+    
+    # Test should_continue escalate branch
+    assert should_continue({"success": False, "retry_count": 3}) == "escalate"
+    
+    # Test should_continue refine branch
+    assert should_continue({"success": False, "retry_count": 1}) == "refine"
+

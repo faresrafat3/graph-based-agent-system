@@ -34,3 +34,36 @@ def test_resolve_conflict_rejects_constitution_violating_options():
     res = resolve_conflicts(disputes, thread_id="conflict_unresolved")
     assert res["success"] is False
     assert res["unresolved_conflicts"]
+
+
+def test_resolve_conflict_empty_options():
+    disputes = [
+        {
+            "id": "dispute_empty",
+            "options": []
+        }
+    ]
+    res = resolve_conflicts(disputes, thread_id="conflict_empty")
+    assert res["success"] is False
+    assert any("no options to evaluate" in v for v in res["violations"])
+
+
+def test_resolve_conflict_unknown_category():
+    disputes = [
+        {
+            "id": "dispute_unknown",
+            "options": [
+                {"id": "strange", "category": "unknown_category", "evidence_score": 10}
+            ]
+        }
+    ]
+    res = resolve_conflicts(disputes, thread_id="conflict_unknown")
+    assert res["success"] is False
+    assert any("no known priority category" in v for v in res["violations"])
+
+
+def test_resolve_conflict_invalid_disputes_type():
+    res = resolve_conflicts("not a list", thread_id="conflict_invalid_type")
+    assert res["success"] is False
+    assert any("disputes must be a list" in v for v in res["violations"])
+

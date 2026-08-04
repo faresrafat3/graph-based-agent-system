@@ -137,7 +137,12 @@ class DeterministicValidatorEngine:
             return []
 
         violations = []
-        task_ids = {task.get("id") for task in tasks if isinstance(task, dict) and isinstance(task.get("id"), str)}
+        task_ids = set()
+        for task in tasks:
+            if isinstance(task, dict):
+                tid = task.get("id")
+                if isinstance(tid, str):
+                    task_ids.add(tid)
         graph = {}
 
         for task in tasks:

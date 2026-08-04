@@ -40,6 +40,13 @@ class IntegrationAgentEngine:
         seen_files = {}
         seen_exports = {}
 
+        if not isinstance(artifacts, list):
+            return {
+                "integration_manifest": {"modules": [], "tests": [], "exports": {}, "artifact_count": 0},
+                "conflicts": ["artifacts must be a list."],
+                "success": False,
+            }
+
         for index, artifact in enumerate(artifacts or [], 1):
             filename = artifact.get("filename")
             code = artifact.get("code")

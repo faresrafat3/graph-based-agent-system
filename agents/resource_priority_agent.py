@@ -50,6 +50,15 @@ class ResourcePriorityEngine:
         actions = []
         deferred = []
 
+        if not isinstance(queue, list):
+            return {
+                "queue_order": [],
+                "deferred_tasks": [],
+                "rate_limit_actions": [],
+                "violations": ["queue must be a list."],
+                "success": False,
+            }
+
         token_budget = int(token_usage.get("budget", token_usage.get("limit", 0)) or 0)
         tokens_used = int(token_usage.get("used", 0) or 0)
         remaining_requests = int(api_rate_limits.get("remaining", 1) or 0)

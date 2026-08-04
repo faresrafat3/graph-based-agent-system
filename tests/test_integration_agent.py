@@ -32,3 +32,33 @@ def test_integrate_artifacts_detects_duplicate_filename_and_export():
     assert res["success"] is False
     assert any("Duplicate artifact filename" in c for c in res["conflicts"])
     assert any("Duplicate export" in c for c in res["conflicts"])
+
+
+def test_integrate_artifacts_validation_rules():
+    """Verify various validation rules inside build_manifest"""
+    artifacts = [
+        # Missing filename (Line 50)
+        {"code": "def login(): pass"},
+        # Non-string code (Line 58)
+        {"filename": "b.py", "code": None},
+        # Duplicate test filename (Line 62)
+        {"filename": "c.py", "code": "", "test_filename": "test_shared.py", "test_code": ""},
+        {"filename": "d.py", "code": "", "test_filename": "test_shared.py", "test_code": ""},
+        # Missing test code string (Line 67)
+        {"filename": "e.py", "code": "", "test_filename": "test_e.py", "test_code": None},
+    ]
+    
+    res = integrate_artifacts(artifacts, thread_id="integration_validation_rules")
+    assert res["success"] is False
+    assert any("missing filename" in c for c in res["conflicts"])
+    assert any("missing source code string" in c for c in res["conflicts"])
+    assert any("Duplicate test filename" in c for c in res["conflicts"])
+    assert any("missing test code string" in c for c in res["conflicts"])
+
+
+def test_integrate_artifacts_invalid_type():
+    """Verify defensive type-checking for non-list artifacts input"""
+    res = integrate_artifacts("not a list", thread_id="integration_invalid_type")
+    assert res["success"] is False
+    assert any("artifacts must be a list" in c for c in res["conflicts"])
+

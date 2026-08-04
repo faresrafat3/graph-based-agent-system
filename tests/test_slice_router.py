@@ -22,9 +22,31 @@ def test_detect_fintech():
     req = "Implement OAuth2 + OIDC authentication server with MFA TOTP"
     assert detect_task_type(req) == "fintech"
 
+
+def test_detect_competitive():
+    req = "Solve this AtCoder / Codeforces problem on trees"
+    assert detect_task_type(req) == "competitive"
+
+
 def test_detect_default():
     req = "Build a task management application with auth and CRUD"
     assert detect_task_type(req) == "default"
+
+
+def test_detect_empty_requirements():
+    assert detect_task_type("") == "default"
+
+
+def test_detect_humaneval_single_quote_docstring():
+    req = "def add_elements(a, b):\n    '''Check if...\n    >>> add_elements(1, 2)\n    3'''"
+    assert detect_task_type(req) == "humaneval"
+
+
+def test_detect_humaneval_no_docstring():
+    req = "def add_elements(a, b):\n    # No docstring at all but contains >>>\n    # >>> add_elements(1, 2)\n    return a + b"
+    # Should evaluate to default because there are no triple quotes of either kind
+    assert detect_task_type(req) == "default"
+
 
 def test_build_slice():
     slice_cfg = build_slice_graph("humaneval")

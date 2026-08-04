@@ -41,3 +41,21 @@ def test_prioritize_blocks_exhausted_budget():
     assert "task_1" in res["deferred_tasks"]
     assert "token_budget_exhausted" in res["rate_limit_actions"]
     assert "api_rate_limit_exhausted" in res["rate_limit_actions"]
+
+
+def test_prioritize_item_missing_task_id():
+    """Verify validation flags queue items missing task ids"""
+    queue = [
+        {"priority": "high"},  # Missing task_id and id
+    ]
+    res = prioritize_resources(queue, thread_id="resource_missing_id")
+    assert res["success"] is False
+    assert any("missing task id" in v for v in res["violations"])
+
+
+def test_prioritize_invalid_queue_type():
+    """Verify defensive type check for non-list queue inputs"""
+    res = prioritize_resources("not a list", thread_id="resource_invalid_type")
+    assert res["success"] is False
+    assert any("queue must be a list" in v for v in res["violations"])
+

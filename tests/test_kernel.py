@@ -66,45 +66,10 @@ def test_alert_signal_properties():
 # ==================== Dispatch Kernel Tests ====================
 
 def test_routing_table_completeness():
-    """Every known signal type has a routing entry in at least one table (Ultimate or Slices)"""
-    from kernel.dispatch_kernel import SLICE_ROUTING_TABLES
+    """Every known signal type has a routing entry"""
     all_signals = SUCCESS_SIGNALS | FAILURE_SIGNALS | ALERT_SIGNALS | TERMINAL_SIGNALS
-    # Build union of all routing tables
-    all_tables = [ROUTING_TABLE] + list(SLICE_ROUTING_TABLES.values())
-    all_routed = set()
-    for tbl in all_tables:
-        all_routed.update(tbl.keys())
     for sig_type in all_signals:
-        assert sig_type in all_routed, f"Signal {sig_type} missing from all routing tables (default + slices)"
-
-def test_dual_mode_kernel_slice_detection():
-    """Dual-Mode Kernel detects task type and builds dynamic routing table"""
-    from kernel.slice_router import detect_task_type
-    kernel = DispatchKernel()
-    
-    # Test humaneval detection
-    task_type = kernel.detect_task_type("def has_close_elements(numbers, threshold):\n    \"\"\"Check...\"\"\"\n    >>> has_close_elements([1,2], 0.5)")
-    assert task_type in ["humaneval", "default"]  # heuristic may detect as humaneval or default
-    
-    # Test ecommerce detection
-    task_type = kernel.detect_task_type("Build e-commerce backend with product catalog and Stripe")
-    assert task_type == "ecommerce"
-    
-    # Test dynamic routing table building
-    table = kernel.build_dynamic_routing_table("humaneval")
-    assert "CANDIDATES_GENERATED" in table or "CONTEXT_CURATED" in table
-    assert kernel.active_slice_type == "humaneval"
-    
-    table = kernel.build_dynamic_routing_table("ecommerce")
-    assert kernel.active_slice_type == "ecommerce"
-    
-def test_slice_config_retrieval():
-    """Kernel can retrieve full slice config for requirements"""
-    kernel = DispatchKernel()
-    config = kernel.get_slice_config("Build e-commerce backend", "")
-    assert "task_type" in config
-    assert "slice" in config
-    assert config["task_type"] == "ecommerce"
+        assert sig_type in ROUTING_TABLE, f"Signal {sig_type} missing from routing table"
 
 
 def test_failure_policy_defined():
@@ -158,17 +123,48 @@ def test_kernel_route_is_used_in_run(tmp_path, monkeypatch):
     consult route() rather than hard-coding the next agent.
     """
     # Stub the LLM-backed stage so the test never hits the network.
-    # NOTE: dispatch_kernel imports decompose_requirements via `from ... import`,
-    # so the live reference lives on the dk module object — patch that, not td.
+    import agents.task_decomposer as td
     import kernel.dispatch_kernel as dk
 
+    captured = {}
+
     def fake_decompose(*a, **k):
-        return {"tasks": [{"id": "t1"}, {"id": "t2"}], "metadata": {}, "success": True}
+        return {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Task 1",
+                    "description": "Description 1",
+                    "type": "feature",
+                    "priority": "high",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 1"]
+                },
+                {
+                    "id": "t2",
+                    "title": "Task 2",
+                    "description": "Description 2",
+                    "type": "feature",
+                    "priority": "medium",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 2"]
+                }
+            ],
+            "metadata": {
+                "total_tasks": 2,
+                "high_priority": 1,
+                "medium_priority": 1,
+                "low_priority": 0,
+                "estimated_total_effort": "medium"
+            },
+            "success": True
+        }
 
     monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
-    # validate_output is imported into dk via `from ... import`; stub it so the
-    # deterministic validation stage reports success without hitting real logic.
-    monkeypatch.setattr(dk, "validate_output", lambda *a, **k: {"success": True, "quality_score": 1.0, "violations": []})
     monkeypatch.setattr(dk, "execute_task", lambda *a, **k: {"success": False, "code": ""})
     monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": False})
 
@@ -183,3 +179,117 @@ def test_kernel_route_is_used_in_run(tmp_path, monkeypatch):
     assert len(decomposed) == 1
     emitted_task_ids = {t.get("id") for t in decomposed[0]["data"].get("tasks", [])}
     assert emitted_task_ids == {"t1", "t2"}
+
+
+def test_kernel_context_curation_fails(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": False})
+    kernel = DispatchKernel()
+    result = kernel.run("Build a page")
+    assert result["success"] is False
+    assert result["error"] == "Context curation failed"
+    assert any(s["signal_type"] == "CONTEXT_ROT_DETECTED" for s in kernel.signal_log)
+
+
+def test_kernel_no_tasks_emits_clarification(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": True, "sanitized_prompt": "prompt", "signal_to_noise_ratio": 1.0})
+    monkeypatch.setattr(dk, "decompose_requirements", lambda *a, **k: {"tasks": [], "clarifications_needed": ["clarify this"]})
+    kernel = DispatchKernel()
+    result = kernel.run("Build a page")
+    assert result["success"] is False
+    assert any(s["signal_type"] == "NEEDS_CLARIFICATION" for s in kernel.signal_log)
+
+
+def test_kernel_surgical_refinement_loop(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": True, "sanitized_prompt": "prompt", "signal_to_noise_ratio": 1.0})
+    
+    validation_calls = []
+    def fake_validate_output(target_output, required_keys):
+        if not validation_calls:
+            validation_calls.append("fail")
+            return {"success": False, "violations": ["Schema violation"], "quality_score": 0.5}
+        else:
+            validation_calls.append("pass")
+            return {"success": True, "violations": [], "quality_score": 1.0}
+            
+    monkeypatch.setattr(dk, "validate_output", fake_validate_output)
+    
+    def fake_decompose(*a, **k):
+        return {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Task 1",
+                    "description": "Desc 1",
+                    "type": "feature",
+                    "priority": "high",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 1"]
+                }
+            ],
+            "metadata": {
+                "total_tasks": 1,
+                "high_priority": 1,
+                "medium_priority": 0,
+                "low_priority": 0,
+                "estimated_total_effort": "medium"
+            },
+            "success": True
+        }
+    monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "generate_refinement_feedback", lambda *a, **k: {"surgical_feedback": "Please fix"})
+    
+    kernel = DispatchKernel()
+    result = kernel.run("Build a page")
+    assert result["success"] is True
+    assert len(validation_calls) == 2
+    assert any(s["signal_type"] == "VALIDATION_FAILED" for s in kernel.signal_log)
+
+
+def test_kernel_execute_code_success_and_tests(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": True, "sanitized_prompt": "prompt", "signal_to_noise_ratio": 1.0})
+    
+    def fake_decompose(*a, **k):
+        return {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Task 1",
+                    "description": "Desc 1",
+                    "type": "feature",
+                    "priority": "high",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 1"]
+                }
+            ],
+            "metadata": {
+                "total_tasks": 1,
+                "high_priority": 1,
+                "medium_priority": 0,
+                "low_priority": 0,
+                "estimated_total_effort": "medium"
+            },
+            "success": True
+        }
+    monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "execute_task", lambda *a, **k: {"success": True, "code": "print(1)", "filename": "t1.py"})
+    
+    monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": True, "passed_tests": 1})
+    kernel1 = DispatchKernel()
+    result1 = kernel1.run("Build a page", execute_code=True)
+    assert result1["success"] is True
+    assert any(s["signal_type"] == "TESTS_PASSED" for s in kernel1.signal_log)
+    
+    monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": False, "failed_tests": 1, "traceback": "error"})
+    kernel2 = DispatchKernel()
+    result2 = kernel2.run("Build a page", execute_code=True)
+    assert result2["success"] is True
+    assert any(s["signal_type"] == "TESTS_FAILED" for s in kernel2.signal_log)
+

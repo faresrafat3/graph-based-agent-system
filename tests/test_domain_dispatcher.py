@@ -127,3 +127,45 @@ def test_dispatch_respects_completed_dependencies(monkeypatch):
 
     assert result["success"] is True
     assert "task_2" in result["completed_task_ids"]
+
+
+def test_dispatch_max_tasks_skips_remaining(monkeypatch):
+    monkeypatch.setattr(
+        domain_squads_module,
+        "call_llm",
+        lambda prompt, system_prompt="", **kwargs: valid_code_response(),
+    )
+    
+    tasks = [
+        task("task_1", title="JWT login"),
+        task("task_2", title="DB setup")
+    ]
+    plan = [
+        plan_item("task_1", agent="AuthSquadAgent", group=0),
+        plan_item("task_2", agent="DatabaseSquadAgent", group=0)
+    ]
+    
+    result = dispatch_domain_tasks(tasks, plan, max_tasks=1)
+    
+    assert result["success"] is True
+    # The first task is processed
+    assert result["results"][0]["stage"] == "domain_squad_execution"
+    # The second task is skipped because of max_tasks limit
+    assert result["results"][1]["stage"] == "skipped_max_tasks"
+    assert "task_2" in result["skipped_tasks"]
+
+
+def test_dispatch_squad_execution_error(monkeypatch):
+    from agents.domain_squads import AuthSquadAgent
+    
+    def fake_execute_auth_task(*args, **kwargs):
+        raise RuntimeError("squad runtime crash")
+        
+    monkeypatch.setattr(AuthSquadAgent, "execute_auth_task", fake_execute_auth_task)
+    
+    result = dispatch_domain_tasks([task()], [plan_item()])
+    
+    assert result["success"] is False
+    assert result["results"][0]["stage"] == "squad_execution"
+    assert any("dispatch failed in AuthSquadAgent: squad runtime crash" in v for v in result["violations"])
+

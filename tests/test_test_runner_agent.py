@@ -133,3 +133,57 @@ def leak() -> str:
 def test_validate_sandbox_filename_accepts_safe_names():
     assert validate_sandbox_filename("calculator.py") == "calculator.py"
     assert validate_sandbox_filename("test_calculator.py", is_test=True) == "test_calculator.py"
+
+
+def test_validate_sandbox_filename_invalid_inputs():
+    with pytest.raises(ValueError, match="Filename must be a non-empty string."):
+        validate_sandbox_filename(None)
+    with pytest.raises(ValueError, match="Filename must be a non-empty string."):
+        validate_sandbox_filename("")
+    with pytest.raises(ValueError, match="Unsafe filename path traversal rejected"):
+        validate_sandbox_filename("/absolute/path.py")
+    with pytest.raises(ValueError, match="Unsafe filename path traversal rejected"):
+        validate_sandbox_filename("../escape.py")
+    with pytest.raises(ValueError, match="Unsafe filename path traversal rejected"):
+        validate_sandbox_filename("nested/path.py")
+    with pytest.raises(ValueError, match="Unsafe filename 'calculator'; expected"):
+        validate_sandbox_filename("calculator")
+    with pytest.raises(ValueError, match="Unsafe filename 'calculator.py'; expected test_"):
+        validate_sandbox_filename("calculator.py", is_test=True)
+
+
+def test_resolve_inside_escapes_sandbox():
+    from agents.test_runner_agent import _resolve_inside
+    with pytest.raises(ValueError, match="Resolved path escaped sandbox"):
+        _resolve_inside("/tmp/sandbox", "../escaped.py")
+
+
+def test_run_code_with_timeout():
+    source_code = "import time\ndef infinite():\n    while True:\n        time.sleep(0.01)\n"
+    res = run_code_and_tests(
+        filename="infinite.py",
+        code=source_code,
+        test_filename="test_infinite.py",
+        test_code="from infinite import infinite\ndef test_inf():\n    infinite()\n",
+        timeout_seconds=1
+    )
+    assert res["success"] is False
+    assert res["stage"] == "timeout"
+    assert "timed out" in res["error"]
+
+
+def test_run_code_with_generic_exception(monkeypatch):
+    import tempfile
+    def fake_mkdtemp(*a, **k):
+        raise OSError("mock os error")
+    monkeypatch.setattr(tempfile, "mkdtemp", fake_mkdtemp)
+    res = run_code_and_tests(
+        filename="calculator.py",
+        code="def add(a, b): return a + b",
+        test_filename="",
+        test_code=""
+    )
+    assert res["success"] is False
+    assert res["stage"] == "runtime_error"
+    assert "mock os error" in res["error"]
+

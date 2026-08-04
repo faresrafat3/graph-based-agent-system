@@ -507,6 +507,7 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
     Returns {applied, ftp_pass, ftp_total, ptp_pass, ptp_total, score, error}.
     `score` = ftp_pass - (ptp_total - ptp_pass) so breaking PASS_TO_PASS is penalized.
     """
+    import subprocess
 
     def _clean():
         subprocess.run(["git", "checkout", "--", "."], cwd=root, capture_output=True, timeout=30)
@@ -581,6 +582,7 @@ def solve_alphacode_swebench(instance: dict, root: str, files: list, n_samples: 
     by an LLM judge. This is best-of-N at the harness level and directly attacks the
     per-instance LLM variance that made single-shot resolve rate swing 1/8 vs 4/8.
     """
+    import subprocess
 
     candidates = []
     total_llm_calls = 0
@@ -813,8 +815,8 @@ def run(mode: str, limit: Optional[int], workers: int, out_path: str, repo_filte
     print("=" * 78)
     print(f"  Predictions -> {preds_path}")
     print("  Grade with:")
-    print("    python -m swebench.harness.run_evaluation \\")
-    print("      --dataset_name princeton-nlp/SWE-bench_Verified \\")
+    print(f"    python -m swebench.harness.run_evaluation \\")
+    print(f"      --dataset_name princeton-nlp/SWE-bench_Verified \\")
     print(f"      --predictions_path {preds_path} \\")
     print(f"      --max_workers 8 --run_id gbas_{mode}")
     print("=" * 78)
