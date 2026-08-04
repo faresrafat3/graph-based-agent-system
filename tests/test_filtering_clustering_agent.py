@@ -46,3 +46,42 @@ def test_filter_and_cluster_success():
     assert "filtering_report" in res
     assert res["filtering_report"]["total_input"] == 3
     assert res["filtering_report"]["representatives"] == 2  # after dedup and pick
+
+
+def test_filter_and_cluster_input_validations():
+    """Verify input validations on empty or excessive candidate lists"""
+    import pytest
+    with pytest.raises(ValueError, match="candidates required"):
+        filter_and_cluster([])
+        
+    with pytest.raises(ValueError, match="Too many candidates"):
+        filter_and_cluster([{"code": "def f(): pass"}] * 101)
+
+
+def test_cluster_by_execution_output():
+    """Verify clustering behavior on execution outputs"""
+    cands = [
+        {"code": "def f(): return 1", "execution_output": "output_1"},
+        {"code": "def f(): return 2", "execution_output": "output_2"},
+        {"code": "def f(): return 3", "execution_output": "output_1"}, # same execution output
+    ]
+    clusters = FilteringEngine.cluster_by_behavior(cands)
+    assert len(clusters) == 2
+
+
+def test_filtering_refine_and_should_continue():
+    """Verify refine, should_continue, and evaluate branch decisions in the filtering agent graph"""
+    from agents.filtering_clustering_agent import refine, should_continue, evaluate
+    
+    res = refine({"retry_count": 0})
+    assert res["retry_count"] == 1
+    assert res["success"] is False
+    
+    assert should_continue({"success": True}) == "commit"
+    assert should_continue({"success": False, "retry_count": 2}) == "escalate"
+    assert should_continue({"success": False, "retry_count": 0}) == "refine"
+    
+    eval_res = evaluate({"representatives": []})
+    assert eval_res["success"] is False
+    assert any("No representatives" in v for v in eval_res["violations"])
+

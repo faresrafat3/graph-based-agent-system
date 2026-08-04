@@ -48,6 +48,14 @@ class DecisionConflictEngine:
         unresolved = []
         violations = []
 
+        if not isinstance(disputes, list):
+            return {
+                "binding_decisions": [],
+                "unresolved_conflicts": [],
+                "violations": ["disputes must be a list."],
+                "success": False,
+            }
+
         for dispute in disputes or []:
             dispute_id = dispute.get("id", "unknown_dispute")
             options = dispute.get("options", [])

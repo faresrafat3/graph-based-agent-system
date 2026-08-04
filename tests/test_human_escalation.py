@@ -41,3 +41,22 @@ def test_escalation_rejects_invalid_decision():
     )
     assert res["success"] is False
     assert any("not one of the allowed options" in v for v in res["violations"])
+
+
+def test_escalation_empty_reason_and_options():
+    """Verify validation flags missing reason or missing options"""
+    res1 = handle_escalation("", thread_id="empty_reason")
+    assert any("reason is required" in v for v in res1["violations"])
+    
+    # Call the engine directly to bypass wrapper's falsy 'or' fallback
+    from agents.human_escalation import HumanEscalationEngine
+    res2 = HumanEscalationEngine.evaluate_decision("Need approval", {}, [], None)
+    assert any("decision option is required" in v for v in res2["violations"])
+
+
+def test_escalation_refine_node_directly():
+    """Verify that the refine node function operates correctly"""
+    from agents.human_escalation import refine
+    res = refine({"retry_count": 2})
+    assert res["retry_count"] == 3
+

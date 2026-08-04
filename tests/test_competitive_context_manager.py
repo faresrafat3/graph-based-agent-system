@@ -35,3 +35,20 @@ def test_base_filter_fallback():
     res = mgr.filter_context(global_context="some global", domain_specific_data="not humaneval, just generic")
     # Should fallback to base
     assert "filtered_context" in res
+
+
+def test_filter_competitive_empty():
+    mgr = CompetitiveContextManager()
+    res = mgr.filter_competitive_context("")
+    assert res["filtered_context"] == ""
+    assert res["signal_to_noise"] == 1.0
+
+
+def test_filter_context_override_branch():
+    mgr = CompetitiveContextManager()
+    res = mgr.filter_context(
+        global_context="global",
+        domain_specific_data='def my_func():\n    """docstring"""\n    pass'
+    )
+    assert "my_func" in res["filtered_context"]
+

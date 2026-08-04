@@ -129,9 +129,42 @@ def test_kernel_route_is_used_in_run(tmp_path, monkeypatch):
     captured = {}
 
     def fake_decompose(*a, **k):
-        return {"tasks": [{"id": "t1"}, {"id": "t2"}], "metadata": {}, "success": True}
+        return {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Task 1",
+                    "description": "Description 1",
+                    "type": "feature",
+                    "priority": "high",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 1"]
+                },
+                {
+                    "id": "t2",
+                    "title": "Task 2",
+                    "description": "Description 2",
+                    "type": "feature",
+                    "priority": "medium",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 2"]
+                }
+            ],
+            "metadata": {
+                "total_tasks": 2,
+                "high_priority": 1,
+                "medium_priority": 1,
+                "low_priority": 0,
+                "estimated_total_effort": "medium"
+            },
+            "success": True
+        }
 
-    monkeypatch.setattr(td, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
     monkeypatch.setattr(dk, "execute_task", lambda *a, **k: {"success": False, "code": ""})
     monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": False})
 
@@ -146,3 +179,117 @@ def test_kernel_route_is_used_in_run(tmp_path, monkeypatch):
     assert len(decomposed) == 1
     emitted_task_ids = {t.get("id") for t in decomposed[0]["data"].get("tasks", [])}
     assert emitted_task_ids == {"t1", "t2"}
+
+
+def test_kernel_context_curation_fails(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": False})
+    kernel = DispatchKernel()
+    result = kernel.run("Build a page")
+    assert result["success"] is False
+    assert result["error"] == "Context curation failed"
+    assert any(s["signal_type"] == "CONTEXT_ROT_DETECTED" for s in kernel.signal_log)
+
+
+def test_kernel_no_tasks_emits_clarification(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": True, "sanitized_prompt": "prompt", "signal_to_noise_ratio": 1.0})
+    monkeypatch.setattr(dk, "decompose_requirements", lambda *a, **k: {"tasks": [], "clarifications_needed": ["clarify this"]})
+    kernel = DispatchKernel()
+    result = kernel.run("Build a page")
+    assert result["success"] is False
+    assert any(s["signal_type"] == "NEEDS_CLARIFICATION" for s in kernel.signal_log)
+
+
+def test_kernel_surgical_refinement_loop(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": True, "sanitized_prompt": "prompt", "signal_to_noise_ratio": 1.0})
+    
+    validation_calls = []
+    def fake_validate_output(target_output, required_keys):
+        if not validation_calls:
+            validation_calls.append("fail")
+            return {"success": False, "violations": ["Schema violation"], "quality_score": 0.5}
+        else:
+            validation_calls.append("pass")
+            return {"success": True, "violations": [], "quality_score": 1.0}
+            
+    monkeypatch.setattr(dk, "validate_output", fake_validate_output)
+    
+    def fake_decompose(*a, **k):
+        return {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Task 1",
+                    "description": "Desc 1",
+                    "type": "feature",
+                    "priority": "high",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 1"]
+                }
+            ],
+            "metadata": {
+                "total_tasks": 1,
+                "high_priority": 1,
+                "medium_priority": 0,
+                "low_priority": 0,
+                "estimated_total_effort": "medium"
+            },
+            "success": True
+        }
+    monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "generate_refinement_feedback", lambda *a, **k: {"surgical_feedback": "Please fix"})
+    
+    kernel = DispatchKernel()
+    result = kernel.run("Build a page")
+    assert result["success"] is True
+    assert len(validation_calls) == 2
+    assert any(s["signal_type"] == "VALIDATION_FAILED" for s in kernel.signal_log)
+
+
+def test_kernel_execute_code_success_and_tests(monkeypatch):
+    import kernel.dispatch_kernel as dk
+    monkeypatch.setattr(dk, "curate_context", lambda *a, **k: {"success": True, "sanitized_prompt": "prompt", "signal_to_noise_ratio": 1.0})
+    
+    def fake_decompose(*a, **k):
+        return {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Task 1",
+                    "description": "Desc 1",
+                    "type": "feature",
+                    "priority": "high",
+                    "dependencies": [],
+                    "estimated_effort": "medium",
+                    "assigned_system": "developer",
+                    "acceptance_criteria": ["criteria 1"]
+                }
+            ],
+            "metadata": {
+                "total_tasks": 1,
+                "high_priority": 1,
+                "medium_priority": 0,
+                "low_priority": 0,
+                "estimated_total_effort": "medium"
+            },
+            "success": True
+        }
+    monkeypatch.setattr(dk, "decompose_requirements", fake_decompose)
+    monkeypatch.setattr(dk, "execute_task", lambda *a, **k: {"success": True, "code": "print(1)", "filename": "t1.py"})
+    
+    monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": True, "passed_tests": 1})
+    kernel1 = DispatchKernel()
+    result1 = kernel1.run("Build a page", execute_code=True)
+    assert result1["success"] is True
+    assert any(s["signal_type"] == "TESTS_PASSED" for s in kernel1.signal_log)
+    
+    monkeypatch.setattr(dk, "run_code_and_tests", lambda *a, **k: {"success": False, "failed_tests": 1, "traceback": "error"})
+    kernel2 = DispatchKernel()
+    result2 = kernel2.run("Build a page", execute_code=True)
+    assert result2["success"] is True
+    assert any(s["signal_type"] == "TESTS_FAILED" for s in kernel2.signal_log)
+

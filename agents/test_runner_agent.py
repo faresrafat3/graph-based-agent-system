@@ -224,9 +224,9 @@ def run_code_and_tests(
             violations=violations,
         )
 
-    temp_dir = tempfile.mkdtemp(prefix="agent_sandbox_")
-
+    temp_dir = None
     try:
+        temp_dir = tempfile.mkdtemp(prefix="agent_sandbox_")
         source_path = _resolve_inside(temp_dir, safe_filename)
         with open(source_path, "w", encoding="utf-8") as f:
             f.write(code)
@@ -308,4 +308,5 @@ def run_code_and_tests(
     except Exception as exc:
         return _failure("runtime_error", f"Test runner failed safely: {exc}")
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)

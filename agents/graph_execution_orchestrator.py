@@ -114,6 +114,19 @@ class GraphExecutionOrchestratorEngine:
         timeout_seconds: int = 300,
     ) -> dict[str, Any]:
         """Execute a DAG plan group-by-group and fan-in reports."""
+        if not isinstance(execution_plan, list):
+            return {
+                "success": False,
+                "violations": ["execution_plan must be a list."],
+                "completed_task_ids": [],
+            }
+        if not isinstance(tasks, list):
+            return {
+                "success": False,
+                "violations": ["tasks must be a list."],
+                "completed_task_ids": [],
+            }
+
         groups = cls.group_execution_plan(execution_plan)
         completed: set[str] = set()
         group_results = []

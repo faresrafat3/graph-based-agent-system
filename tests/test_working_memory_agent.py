@@ -43,3 +43,59 @@ def test_assemble_working_memory():
     res = assemble_working_memory(problem_spec="empty list handling", token_budget=4000)
     assert res["success"] is True
     assert "budget_report" in res
+
+
+def test_assemble_within_budget_various_types_and_break():
+    """Verify memory snippet formatting for reflexion/generic types and budget-exhausted breaks"""
+    entries = [
+        {"data": {"type": "reflexion", "reflection": "Reflection details here."}},
+        {"data": {"type": "other", "content": "generic content"}},
+        {"data": {"type": "semantic", "rule": "A very long semantic rule description to exceed budget quickly."}},
+    ]
+    # Small budget to force break
+    assembled, included, report = WorkingEngine.assemble_within_budget(entries, "problem", "short context", 15)
+    assert len(included) < 3  # Should have stopped/broken due to token budget of 15
+    assert "Reflection:" in assembled or "generic" in assembled
+
+
+def test_assemble_working_memory_validations_and_exceptions(monkeypatch):
+    """Verify input validations and fallback on database retrieval exceptions"""
+    import pytest
+    from agents.working_memory_agent import assemble_working_memory
+    
+    # 1. empty problem_spec
+    with pytest.raises(ValueError, match="problem_spec required"):
+        assemble_working_memory("")
+        
+    # 2. token_budget < 500
+    with pytest.raises(ValueError, match="token_budget too small"):
+        assemble_working_memory("spec", token_budget=100)
+        
+    # 3. mock get_from_long_term exception
+    from memory.custom_memory import CustomMemory
+    def fake_get(*a, **k):
+        raise RuntimeError("db crash")
+    monkeypatch.setattr(CustomMemory, "get_from_long_term", fake_get)
+    res = assemble_working_memory("spec")
+    assert res["success"] is True  # Falls back safely to empty memory
+
+
+def test_assemble_working_memory_budget_exceeded():
+    """Verify that exceeding token budget flags a violation"""
+    # 2500 chars is approx 625 tokens, which exceeds a 500 token budget
+    res = assemble_working_memory("spec", current_context="a" * 2500, token_budget=500)
+    assert any("Budget exceeded" in v for v in res["violations"])
+
+
+def test_working_memory_refine_and_should_continue():
+    """Verify refine and should_continue branch decisions in working memory graph"""
+    from agents.working_memory_agent import refine, should_continue
+    
+    res = refine({"retry_count": 0})
+    assert res["retry_count"] == 1
+    assert res["success"] is False
+    
+    assert should_continue({"success": True}) == "commit"
+    assert should_continue({"success": False, "retry_count": 2}) == "escalate"
+    assert should_continue({"success": False, "retry_count": 0}) == "refine"
+

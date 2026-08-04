@@ -41,7 +41,7 @@ PR.
 
 Examples:
 - `feat: add AlphaCode benchmark arm to HumanEval harness`
-- `fix: unbreak Stepfun policy audit (drop dead allow_mock kwarg)`
+- `fix: unbreak Stepfun policy audit (drop dead allow-mock kwarg)`
 - `docs: correct SWE-bench localizer recall to 70%@3`
 
 Bad (will fail CI):

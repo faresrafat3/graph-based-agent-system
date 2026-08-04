@@ -78,8 +78,9 @@ def detect_task_type(requirements: str, project_context: str = "") -> str:
         return "competitive"
 
     # Heuristic: if requirements contains def + docstring + assert/exampe and length < 2000 chars -> likely humaneval-like
-    if "def " in requirements and ('"""' in requirements or "'''" in requirements) and ">>>" in requirements and len(requirements) < 3000:
-        return "humaneval"
+    if "def " in requirements and ">>>" in requirements and len(requirements) < 3000:
+        if '"""' in requirements or "'''" in requirements:
+            return "humaneval"
 
     # E-commerce
     if any(k in text for k in ["e-commerce", "ecommerce", "microservices", "product catalog", "cart", "stripe", "inventory"]):

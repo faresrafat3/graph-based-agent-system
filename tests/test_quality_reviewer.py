@@ -40,3 +40,67 @@ def test_review_quality_rejects_critical_security_report():
     )
     assert res["approved"] is False
     assert any("Security report" in r for r in res["rejection_reasons"])
+
+
+def test_review_quality_validation_or_assignment_fails():
+    """Verify quality review rejection on validation/assignment failures"""
+    res = review_quality(
+        validation_reports=[{"success": False, "violations": ["Schema fail"]}],
+        assignment_result={"success": False, "violations": ["Assignment fail"]},
+        acceptance_criteria=["Works"],
+        thread_id="quality_fails"
+    )
+    assert res["approved"] is False
+    assert any("Validation report" in r for r in res["rejection_reasons"])
+    assert any("Assignment failed" in r for r in res["rejection_reasons"])
+
+
+def test_review_quality_empty_evidence():
+    """Verify quality review fallback when no evidence is provided"""
+    from agents.quality_reviewer import QualityReviewerEngine
+    res = QualityReviewerEngine.review(
+        validation_reports=[],
+        assignment_result=None,
+        dispatch_result=None,
+        execution_results=[],
+        acceptance_criteria=None,
+        security_reports=[]
+    )
+    assert res["approved"] is False
+    assert any("No quality evidence was provided" in r for r in res["rejection_reasons"])
+
+
+def test_review_quality_invalid_input_types():
+    """Verify state validations on invalid input formats"""
+    res = review_quality(
+        validation_reports="not a list",
+        thread_id="quality_invalid_type"
+    )
+    assert res["approved"] is False
+    assert any("validation_reports must be a list" in r for r in res["rejection_reasons"])
+
+    # Test when execution_results is not a list (covers line 63)
+    res2 = review_quality(
+        execution_results="not a list",
+        thread_id="quality_invalid_type_2"
+    )
+    assert res2["approved"] is False
+    assert any("execution_results must be a list" in r for r in res2["rejection_reasons"])
+
+    # Test when security_reports is not a list (covers line 70)
+    res3 = review_quality(
+        security_reports="not a list",
+        thread_id="quality_invalid_type_3"
+    )
+    assert res3["approved"] is False
+    assert any("security_reports must be a list" in r for r in res3["rejection_reasons"])
+
+    # Test when acceptance_criteria contains empty/invalid values (covers line 115)
+    res4 = review_quality(
+        acceptance_criteria=["", 123],
+        thread_id="quality_invalid_type_4"
+    )
+    assert res4["approved"] is False
+    assert any("Acceptance criteria are missing or empty" in r for r in res4["rejection_reasons"])
+
+

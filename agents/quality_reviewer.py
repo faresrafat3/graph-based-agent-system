@@ -52,6 +52,28 @@ class QualityReviewerEngine:
         security_reports: list[dict],
     ) -> dict[str, Any]:
         """Compute a deterministic approval decision and quality score."""
+        if not isinstance(validation_reports, list):
+            return {
+                "approved": False,
+                "success": False,
+                "quality_score": 0.0,
+                "rejection_reasons": ["validation_reports must be a list."],
+            }
+        if not isinstance(execution_results, list):
+            return {
+                "approved": False,
+                "success": False,
+                "quality_score": 0.0,
+                "rejection_reasons": ["execution_results must be a list."],
+            }
+        if not isinstance(security_reports, list):
+            return {
+                "approved": False,
+                "success": False,
+                "quality_score": 0.0,
+                "rejection_reasons": ["security_reports must be a list."],
+            }
+
         reasons = []
         checks = []
 

@@ -78,3 +78,24 @@ def test_restore_detects_corrupted_state(temp_merger):
     res = temp_merger.verify_and_merge(snapshot_path, current_state)
     assert res["success"] is False
     assert "Law 19 Violation" in res["error"]
+
+
+def test_merger_constructor_default():
+    """Verify default constructor uses relative snapshots dir"""
+    merger = SessionStateMerger()
+    assert merger.snapshot_dir is not None
+    assert os.path.exists(merger.snapshot_dir)
+
+
+def test_compute_ast_summary_syntax_error(temp_merger):
+    """Verify AST signature falls back safely on syntax error"""
+    res = temp_merger.compute_ast_summary("def broken_code(:\n    pass")
+    assert res["valid_ast"] is False
+    assert res["functions"] == []
+
+
+def test_verify_and_merge_file_not_found(temp_merger):
+    """Verify verify_and_merge raises FileNotFoundError for missing snapshots"""
+    with pytest.raises(FileNotFoundError, match="Snapshot not found"):
+        temp_merger.verify_and_merge("non_existent_snapshot_path.json", {})
+
