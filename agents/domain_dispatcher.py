@@ -99,6 +99,8 @@ class DomainDispatcherEngine:
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
+                    "domain": plan_item.get("domain"),
+                    "confidence": "low",
                     "success": False,
                     "stage": "lookup",
                     "breaches": [message],
@@ -113,6 +115,8 @@ class DomainDispatcherEngine:
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
+                    "domain": plan_item.get("domain"),
+                    "confidence": "low",
                     "success": False,
                     "stage": "dependency_blocked",
                     "breaches": [message],
@@ -125,6 +129,8 @@ class DomainDispatcherEngine:
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
+                    "domain": plan_item.get("domain"),
+                    "confidence": "high",
                     "success": True,
                     "stage": "skipped_non_domain_agent",
                     "breaches": [],
@@ -136,6 +142,8 @@ class DomainDispatcherEngine:
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
+                    "domain": plan_item.get("domain"),
+                    "confidence": "low",
                     "success": True,
                     "stage": "skipped_max_tasks",
                     "breaches": [],
@@ -153,6 +161,8 @@ class DomainDispatcherEngine:
                 results.append({
                     "task_id": task_id,
                     "assigned_agent": assigned_agent,
+                    "domain": plan_item.get("domain"),
+                    "confidence": "low",
                     "success": False,
                     "stage": "squad_execution",
                     "breaches": [message],
@@ -177,6 +187,7 @@ class DomainDispatcherEngine:
                 "task_id": task_id,
                 "assigned_agent": assigned_agent,
                 "domain": plan_item.get("domain"),
+                "confidence": "high" if result_success else "low",
                 "success": result_success,
                 "stage": "domain_squad_execution",
                 "raw_result": raw_result,

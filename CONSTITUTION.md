@@ -397,7 +397,37 @@ The system **MUST** be accountable:
 
 ---
 
-## Article VI: Amendments
+## Article VI (PROPOSED — not yet enforced): Systems-Governance Principles
+
+> **Status: PROPOSED.** These principles were derived from a philosophical audit
+> (Hegel, Spinoza, Lao Tzu, Leibniz, Ashby, Meadows, Cynefin) reflected onto this
+> system. They are recorded here for review; they become enforced only after the
+> corresponding code changes are implemented and observed. (Per P7: no control
+> survives unless it demonstrably catches a failure.)
+
+### Section 1: Proposed Principles
+
+- **P1 — Requisite Response Variety.** Every routing point MUST expose at least as many distinct outcomes as the failure modes reaching it; add outcomes before adding agents. *(Ashby)*
+- **P2 — Verified Closure.** No WRITE agent returns to the orchestrator on its own report; every write edge terminates in a VERIFY node checking a postcondition declared at propose time, evaluated without an LLM. *(see DeterministicValidatorEngine.verify_execution_postcondition)*
+- **P3 — Domain-Gated Governance.** Control intensity is set by the task's Cynefin domain and reversibility, never by permission class: Clear + high confidence → VERIFY only; Complicated → analysis + VERIFY; Complex → probe budget; Chaotic → immediate human. *(Snowden)*
+- **P4 — Bounded Probing.** Complex work runs N attempts, each stating a NEW falsifiable hypothesis; a repeated hypothesis or exhausted budget escalates to a human with the hypothesis trail attached. *(Cynefin)*
+- **P5 — Custodial Context.** Specialization stands, but every handoff MUST serialize its reasoning into graph state; context that cannot be written down is treated as nonexistent. *(Leibniz)*
+- **P6 — Productive Contradiction.** Disagreement between agents is a first-class routed signal, never suppressed by last-writer-wins; only *unrecorded* contradiction is a defect. *(Hegel)*
+- **P7 — Least Sufficient Intervention.** Remove any checkpoint, agent, or rule that has not changed an outcome in observed runs; justify each surviving control by the failure it demonstrably catches. *(Lao Tzu)*
+
+### Section 2: What We Reject (proposed)
+
+- **Pure generalist monads** — one agent holding all context wins on tacit continuity but loses cost, parallelism, and the per-role audit trail we need for accountability.
+- **Unbounded human gating** — attention decays under volume; a human asked to approve everything approves everything, converting a safeguard into a signature.
+- **Wu-wei as default** — self-organization here has no benign attractor; without declared postconditions, unmonitored agents drift and narrate success.
+
+### Section 3: Highest-Leverage Change (proposed)
+
+Move the Constitution's unit of authority from *permission to write* to *proof of effect* — "done" = a verified postcondition under a domain-appropriate control budget. This is a paradigm change (Meadows), not a rule tweak.
+
+---
+
+## Article VII: Amendments
 
 ### Section 1: Amendment Process
 

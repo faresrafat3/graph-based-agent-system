@@ -212,6 +212,61 @@ class DeterministicValidatorEngine:
         return breaches
 
     @staticmethod
+    def verify_execution_postcondition(postcondition: dict) -> List[str]:
+        """VERIFY node (P2): check a *real* effect, not the agent's self-report.
+
+        A postcondition is a cheap, non-LLM assertion declared by the agent at
+        propose time. Supported kinds:
+          - {"kind": "file_exists", "path": "..."}      -> file/dir must exist
+          - {"kind": "command_ok", "command": "..."}    -> command exits 0
+          - {"kind": "non_empty", "path": "..."}        -> file exists and >0 bytes
+        Returns a list of breaches (empty == passed). This is the ground-truth
+        channel that closes the 'silent partial completion' gap (Task 1).
+        """
+        import os
+        import subprocess
+
+        if not isinstance(postcondition, dict):
+            return ["VERIFY postcondition must be a dict."]
+        kind = postcondition.get("kind")
+        if kind is None:
+            return ["VERIFY postcondition missing 'kind'."]
+
+        if kind == "file_exists":
+            p = postcondition.get("path")
+            if not isinstance(p, str) or not p.strip():
+                return ["VERIFY file_exists requires a 'path' string."]
+            if not os.path.exists(p):
+                return [f"VERIFY failed: path does not exist: {p}"]
+            return []
+
+        if kind == "non_empty":
+            p = postcondition.get("path")
+            if not isinstance(p, str) or not p.strip():
+                return ["VERIFY non_empty requires a 'path' string."]
+            if not os.path.exists(p):
+                return [f"VERIFY failed: path does not exist: {p}"]
+            if os.path.getsize(p) == 0:
+                return [f"VERIFY failed: path is empty: {p}"]
+            return []
+
+        if kind == "command_ok":
+            cmd = postcondition.get("command")
+            if not isinstance(cmd, str) or not cmd.strip():
+                return ["VERIFY command_ok requires a 'command' string."]
+            try:
+                r = subprocess.run(
+                    cmd, shell=True, capture_output=True, text=True, timeout=60
+                )
+            except Exception as e:  # noqa: BLE001 - surface any exec error as a breach
+                return [f"VERIFY command_ok error: {e}"]
+            if r.returncode != 0:
+                return [f"VERIFY failed: command exited {r.returncode}: {cmd}"]
+            return []
+
+        return [f"VERIFY unsupported postcondition kind: {kind}"]
+
+    @staticmethod
     def calculate_quality_score(breaches: List[str]) -> float:
         """Calculate deterministic mathematical quality score between 0.0 and 1.0."""
         if not breaches:
