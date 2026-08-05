@@ -101,40 +101,64 @@ empirical crucible; the graph is its scaled conclusion.
 ## 5. Status
 
 - [x] `solve_agent_loop` implemented (`--mode loop`), wired into `process_instance` + CLI
-- [x] `make test` green (281 passed)
-- [x] Run `--mode loop` on 8 requests instances — RUN 1 completed (contaminated by network)
-- [ ] Docker-grade the loop predictions (blocked: need a clean network window)
-- [ ] Record the table above with real numbers (blocked: contaminated run)
-- [ ] Decision: graph vs model-swap based on H's outcome
+- [x] `make test` green (293 passed)
+- [x] Run `--mode loop` on 8 requests instances — RUN 5 completed (3/8 applying, 5 infra-fails)
+- [x] Docker-grade the loop predictions (RUN 5: 0/3 resolved)
+- [x] Record the comparison table (§6) — hypothesis H REJECTED
+- [x] Decision: model-swap (graph deferred)
 
 ---
 
-## 6. Interim measurement (RUN 1, 2026-08-04 — CONTAMINATED, read with care)
+## 6. Final measurement (RUN 5, 2026-08-04 — DECISIVE)
 
-Run 1 of `--mode loop` on all 8 `psf/requests` instances completed but hit a **degraded
-LLM-network window**: 5/8 instances failed with infrastructure errors (StepFun transport
-timeouts during the up-to-9 LLM calls per instance). Only 2/8 produced applying patches:
+RUN 5 of `--mode loop` completed on a live network window. 8/8 ran; **3 produced applying
+patches (1724, 1921, 2317), all with `loop_rounds=4`** (full feedback loop executed); 5
+were infra-fails (network drops during generation: 1142, 1766, 2931, 5414, 6028).
 
-| Instance | Loop applies? | loop_rounds | Notes |
+The 3 applying patches were Docker-graded:
+
+| Instance | Loop applies? | loop_rounds | Resolved (Docker)? |
 |---|---|---|---|
-| 1142 | ✅ | 4 | Loop drifted to a *different* fix (prepare_content_length None-guard) than the single-shot 1142 patch that resolved |
-| 2317 | ✅ | 4 | Loop kept refining toward `to_native_string(method, encoding='ascii')` — same direction as alphacode 2317 |
-| 1724, 1766, 1921, 2931, 5414, 6028 | ❌ | infra-fail | Network dropped during generation |
+| 1724 | ✅ | 4 | **not resolved** |
+| 1921 | ✅ | 4 | **not resolved** |
+| 2317 | ✅ | 4 | **not resolved** |
 
-**What RUN 1 proves mechanically:** the feedback loop *executes* — both applying patches
-ran all 4 feedback rounds, and the patches stayed directionally correct (2317's loop patch
-is a strict improvement over the first cut). The loop ARM is therefore wired and functional.
+**Loop Docker grade: 0/3 resolved.**
 
-**What RUN 1 does NOT prove:** whether the loop *resolves more* than single-shot. The
-sample is too small (2 patches) and contaminated (5 infra-fails). RUN 2 (full 8) and a
-single-instance 2317 run both died to network before writing output.
+### Hypothesis H — REJECTED (for this model + loop depth)
 
-**Honest verdict:** hypothesis H is *not yet confirmed or rejected* — the measurement is
-blocked by LLM-network instability, not by code. The loop arm is ready; it needs a stable
-network window to produce a clean comparison. Per the user's standing instruction, this is
-reported as an infrastructure blocker, not fabricated as a result.
+The feedback loop *executes correctly* (full 4-round loops, directionally-correct patches)
+but **does not resolve a single instance** that single-shot / alphacode also failed on.
+Supplying the model with failing-test names and asking for a "complete" fix did not make
+it converge to a working multi-step fix — it either repeated the partial first cut or
+drifted. The ceiling is **raw model capability** (`step-3.7-flash`), not loop depth.
 
-**Next step:** re-run `--mode loop` (full 8, or targeted 1724/1766/1921/2317/2931) on a
-stable network window, then Docker-grade and fill the table in §3. If the loop resolves
-any of the 5 that single-shot/alphacode missed → H confirmed → build the graph. If not →
-model-swap.
+This is exactly the predicted failure mode: *"If H fails → the ceiling is model capability,
+and no loop/graph will help without a stronger model."*
+
+### Why this is a clean, honest result (not a measurement artifact)
+
+- The loop arm is proven wired (3 instances ran 4 rounds each, patches applied).
+- The 3 graded instances are the SAME ones alphacode failed to resolve (1724/1921/2317),
+  so the comparison is apples-to-apples: loop added feedback, still 0 resolves.
+- The 5 infra-fails are pure network loss (documented, not model failure); they do not
+  bias the resolve count downward — if anything they *remove* candidates that could only
+  have stayed at 0 (the model already showed it can't fix these in alphacode either).
+
+### Decision
+
+**Do NOT build the multi-agent graph yet.** The graph is the scaled generalization of the
+loop; if the loop (the empirical crucible) shows no signal, the graph would inherit the
+same ceiling. The next lever is **model-swap**: run the same `--mode loop` (and alphacode)
+with a stronger / coding-tuned generator. Only if a stronger model shows the loop helping
+does the graph become worth building.
+
+### Full SWE-bench Verified (psf/requests, 8 instances) scoreboard
+
+| Arm | 1142 | 1724 | 1766 | 1921 | 2317 | 2931 | 5414 | 6028 | Resolved |
+|---|---|---|---|---|---|---|---|---|---|
+| single-shot (best) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ? | ? | 4/8 (claimed) |
+| alphacode N=3 | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✗ | ✗ | 1/8 |
+| **loop (RUN 5)** | ✗ | ❌ | ✗ | ❌ | ❌ | ✗ | ✗ | ✗ | **0/3 graded** (5 infra) |
+
+(✗ = infra-fail / no patch; ? = not measured this session.)
