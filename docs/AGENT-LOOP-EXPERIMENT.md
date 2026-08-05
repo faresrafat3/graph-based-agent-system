@@ -102,7 +102,39 @@ empirical crucible; the graph is its scaled conclusion.
 
 - [x] `solve_agent_loop` implemented (`--mode loop`), wired into `process_instance` + CLI
 - [x] `make test` green (281 passed)
-- [ ] Run `--mode loop` on 8 requests instances (running)
-- [ ] Docker-grade the loop predictions
-- [ ] Record the table above with real numbers
+- [x] Run `--mode loop` on 8 requests instances — RUN 1 completed (contaminated by network)
+- [ ] Docker-grade the loop predictions (blocked: need a clean network window)
+- [ ] Record the table above with real numbers (blocked: contaminated run)
 - [ ] Decision: graph vs model-swap based on H's outcome
+
+---
+
+## 6. Interim measurement (RUN 1, 2026-08-04 — CONTAMINATED, read with care)
+
+Run 1 of `--mode loop` on all 8 `psf/requests` instances completed but hit a **degraded
+LLM-network window**: 5/8 instances failed with infrastructure errors (StepFun transport
+timeouts during the up-to-9 LLM calls per instance). Only 2/8 produced applying patches:
+
+| Instance | Loop applies? | loop_rounds | Notes |
+|---|---|---|---|
+| 1142 | ✅ | 4 | Loop drifted to a *different* fix (prepare_content_length None-guard) than the single-shot 1142 patch that resolved |
+| 2317 | ✅ | 4 | Loop kept refining toward `to_native_string(method, encoding='ascii')` — same direction as alphacode 2317 |
+| 1724, 1766, 1921, 2931, 5414, 6028 | ❌ | infra-fail | Network dropped during generation |
+
+**What RUN 1 proves mechanically:** the feedback loop *executes* — both applying patches
+ran all 4 feedback rounds, and the patches stayed directionally correct (2317's loop patch
+is a strict improvement over the first cut). The loop ARM is therefore wired and functional.
+
+**What RUN 1 does NOT prove:** whether the loop *resolves more* than single-shot. The
+sample is too small (2 patches) and contaminated (5 infra-fails). RUN 2 (full 8) and a
+single-instance 2317 run both died to network before writing output.
+
+**Honest verdict:** hypothesis H is *not yet confirmed or rejected* — the measurement is
+blocked by LLM-network instability, not by code. The loop arm is ready; it needs a stable
+network window to produce a clean comparison. Per the user's standing instruction, this is
+reported as an infrastructure blocker, not fabricated as a result.
+
+**Next step:** re-run `--mode loop` (full 8, or targeted 1724/1766/1921/2317/2931) on a
+stable network window, then Docker-grade and fill the table in §3. If the loop resolves
+any of the 5 that single-shot/alphacode missed → H confirmed → build the graph. If not →
+model-swap.
