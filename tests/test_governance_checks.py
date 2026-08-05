@@ -80,11 +80,21 @@ def test_entrypoints_reachable_flags_undeclared_dead_agent():
     assert any("Silent Dead Agent" in v for v in result.breaches)
 
 
+def test_langgraph_orchestration_check_passes():
+    """Article III: the live pipeline MUST be orchestrated as a LangGraph StateGraph."""
+    from system.governance_checks import check_langgraph_orchestration
+
+    result = check_langgraph_orchestration()
+    assert result.success is True, result.breaches
+
+
 def test_entrypoints_reachable_passes_current_registry():
-    """The real registry: 18 reachable + 9 intentionally external (declared)."""
+    """The real registry: N reachable + M intentionally external (declared).
+    Systems Layer (build_systems_graph) was added as an intentionally-external agent
+    in v2, bringing the total to 28."""
     from system.governance_checks import check_entrypoints_reachable
 
     result = check_entrypoints_reachable()
     assert result.success is True
-    assert result.detail["total_registered"] == 27
+    assert result.detail["total_registered"] == 28
     assert result.detail["reachable_count"] >= 15

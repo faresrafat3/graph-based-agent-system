@@ -415,6 +415,56 @@ The system **MUST** be accountable:
 - **P6 — Productive Contradiction.** Disagreement between agents is a first-class routed signal, never suppressed by last-writer-wins; only *unrecorded* contradiction is a defect. *(Hegel)*
 - **P7 — Least Sufficient Intervention.** Remove any checkpoint, agent, or rule that has not changed an outcome in observed runs; justify each surviving control by the failure it demonstrably catches. *(Lao Tzu)*
 
+> **Operationalized by:** `system/self_improvement.py` (META-SYSTEM.md) — the autonomous
+> loop that measures, proposes one control per delta, and gates every change by observed
+> effect. A control that changes no outcome in N cycles is flagged for removal.
+
+### Section 1b: Reconciliation Rulings (2026-08-05, v1)
+
+These resolve contradictions surfaced in `docs/reconciliation/METHODOLOGY-RECONCILIATION.md`
+between the five governing methodologies (Karpathy, opus-5 P1–P7, Cynefin, reflexive
+loops, distributed governance).
+
+- **Ruling C1 (meta-loop authority).** The meta-loop is a *proposer only*. It never
+  applies a control unilaterally. Application of any control change requires either (a) a
+  reversible config/flag flip, or (b) an explicit human checkpoint. This preserves the
+  distributed-governance axiom: *no supreme governor*.
+  - **C1-rev1 (opus-5 live review, 2026-08-05).** The original C1 mislocated power:
+    proposal-setting *is* authority (it owns the Overton window). Four hardening fixes:
+    1. **Independent reversibility.** "Reversible" is judged by an *external* criterion
+       (governance ledger / human), never self-assessed by the meta-loop.
+    2. **Default-deny application.** The meta-loop defaults to *propose-only*; it never
+       auto-applies. Application is opt-IN (human/flag), never opt-out. The human is a
+       co-governor, not a bottleneck to override.
+    3. **Separate streams.** The proposal stream and the apply pipeline are distinct and
+       auditable; the meta-loop's observe/diagnose/frame context travels with each proposal.
+    4. **Counter-proposal channel.** Any domain agent may challenge the meta-loop's framing
+       (counter-proposal); the meta-loop has no interpretive monopoly.
+  - **Operationalized by:** `agents/systems_layer.py` `apply_or_escalate_node` (default-deny),
+    `system/distillation_ledger.py` (independent provenance + opus-5 live review entries),
+    `system/counter_proposals.py` (domain-agent challenges).
+- **Ruling C2 (simplicity vs growth).** Law 7 (Simplicity) permits agent growth ONLY when
+  P1 (Requisite Variety) forces it — a routing point has more failure modes than outcomes.
+  Every added agent must later pass P7 (demonstrably catches a failure) or be pruned.
+  "Small core" = *no redundant agent*, not *few agents at all costs*.
+- **Ruling C3 (LLM boundary).** Law 11 forbids LLM in the *accept/reject verdict* only.
+  LLM-generated reflections are permitted as *input to propose* (tagged
+  `llm_reflection_input`), never as evaluation. The verdict (pass/fail, breaches) stays
+  zero-LLM.
+- **Ruling C4 (Cynefin router).** The keyword `detect_task_type` is a legacy pre-filter,
+  not P3. Control intensity MUST derive from a `CynefinClassifier` (domain + reversibility),
+  which overrides the keyword router. (Implemented: `agents/cynefin_classifier.py`.)
+- **Ruling C5 (distillation provenance).** Every principle attributed to opus-5 MUST have
+  a `system/distillation_ledger.py` entry (source, date, frozen text, status). A principle
+  without a ledger entry is *advisory only*, never enforced.
+- **Ruling F2 (metric honesty).** `governance_score` (does the system obey its rules?) is
+  reported SEPARATELY from `success_rate` (does it solve the task?). Loops improve
+  governance, not necessarily capability; never conflate the two.
+
+> **Operationalized by:** `docs/reconciliation/METHODOLOGY-RECONCILIATION.md` (full
+> contradiction + fallacy analysis), `system/distillation_ledger.py`,
+> `agents/cynefin_classifier.py`, `agents/systems_layer.py`.
+
 ### Section 2: What We Reject (proposed)
 
 - **Pure generalist monads** — one agent holding all context wins on tacit continuity but loses cost, parallelism, and the per-role audit trail we need for accountability.

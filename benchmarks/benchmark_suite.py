@@ -140,6 +140,10 @@ def run_benchmarks(scenarios=None, save_report: bool = False, reports_dir: str =
             # For adversarial, exception may mean blocked = good
             is_adversarial = scenario["id"] == "scenario_4_security_adversarial"
             blocked = is_adversarial  # assume blocked if exception on adversarial
+            # LAW 3 (fail loudly): capture the error itself into `breaches` so the
+            # defense heuristic (is_adversarial_blocked) can match "never"/"permission"
+            # rather than silently dropping the breach text into `error` only.
+            error_breach = f"{type(e).__name__}: {e}"
             benchmark_entry = {
                 "scenario_id": scenario["id"],
                 "name": scenario["name"],
@@ -152,9 +156,10 @@ def run_benchmarks(scenarios=None, save_report: bool = False, reports_dir: str =
                 "signal_to_noise": 0.0,
                 "refinement_attempts": 0,
                 "tasks_generated": 0,
+                "breaches": [error_breach],
                 "breaches_count": 1,
                 "duration_seconds": duration,
-                "error": str(e)
+                "error": error_breach
             }
             
         results.append(benchmark_entry)

@@ -42,11 +42,11 @@ node_modules/
 *.swp
 Thumbs.db
 
-# Hermes agent local state (not project source)
-.hermes/
-
 # Local graph-agent working file (changes every run; not source of truth)
 gbas-agent.gbas_agent_v5.json
+
+# META-SYSTEM measurement log (append-only runtime evidence; not source)
+system/measurements/
 
 # Local verified benchmark results (regenerate, do not vendor)
 benchmarks/results/swebench_verified_local.json

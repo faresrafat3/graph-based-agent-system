@@ -1,4 +1,4 @@
-.PHONY: install compile test coverage audit ci benchmark benchmark-extended report clean-reports
+.PHONY: install compile test coverage audit ci benchmark benchmark-extended report clean-reports improve improve-safe prune systems-layer
 
 PYTHON ?= python
 VENV ?= .venv
@@ -22,6 +22,21 @@ coverage:
 audit:
 	$(VENV_PYTHON) scripts/audit_stepfun_policy.py
 	$(VENV_PYTHON) scripts/audit_governance.py
+
+# Governed self-improvement meta-loop (META-SYSTEM.md)
+improve:
+	$(VENV_PYTHON) scripts/run_improvement_cycle.py --measurements-dir system/measurements
+
+improve-safe:
+	$(VENV_PYTHON) scripts/run_improvement_cycle.py --safe-only --measurements-dir system/measurements
+
+# Systems Layer in-graph cycle + opus-5 live review (reconciliation v2+)
+systems-layer:
+	$(VENV_PYTHON) scripts/run_systems_layer.py --opus5
+
+# P7 self-pruning report (advisory; never deletes)
+prune:
+	$(VENV_PYTHON) system/self_pruning.py
 
 benchmark:
 	$(VENV_PYTHON) scripts/run_benchmarks.py

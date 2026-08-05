@@ -73,7 +73,7 @@ The system is governed by a comprehensive **Constitution** ([CONSTITUTION.md](CO
 
 ### Laws
 
-The system operates under **10 Laws** ([LAWS.md](LAWS.md)) that govern all implementation:
+The system operates under **20 Laws** ([LAWS.md](LAWS.md)) that govern all implementation:
 
 1. **Law of Specialization** - Every agent MUST have a single, well-defined responsibility
 2. **Law of Permission Boundaries** - Every agent MUST have explicit permission boundaries
@@ -266,7 +266,7 @@ print(result['metadata'])
 ## 📖 Documentation
 
 - [CONSTITUTION.md](CONSTITUTION.md) - System governance and principles
-- [LAWS.md](LAWS.md) - 10 Laws governing implementation
+- [LAWS.md](LAWS.md) - 20 Laws governing implementation
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Detailed architecture documentation
 - [docs/RESEARCH.md](docs/RESEARCH.md) - Research foundation and references
 - [docs/KARPATHY-AGENTS.md](docs/KARPATHY-AGENTS.md) - Specifications for the 8 Karpathy Meta-Agents
@@ -276,10 +276,13 @@ print(result['metadata'])
 - [docs/SYSTEM-LIFECYCLE.md](docs/SYSTEM-LIFECYCLE.md) - Complete end-to-end system lifecycle documentation
 - [docs/AGENT-LIFECYCLE.md](docs/AGENT-LIFECYCLE.md) - Combined lifecycle reference for implemented and planned agents
 - [docs/agents/INDEX.md](docs/agents/INDEX.md) - Individual lifecycle documentation for each agent
+- [docs/SWEBENCH-REPORT.md](docs/SWEBENCH-REPORT.md) - Honest SWE-bench Verified status + resolve-rate numbers
+- [docs/SOTA-POSITION.md](docs/SOTA-POSITION.md) - System placed on the SWE-bench Verified SOTA ladder + decision #3
+- [docs/META-SYSTEM.md](docs/META-SYSTEM.md) - Governed self-improvement meta-loop (measure->propose->gate by P7)
 - `orchestrate_graph=True` enables group-based DAG execution orchestration over assigned tasks
 
 ---
 
 Built with ❤️ using Karpathy's Agentic Engineering principles
 
-Governed by Constitution and 10 Laws
+Governed by Constitution and 20 Laws
