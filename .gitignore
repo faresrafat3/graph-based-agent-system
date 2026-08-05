@@ -53,3 +53,6 @@ benchmarks/results/swebench_verified_local.json
 
 # Local benchmark/build logs (large side-effects, not source)
 logs/
+
+# Local Hermes agent state (plans, session dumps — not source)
+.hermes/
