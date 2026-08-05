@@ -592,6 +592,180 @@ def solve_agent_loop(instance: dict, root: str, files: list, max_refinements: in
     }
 
 
+# --------------------------------------------------------------------------------------
+# Graph arm (Level 2+3 of the methodology): specialized agents, feedback edges.
+#
+# The single-agent `loop` (solve_agent_loop) failed (0/3 resolved) because the SAME agent
+# both generated and self-repaired, so it fell into the same partial-fix pattern. The fix
+# is NOT a stronger model -- it is decomposition (Fares's standing directive): when a task
+# is too big for one agent, split it into a graph of specialized agents with feedback edges.
+#
+# Graph shape (each agent has a SMALL, FOCUSED context -- Law 1 + Law 13):
+#   Localizer(zero-LLM) -> Diagnoser(LLM) -> Generator(LLM) -> Analyst(zero-LLM, tests)
+#                                                      ^                        |
+#                                                      |   feedback edge         v
+#                                                   Refiner(LLM) <---- failing-test report
+#                                                      |  (DIFFERENT context than Generator:
+#                                                      |   sees diagnosis + test report, not
+#                                                      |   its own earlier attempt)
+#                                                      v
+#                                                Validator(zero-LLM, VERIFY node)
+#
+# Key break from the loop: Generator and Refiner are SEPARATE agents. The Refiner starts
+# from a fresh context (diagnosis + test report), not from the Generator's failed attempt,
+# so it cannot repeat the Generator's blind spot. This is the empirical crucible for the
+# graph thesis, exactly as the loop was for the feedback-loop thesis.
+# --------------------------------------------------------------------------------------
+
+
+DIAGNOSER_SYSTEM_PROMPT = (
+    "You are a senior software diagnostician. You receive a bug report, the exact test "
+    "commands that must pass (FAIL_TO_PASS), and the relevant source files. Your job is "
+    "NOT to write code -- it is to produce a precise, step-by-step diagnosis of what is "
+    "broken and what changes are required to make the failing tests pass. Be concrete: "
+    "name the functions, the call sites, and the exact behavioral difference the fix must "
+    "produce. Output a short structured plan, no code."
+)
+
+GENERATOR_SYSTEM_PROMPT = (
+    "You are a code generator. You receive a precise diagnosis (what is broken, the exact "
+    "steps required) and the relevant source files. Produce ONLY the unified diff that "
+    "implements that diagnosis. Do not reinterpret the problem; implement the plan."
+)
+
+REFINER_SYSTEM_PROMPT = (
+    "You are a surgical patch refiner. You receive: (1) the original diagnosis of the bug, "
+    "(2) the current patch, (3) a report of which FAIL_TO_PASS tests STILL fail after that "
+    "patch. Your job is to revise the patch so that EVERY failing test passes. Reason from "
+    "the diagnosis about what the current patch missed (often a SECOND call site, an "
+    "encoding/normalization edge case, or a sibling code path), and produce a COMPLETE "
+    "unified diff. Do not repeat the same partial fix; extend it to cover the failing tests."
+)
+
+
+def _diagnose(instance: dict, root: str, files: list) -> str:
+    """DIAGNOSER agent: focused LLM context -> structured fix plan (no code)."""
+    sanitized = ContextCuratorEngine.sanitize_raw_text(instance["problem_statement"])
+    context = build_context(root, files)
+    ftp = instance.get("FAIL_TO_PASS", [])
+    if ftp and isinstance(ftp[0], list):
+        ftp = [c for sub in ftp for c in sub]
+    ftp_block = "\n".join(f"- {c}" for c in ftp[:12]) or "(none listed)"
+    prompt = (
+        f"# Bug report\n\n{sanitized}\n\n"
+        f"# FAIL_TO_PASS tests that must pass (the exact success criteria)\n{ftp_block}\n\n"
+        f"# Relevant source\n\n{context}\n\n"
+        "Produce a precise diagnosis: what is broken, and the concrete steps required to "
+        "make the failing tests pass. Name functions and call sites. No code."
+    )
+    return call_llm(prompt=prompt, system_prompt=DIAGNOSER_SYSTEM_PROMPT, timeout=180)
+
+
+def _generate(patch_diagnosis: str, instance: dict, root: str, files: list) -> str:
+    """GENERATOR agent: implements the diagnosis as a unified diff (focused context)."""
+    sanitized = ContextCuratorEngine.sanitize_raw_text(instance["problem_statement"])
+    context = build_context(root, files)
+    prompt = (
+        f"# Issue\n\n{sanitized}\n\n"
+        f"# Diagnosis (implement exactly this)\n\n{patch_diagnosis}\n\n"
+        f"# Relevant source\n\n{context}\n\n"
+        "Output the unified diff that implements the diagnosis above."
+    )
+    return strip_patch_fences(call_llm(prompt=prompt, system_prompt=GENERATOR_SYSTEM_PROMPT, timeout=180))
+
+
+def _refine(diagnosis: str, patch: str, instance: dict, root: str, files: list, failing: list) -> str:
+    """REFINER agent: SEPARATE context (diagnosis + failing-test report) -> corrected diff."""
+    sanitized = ContextCuratorEngine.sanitize_raw_text(instance["problem_statement"])
+    context = build_context(root, files)
+    failing_block = "\n".join(f"- {c}" for c in failing[:8]) or "(patch did not apply / no test output)"
+    prompt = (
+        f"# Issue\n\n{sanitized}\n\n"
+        f"# Original diagnosis\n\n{diagnosis}\n\n"
+        f"# Current patch\n\n{patch}\n\n"
+        f"# FAIL_TO_PASS tests STILL failing after the current patch\n{failing_block}\n\n"
+        f"# Relevant source\n\n{context}\n\n"
+        "Revise the patch so EVERY failing test passes. Extend the diagnosis's plan to cover "
+        "what the current patch missed. Output ONLY the complete unified diff."
+    )
+    return strip_patch_fences(call_llm(prompt=prompt, system_prompt=REFINER_SYSTEM_PROMPT, timeout=180))
+
+
+def solve_agent_graph(instance: dict, root: str, files: list, max_rounds: int = 3, skip_ptp: bool = True) -> dict:
+    """
+    Graph arm: specialized agents with a feedback edge (Diagnoser -> Generator ->
+    Analyst -> Refiner -> Validator).
+
+    This is the Level-2/3 methodology test. Unlike solve_agent_loop (one agent self-repairs),
+    the Generator and Refiner are SEPARATE agents: the Refiner sees the diagnosis + the
+    failing-test report as a fresh context, so it cannot repeat the Generator's blind spot.
+    Each agent has a small, focused context (Law 1 + Law 13).
+
+    Returns the same dict shape as solve_agent, plus `graph_rounds` and `diagnosis`.
+    """
+    import subprocess
+
+    llm_calls = 0
+
+    # DIAGNOSER (LLM, focused)
+    diagnosis = _diagnose(instance, root, files)
+    llm_calls += 1
+
+    # GENERATOR (LLM, from diagnosis)
+    patch = _generate(diagnosis, instance, root, files)
+    llm_calls += 1
+    validation = validate_patch(patch, root)
+    patch = validation["patch"]
+
+    # If the generator's patch does not even apply, refine on apply-breaches first (bounded).
+    apply_refinements = 0
+    while not validation["success"] and apply_refinements < 2:
+        apply_refinements += 1
+        breaches = "\n".join(f"- {v}" for v in validation["breaches"])
+        fix = (
+            f"YOUR PATCH DID NOT APPLY. Breaches:\n{breaches}\n\n"
+            f"Current patch:\n{patch}\n\nDiagnosis:\n{diagnosis}\n\n"
+            "Fix ONLY the apply breaches. Output ONLY the corrected unified diff."
+        )
+        patch = strip_patch_fences(call_llm(prompt=fix, system_prompt=GENERATOR_SYSTEM_PROMPT, timeout=180))
+        llm_calls += 1
+        validation = validate_patch(patch, root)
+        patch = validation["patch"]
+
+    if not validation["success"]:
+        return {
+            "patch": patch, "llm_calls": llm_calls, "refinements": apply_refinements,
+            "graph_rounds": 0, "diagnosis": diagnosis, "patch_applies": False,
+            "breaches": validation["breaches"], "files": files,
+        }
+
+    # FEEDBACK EDGE: Analyst (tests) -> Refiner, up to max_rounds.
+    graph_rounds = 0
+    while graph_rounds < max_rounds:
+        res = run_tests_in_worktree(root, patch, instance, skip_ptp=skip_ptp)
+        if res["applied"] and res["ftp_pass"] == res["ftp_total"] and res["ftp_total"] > 0:
+            break
+        graph_rounds += 1
+        ftp_cmds = instance.get("FAIL_TO_PASS", [])
+        if ftp_cmds and isinstance(ftp_cmds[0], list):
+            ftp_cmds = [c for sub in ftp_cmds for c in sub]
+        failing = ftp_cmds[res["ftp_pass"]:] if res["ftp_total"] else []
+        # REFINER: SEPARATE agent, fresh context (diagnosis + failing report), not self-repair.
+        new_patch = _refine(diagnosis, patch, instance, root, files, failing)
+        llm_calls += 1
+        new_val = validate_patch(new_patch, root)
+        if new_val["success"]:
+            patch = new_val["patch"]
+        subprocess.run(["git", "checkout", "--", "."], cwd=root, capture_output=True, timeout=30)
+        subprocess.run(["git", "clean", "-fd"], cwd=root, capture_output=True, timeout=30)
+
+    return {
+        "patch": patch, "llm_calls": llm_calls, "refinements": apply_refinements,
+        "graph_rounds": graph_rounds, "diagnosis": diagnosis, "patch_applies": True,
+        "breaches": validation["breaches"], "files": files,
+    }
+
+
 def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 120, skip_ptp: bool = False) -> dict:
     """
     Score a candidate patch by actually executing the instance's tests in `root`.
@@ -754,6 +928,8 @@ def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) 
             out = solve_alphacode_swebench(instance, worktree, files, n_samples=n_samples)
         elif mode == "loop":
             out = solve_agent_loop(instance, worktree, files)
+        elif mode == "graph":
+            out = solve_agent_graph(instance, worktree, files)
         else:
             out = solve_baseline(instance, worktree, files)
 
@@ -781,6 +957,10 @@ def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) 
         # Forward the loop arm's test-feedback round count (the empirical probe signal).
         if mode == "loop":
             result["test_feedback_rounds"] = out.get("test_feedback_rounds")
+        # Forward the graph arm's round count + diagnosis (the empirical crucible signal).
+        if mode == "graph":
+            result["graph_rounds"] = out.get("graph_rounds")
+            result["diagnosis"] = out.get("diagnosis")
         return result
 
     except Exception as exc:
@@ -934,7 +1114,7 @@ def run(mode: str, limit: Optional[int], workers: int, out_path: str, repo_filte
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SWE-bench Verified harness")
-    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode", "loop"], default="agent")
+    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode", "loop", "graph"], default="agent")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--repo", default=None, help="Filter to one repo, e.g. django/django")

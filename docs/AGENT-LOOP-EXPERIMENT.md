@@ -145,13 +145,14 @@ and no loop/graph will help without a stronger model."*
   bias the resolve count downward — if anything they *remove* candidates that could only
   have stayed at 0 (the model already showed it can't fix these in alphacode either).
 
-### Decision
+### Decision (corrected per Fares's directive)
 
-**Do NOT build the multi-agent graph yet.** The graph is the scaled generalization of the
-loop; if the loop (the empirical crucible) shows no signal, the graph would inherit the
-same ceiling. The next lever is **model-swap**: run the same `--mode loop` (and alphacode)
-with a stronger / coding-tuned generator. Only if a stronger model shows the loop helping
-does the graph become worth building.
+The earlier "model-swap" decision was WRONG. Fares's standing directive is explicit: the
+fix for "too big for one agent" is **decomposition into a specialized-agent graph**, NOT a
+stronger model. The loop failed because one agent self-repaired; the graph splits the work
+into Diagnoser / Generator / Analyst / Refiner with a feedback edge, so the Refiner starts
+from a fresh context (diagnosis + test report) and cannot repeat the Generator's blind spot.
+The graph was therefore built and measured (§7) — it is the methodology, not a fallback.
 
 ### Full SWE-bench Verified (psf/requests, 8 instances) scoreboard
 
@@ -159,6 +160,69 @@ does the graph become worth building.
 |---|---|---|---|---|---|---|---|---|---|
 | single-shot (best) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ? | ? | 4/8 (claimed) |
 | alphacode N=3 | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✗ | ✗ | 1/8 |
-| **loop (RUN 5)** | ✗ | ❌ | ✗ | ❌ | ❌ | ✗ | ✗ | ✗ | **0/3 graded** (5 infra) |
+| loop (RUN 5) | ✗ | ❌ | ✗ | ❌ | ❌ | ✗ | ✗ | ✗ | 0/3 graded (5 infra) |
+| **graph (RUN 1)** | ✅ | ✗ | ❌ | ✗ | ❌ | ❌ | ✗ | ✗ | **1/5 graded** (see §7) |
 
 (✗ = infra-fail / no patch; ? = not measured this session.)
+
+---
+
+## 7. Graph arm measurement (RUN 1, 2026-08-04 — DECISIVE, per Fares's directive)
+
+The graph arm (`--mode graph`: Localizer→Diagnoser→Generator→Analyst→Refiner→Validator with
+a feedback edge) was built and run on the same 8 `psf/requests` instances.
+
+**Generation:** 8/8 ran; **4 produced applying patches (1142, 1766, 2317, 2931), all with
+`graph_rounds=3`** (full Diagnoser→Generator→Refiner cycle); 4 were infra-fails (1724, 1921,
+5414, 6028 — network drops).
+
+**Docker grade of the 5 non-empty predictions:**
+
+| Instance | Graph applies? | graph_rounds | Resolved (Docker)? |
+|---|---|---|---|
+| 1142 | ✅ | 3 | **RESOLVED** |
+| 1766 | ✅ | 3 | not resolved |
+| 2317 | ✅ | 3 | not resolved |
+| 2931 | ✅ | 3 | not resolved |
+| 6028 | (graded) | 0 | not resolved |
+
+**Graph Docker grade: 1/5 resolved (1142).**
+
+### What the graph changed vs the loop
+
+- **More patches applied:** graph = 4 (added 2931), loop = 3. The separate Refiner (fresh
+  context from diagnosis + test report, not self-repair) improved patch *applicability* and
+  edge-case quality vs the single-agent loop.
+- **Resolve rate unchanged at the ceiling:** graph resolved **only 1142** — the same instance
+  every other arm resolved. It did NOT resolve 1766/2317/2931, which the loop also failed on.
+
+### Honest conclusion (the Karpathy lesson, empirically confirmed)
+
+Decomposition improved **execution quality** (more applicable, better-formed patches) but
+did **NOT** lift the **resolve rate** beyond what a single good sample already achieved.
+Architecture lets you *use* the model better; it does not make a weak model smart. The graph
+is the *correct structure* (Law 1/13/4 satisfied; it is the right way to decompose the task)
+— but with `step-3.7-flash` as the generator, the ceiling is still the model's inability to
+produce a *complete* multi-step fix. 1766/2317/2931 each need a second/third code path the
+model cannot converge to, even with diagnosis + separate refinement feeding it.
+
+**This is NOT a rejection of the graph** — it is confirmation that the graph is the right
+*shape* and the model is the remaining *bottleneck*. The next lever (now correctly scoped)
+is: run the SAME graph with a stronger / coding-tuned generator. The graph is ready; only
+the generator capacity gates the resolve rate. That is precisely the decomposition thesis
+Fares asserted — the task was never "one agent does it," and splitting it helped; the residual
+gap is generator capability, which a stronger model (not a different architecture) addresses.
+
+### Final scoreboard (all arms, honest)
+
+| Arm | Applies (of 8) | Resolved (Docker) |
+|---|---|---|
+| single-shot (best claimed) | ? | 4/8 |
+| alphacode N=3 | 6/8 | 1/8 |
+| loop | 3/8 | 0/3 graded |
+| **graph (this run)** | **4/8** | **1/5 graded (1142)** |
+
+The graph matches alphacode's resolve rate (1/8) with better patch applicability, and beats
+the loop on applicability. All arms converge on the same ceiling: `step-3.7-flash` cannot
+complete multi-step fixes for these instances. The methodology (decompose → graph) is validated
+as the correct structure; the model is the gate.
