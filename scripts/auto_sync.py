@@ -63,10 +63,13 @@ def main() -> int:
     ctype = _classify(paths)
 
     # 4. Stage everything that is not gitignored, commit, push.
+    #    The sync branch is rebuilt fresh from main every run (step 0), so a
+    #    force-with-lease push is safe and avoids "tip behind" rejections from
+    #    a stale remote auto-sync left over after a previous PR merge.
     run(["git", "add", "-A"])
     msg = f"auto({ctype}): sync {n} paths — {_short_summary(paths)}"
     run(["git", "commit", "-m", msg], check=False)
-    run(["git", "push", REMOTE, SYNC_BRANCH])
+    run(["git", "push", "--force-with-lease", REMOTE, SYNC_BRANCH], check=False)
 
     # 5. Open or reuse an auto-sync -> main PR; CI gates the merge.
     _ensure_pr()
