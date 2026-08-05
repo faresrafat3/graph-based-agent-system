@@ -1,0 +1,32 @@
+{
+  "summary": {
+    "benchmark": "SWE-bench Verified",
+    "mode": "loop",
+    "model": "step-3.7-flash",
+    "total_instances": 1,
+    "patch_applies": 0,
+    "patch_apply_rate_percent": 0.0,
+    "infrastructure_failures": 1,
+    "total_llm_calls": 0,
+    "total_refinements": 0,
+    "wall_clock_seconds": 950.65,
+    "top_k_files": 5,
+    "n_samples": null,
+    "local_resolved": 0,
+    "note": "patch_apply_rate is NOT the resolve rate. Run the official evaluator to grade."
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 950.64
+    }
+  ]
+}
