@@ -1,0 +1,73 @@
+# Version Ledger — Methodology Reconciliation & Systems Layer
+
+**Project:** graph-based-agent-system
+**Baseline commit:** f2ca0e8
+**Maintained by:** the (hy3 + opus-5) system, per Fares's direction (2026-08-05)
+
+This ledger records every versioned change to the methodology/governance docs and the
+Systems Layer. Each entry is a snapshot pointer + a one-line verdict. If a step proves
+hasty, wrong, or undesirable, restore the referenced file state from git.
+
+## Versions
+
+| Ver | Date | Doc/File | Change | Verdict |
+|---|---|---|---|---|
+| v0 | 2026-08-05 | CONSTITUTION.md, LAWS.md, GOVERNANCE-SYSTEM.md, ULTIMATE-GRAPH-PLAN.md | Baseline snapshot before reconciliation. No edits. | baseline |
+| v1 | 2026-08-05 | docs/METHODOLOGY-RECONCILIATION.md (NEW) | Maps 5 contradictions (C1-C5) + 3 fallacies (F1-F3) to explicit resolutions. | done |
+| v1 | 2026-08-05 | CONSTITUTION.md Article VI Section 1b | Adds reconciliation rulings C1-C5 + F2; meta-loop proposes not applies. | done |
+| v1 | 2026-08-05 | tests/test_reconciliation.py (NEW) | 6 tests asserting every contradiction has a recorded ruling. | done |
+| v2 | 2026-08-05 | agents/systems_layer.py (NEW) | Embed measure/compare/propose/distill/gate/record as LangGraph nodes (resolves F3). | done |
+| v2 | 2026-08-05 | system/agent_registry.py | Register Systems Layer as agent (category: systems_layer). | done |
+| v2 | 2026-08-05 | system/governance_checks.py EXTERNAL_ALLOWED | Declare build_systems_graph intentionally external (Ruling C1). | done |
+| v2 | 2026-08-05 | tests/test_systems_layer.py (NEW) | 3 tests: graph compiles, full cycle writes proposals, node order. | done |
+| v3 | 2026-08-05 | agents/cynefin_classifier.py (NEW) | Cynefin domain classifier; replaces keyword router (resolves C4/P3). | done |
+| v3 | 2026-08-05 | tests/test_cynefin_classifier.py (NEW) | 5 tests: clear/complicated/complex/chaotic + P3 mapping. | done |
+| v4 | 2026-08-05 | system/distillation_ledger.py (NEW) | Provenance ledger for opus-5 principles (resolves C5). | done |
+| v4 | 2026-08-05 | scripts/seed_distillation_ledger.py (NEW) | Seeds P1-P7 as enforced+provenanced. | done |
+| v4 | 2026-08-05 | tests/test_distillation_ledger.py (NEW) | 5 tests: provenance, reject-no-source, status, advisory, persist. | done |
+| v9 | 2026-08-05 | agents/debugger_agent.py extract_hypothesis (NEW) | Thrash signal hardens: compare hypothesis IDENTITY not text Jaccard (opus-5 P4 fix). | done |
+| v9 | 2026-08-05 | agents/debugger_agent.py refine() thrash compare | Uses extracted hypothesis; >=0.99 identity match (was raw >=0.6). | done |
+| v9 | 2026-08-05 | tests/test_thrash_signal.py (NEW) | 4 tests: rephrase→same hypothesis, distinct theories, catches rephrased thrash, raw misses. | done |
+| v19 | 2026-08-05 | agents/sage_council.py Sage.reason() + _OPPOSING | Strong-model #2 fix: distinct per-principle stances (consensus no longer theater); conflict vocab covers real stances. 3 tests. | done |
+| v19 | 2026-08-05 | agents/context_system_view.py MAX_PEERS/MAX_CYCLE_LOG | Strong-model #3 fix: bounded context (observable at 7x scale). 3 tests. | done |
+| v19 | 2026-08-05 | agents/disk_saver.py (NEW) JsonlCheckpointSaver | Strong-model #3 fix: durable disk checkpoint (no MemorySaver volatility). systems_layer uses it. 3 tests. | done |
+| v19 | 2026-08-05 | system/governance_checks.py check_forge_wired + warnings | Strong-model #1 fix: forge-wiring gap surfaced (warning, visible not hidden). 2 tests. | done |
+| v19 | 2026-08-05 | scripts/forge_scale_demo.py (NEW) + tests | G2: 210 bespoke agents, 0 clones, 735 edges. 1 test. ADR written. | done |
+| v20 | 2026-08-05 | agents/agent_forge.py extend_registry TRANSACTIONAL | gpt-5.6-sol #1-b fix: self-extend WITHOUT self-violating. Scaffolds module+test+doc, rolls back on breach. 2 tests. | done |
+| v20 | 2026-08-05 | system/governance_checks.py EXTERNAL_ALLOWED run_forged_agent | Forged entrypoint declared intentionally-external (Q3); gap visible (Law 3), governance green. | done |
+| v20 | 2026-08-05 | ALL strong-model findings resolved | #1 forge-wired warning + transactional extend; #2 distinct consensus; #3 bounded+durable context. 391 passed, audit+compile clean. | done |
+| v18 | 2026-08-05 | agents/topology_assembler.py (NEW) | Task 4: typed FOCUS/VERIFY/peer/escalate edges; untyped HARD-rejected; extends systems_layer. 5 tests. | done |
+| v18 | 2026-08-05 | tests/test_meta_monitor_backbone.py (NEW) | Task 5: systems_layer IS live backbone (e2e); forge/context/topology on top, no 2nd governor. 2 tests. | done |
+| v18 | 2026-08-05 | ALL TASKS 1-5 DONE | Intelligence Forge: P1/P4 enforced, bespoke forge (clone-trap), context=system, focus edges, meta backbone. 372 passed. | done |
+| v15 | 2026-08-05 | agents/systems_layer.py philosopher_node | Uses registry-backed council as default (loud fallback, Law 3). | done |
+| v15 | 2026-08-05 | tests/test_council_from_registry.py (NEW) | 4 tests: multi-category, excludes self, weights, convenes. | done |
+| v15 | 2026-08-05 | docs/reconciliation/FARES-RESEARCH-NOTES.md §11 | Council built from real 27+ agents, not mock. | done |
+| v14 | 2026-08-05 | agents/sage_council.py Sage.weight | Per-sage consensus weight; default council weighted (1.2/1.0/1.1). | done |
+| v14 | 2026-08-05 | tests/test_consensus_mechanism.py (NEW) | 5 tests: conflict detect, peer weights, hierarchical lead, broadcast, convene block. | done |
+| v14 | 2026-08-05 | tests/test_sage_council.py (FIX) | Hierarchy prefix LEAD[lead] matches code. | done |
+| v14 | 2026-08-05 | docs/reconciliation/FARES-RESEARCH-NOTES.md §10 | ConsensusMechanism = correct integration honoring vision. | done |
+| v13 | 2026-08-05 | agents/systems_layer.py philosopher_node (FIX) | Uses local SageCouncil, NOT consult_opus5 (Fares correction: principle in-graph). | done |
+| v13 | 2026-08-05 | tests/test_sage_council.py (NEW) | 4 tests: skip/gate, peer dialectic, topologies, seeded principles. | done |
+| v13 | 2026-08-05 | tests/test_systems_layer_cir.py (REWRITE) | 3 tests: convene on complex, skip below threshold, topology+flow (no opus-5). | done |
+| v13 | 2026-08-05 | docs/reconciliation/FARES-RESEARCH-NOTES.md §9 | Correction: CIR = local Sage Council, not opus-5 link. | done |
+| v12 | 2026-08-05 | docs/reconciliation/COMPARATIVE-STUDY.md §A/B | Honest A/B: n=4, CIR no advantage on small tasks; gate added. | done |
+| v11 | 2026-08-05 | agents/systems_layer.py philosopher_node + reconciler_node | CIR embedded as FIRST-CLASS graph nodes (context-isolated opus-5 + falsifiable spec). | done |
+| v11 | 2026-08-05 | agents/systems_layer.py topology | measure->philosopher->reconciler->compare... (CIR in meta-loop graph). | done |
+| v11 | 2026-08-05 | tests/test_systems_layer_cir.py (NEW) | 3 tests: strategy emit, safe fallback, topology+flow. | done |
+| v11 | 2026-08-05 | docs/reconciliation/FARES-RESEARCH-NOTES.md §8 | CIR embedded in graph per Fares's scale-with-complexity request. | done |
+| v10 | 2026-08-05 | docs/reconciliation/COMPARATIVE-STUDY-2026-08-05.md (NEW) | 3-model study (opus-5/gpt-5.6-sol/opus-4-8) on Context-Isolated Reasoning. | done |
+| v10 | 2026-08-05 | system/distillation_ledger.jsonl (3 model_review) | Verbatin opus-5/gpt-5.6-sol/opus-4-8 replies recorded as provenance. | done |
+| v10 | 2026-08-05 | scripts/record_comparative_study.py (NEW) | Records 3-model comparative replies to ledger. | done |
+| v10 | 2026-08-05 | docs/reconciliation/FARES-RESEARCH-NOTES.md §7 | Links comparative study; renames P/E -> CIR. | done |
+| v9 | 2026-08-05 | docs/reconciliation/FARES-RESEARCH-NOTES.md (NEW) | Fares's research insights on hy3+opus-5 reasoning data + open Qs. PERMANENT reference. | done |
+| v8 | 2026-08-05 | scripts/run_improvement_cycle.py thrash fix | measure_benchmark reads live harness (was hardcoded 0) per opus-5 finding. | done |
+| v8 | 2026-08-05 | tests/test_thrash_measure.py (NEW) | 2 tests: thrash measured not hardcoded; fallback on harness error. | done |
+| v8 | 2026-08-05 | docs/METHODOLOGY-RECONCILIATION.md §5 LIVE | Records opus-5 P4 verdict + code finding + resolution. | done |
+| v8 | 2026-08-05 | scripts/run_systems_layer.py + Makefile systems-layer | In-graph driver + canonical target; cron updated. | done |
+
+## How to restore
+```
+git show f2ca0e8:CONSTITUTION.md          # v0 baseline of CONSTITUTION
+git show <commit>:docs/METHODOLOGY-RECONCILIATION.md
+```
+Each versioned file keeps a header comment: `<!-- version: vN | date | verdict -->`.
