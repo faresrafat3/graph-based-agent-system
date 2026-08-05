@@ -42,12 +42,10 @@ def main() -> int:
         # does not trigger CI reliably). Carries working-tree changes over.
         run(["git", "checkout", "-B", SYNC_BRANCH, f"{REMOTE}/{BASE_BRANCH}"], check=False)
 
-    # 1. Pull latest auto-sync (avoid divergence races)
-    run(["git", "fetch", REMOTE, SYNC_BRANCH], check=False)
-    try:
-        run(["git", "merge", "--ff-only", f"{REMOTE}/{SYNC_BRANCH}"], check=False)
-    except RuntimeError:
-        pass
+    # 1. Fetch latest main so the fresh branch is up to date. We do NOT merge
+    #    origin/auto-sync here: the branch was just rebuilt from main, and
+    #    pulling the old remote auto-sync would create a false divergence.
+    run(["git", "fetch", REMOTE, BASE_BRANCH], check=False)
 
     # 2. What changed that is NOT gitignored?
     status = run(["git", "status", "--porcelain"])
