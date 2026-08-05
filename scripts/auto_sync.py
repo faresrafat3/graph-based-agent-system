@@ -37,9 +37,10 @@ def main() -> int:
     # 0. Safety: must be on the sync branch.
     cur = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     if cur != SYNC_BRANCH:
-        # switch to sync branch, carrying any working-tree changes along
-        run(["git", "switch", SYNC_BRANCH], check=False)
-        run(["git", "switch", SYNC_BRANCH])  # ensure we are there
+        # Always rebuild the sync branch fresh from main so the resulting PR
+        # is from a clean branch (a PR from a stale/already-merged branch
+        # does not trigger CI reliably). Carries working-tree changes over.
+        run(["git", "checkout", "-B", SYNC_BRANCH, f"{REMOTE}/{BASE_BRANCH}"], check=False)
 
     # 1. Pull latest auto-sync (avoid divergence races)
     run(["git", "fetch", REMOTE, SYNC_BRANCH], check=False)
