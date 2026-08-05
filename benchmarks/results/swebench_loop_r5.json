@@ -1,0 +1,137 @@
+{
+  "summary": {
+    "benchmark": "SWE-bench Verified",
+    "mode": "loop",
+    "model": "step-3.7-flash",
+    "total_instances": 8,
+    "patch_applies": 3,
+    "patch_apply_rate_percent": 37.5,
+    "infrastructure_failures": 5,
+    "total_llm_calls": 15,
+    "total_refinements": 0,
+    "wall_clock_seconds": 3940.08,
+    "top_k_files": 5,
+    "n_samples": null,
+    "local_resolved": 0,
+    "note": "patch_apply_rate is NOT the resolve rate. Run the official evaluator to grade."
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 1145.0
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -225,10 +225,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n \n     def prepare_method(self, method):\n         \"\"\"Prepares the given HTTP method.\"\"\"\n         self.method = method\n         if self.method is not None:\n-            self.method = self.method.upper()\n+            self.method = builtin_str(self.method).upper()\n \n     def prepare_url(self, url, params):\n         \"\"\"Prepares the given HTTP URL.\"\"\"\n         #: Accept objects that have string representations.\n",
+      "llm_calls": 5,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/packages/urllib3/connectionpool.py",
+        "requests/packages/urllib3/request.py",
+        "requests/packages/urllib3/util.py",
+        "requests/packages/urllib3/response.py",
+        "requests/models.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 858.92,
+      "test_feedback_rounds": 4
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 1272.38
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -296,8 +296,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n     def prepare_headers(self, headers):\n         \"\"\"Prepares the given HTTP headers.\"\"\"\n \n         if headers:\n-            self.headers = CaseInsensitiveDict((to_native_string(name), value) for name, value in headers.items())\n+            self.headers = CaseInsensitiveDict((to_native_string(name), value) for name, value in headers.items()\n+                                              if value is not None)\n         else:\n             self.headers = CaseInsensitiveDict()\n \n--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -52,6 +52,10 @@ def merge_setting(request_setting, session_setting, dict_class=OrderedDict):\n \n     if request_setting is None:\n-        return session_setting\n+        if isinstance(session_setting, Mapping):\n+            return dict_class(\n+                (k, v) for k, v in session_setting.items() if v is not None\n+            )\n+        return session_setting\n \n     # Bypass if not a dictionary (e.g. verify)\n     if not (\n@@ -64,7 +68,12 @@ def merge_setting(request_setting, session_setting, dict_class=OrderedDict):\n     merged_setting = dict_class(to_key_val_list(session_setting))\n-    merged_setting.update(to_key_val_list(request_setting))\n \n     # Remove keys that are set to None.\n+    for (k, v) in session_setting.items():\n+        if v is None:\n+            del merged_setting[k]\n+\n+    merged_setting.update(to_key_val_list(request_setting))\n+    \n     for (k, v) in request_setting.items():\n         if v is None:\n             del merged_setting[k]\n```\n",
+      "llm_calls": 5,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/models.py",
+        "requests/sessions.py",
+        "requests/cookies.py",
+        "requests/adapters.py",
+        "requests/packages/urllib3/util.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 735.34,
+      "test_feedback_rounds": 4
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -499,7 +499,7 @@ class Session(SessionRedirectMixin):\n             :class:`Request <Request>`.\n         \"\"\"\n \n-        method = builtin_str(method)\n+        method = to_native_string(method)\n \n         # Create the Request.\n         req = Request(\n```\n",
+      "llm_calls": 5,
+      "refinements": 0,
+      "patch_applies": true,
+      "localized_files": [
+        "requests/sessions.py",
+        "requests/utils.py",
+        "requests/models.py",
+        "requests/cookies.py",
+        "requests/packages/urllib3/connectionpool.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 402.3,
+      "test_feedback_rounds": 4
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 1808.75
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "TimeoutExpired: Command 'python -m pytest /' timed out after 120 seconds",
+      "duration": 169.58
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "TimeoutExpired: Command 'python -m pytest /' timed out after 120 seconds",
+      "duration": 428.18
+    }
+  ]
+}
