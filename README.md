@@ -286,3 +286,5 @@ print(result['metadata'])
 Built with ❤️ using Karpathy's Agentic Engineering principles
 
 Governed by Constitution and 20 Laws
+
+<!-- auto-sync smoke test: 2026-08-05T15:00:25Z -->
