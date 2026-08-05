@@ -21,9 +21,11 @@ TEXT_SUFFIXES = {".py", ".md", ".txt", ".yml", ".yaml", ".example", ""}
 # The policy governs which providers this code CALLS, not which ones it may name.
 # Benchmark reports must be free to cite competitor scores by vendor, and .env is
 # gitignored local state rather than shipped source.
-# Docs/history may *name* removed params (e.g. a past `allow_mock` kwarg) for context
-# without reintroducing them — skip them so the audit does not flag its own deny list
-# or historical references (CONTRIBUTING.md commit log, the audit report itself).
+# CONTRIBUTING.md and the audit report may *name* removed/dead params (e.g. a past
+# `allow_mock` kwarg) for historical context without reintroducing them — skip them so
+# the audit does not flag its own deny list or historical references (the audit report
+# itself, CONTRIBUTING.md commit log). The audit script defines the deny markers (so it
+# contains the substrings by design) and must not flag itself.
 SKIP_FILES = {
     ".env",
     "docs/BENCHMARK-REPORT.md",
