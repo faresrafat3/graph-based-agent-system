@@ -1,0 +1,116 @@
+{
+  "summary": {
+    "benchmark": "SWE-bench Verified",
+    "mode": "loop",
+    "model": "step-3.7-flash",
+    "total_instances": 8,
+    "patch_applies": 0,
+    "patch_apply_rate_percent": 0.0,
+    "infrastructure_failures": 8,
+    "total_llm_calls": 0,
+    "total_refinements": 0,
+    "wall_clock_seconds": 574.7,
+    "top_k_files": 5,
+    "n_samples": null,
+    "local_resolved": 0,
+    "note": "patch_apply_rate is NOT the resolve rate. Run the official evaluator to grade."
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 487.6
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 503.04
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 61.59
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 56.54
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 19.95
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 10.58
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 3.53
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: <urlopen error [Errno -3] Temporary failure in name resolution>",
+      "duration": 4.53
+    }
+  ]
+}

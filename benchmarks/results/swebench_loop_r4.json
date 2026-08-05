@@ -1,0 +1,123 @@
+{
+  "summary": {
+    "benchmark": "SWE-bench Verified",
+    "mode": "loop",
+    "model": "step-3.7-flash",
+    "total_instances": 8,
+    "patch_applies": 0,
+    "patch_apply_rate_percent": 0.0,
+    "infrastructure_failures": 7,
+    "total_llm_calls": 5,
+    "total_refinements": 4,
+    "wall_clock_seconds": 2633.34,
+    "top_k_files": 5,
+    "n_samples": null,
+    "local_resolved": 0,
+    "note": "patch_apply_rate is NOT the resolve rate. Run the official evaluator to grade."
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1142",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 814.74
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 729.74
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 923.45
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 680.4
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 878.54
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "StepfunAPIError: Stepfun API request failed: The read operation timed out",
+      "duration": 646.28
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -357,16 +357,17 @@\n         if not host:\n             raise InvalidURL(\"Invalid URL %r: No host supplied\" % url)\n \n-        # In general, we want to try IDNA encoding the hostname if the string contains\n-        # non-ASCII characters. This allows users to automatically get the correct IDNA\n-        # behaviour. For strings containing only ASCII characters, we need to also verify\n-        # it doesn't start with a wildcard (*), before allowing the unencoded hostname.\n-        if not unicode_is_ascii(host):\n+        # In general, we want to try IDNA encoding the hostname if the string contains\n+        # non-ASCII characters. This allows users to automatically get the correct IDNA\n+        # behaviour. For all hosts, we need to also verify it doesn't start with a wildcard\n+        # (*), and that it encodes successfully, before allowing the hostname.\n+        if host.startswith(u'*'):\n+            raise InvalidURL('URL has an invalid label.')\n+\n+        try:\n             host = self._get_idna_encoded_host(host)\n-        except UnicodeError:\n-            raise InvalidURL('URL has an invalid label.')\n-        elif host.startswith(u'*'):\n-            raise InvalidURL('URL has an invalid label.')\n+        except UnicodeError:\n+            raise InvalidURL('URL has an invalid label.')\n \n         # Carefully reconstruct the network location\n         netloc = auth or ''\n",
+      "llm_calls": 5,
+      "refinements": 4,
+      "patch_applies": false,
+      "localized_files": [
+        "requests/models.py",
+        "requests/utils.py",
+        "requests/help.py",
+        "requests/sessions.py",
+        "requests/cookies.py"
+      ],
+      "failure_class": null,
+      "error": null,
+      "duration": 333.85,
+      "test_feedback_rounds": 0
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "model_name_or_path": "gbas-loop",
+      "model_patch": "",
+      "llm_calls": 0,
+      "refinements": 0,
+      "patch_applies": false,
+      "localized_files": [],
+      "failure_class": "infrastructure",
+      "error": "TimeoutExpired: Command 'python -m pytest /' timed out after 120 seconds",
+      "duration": 188.43
+    }
+  ]
+}
