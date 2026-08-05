@@ -209,3 +209,31 @@ The second-pass note called Layer-4 squads "raw LLM strings never parsed/execute
 - **Verification lesson (again):** the squad-grounding test initially failed because my fake decomposition used `type:"api"`, which `DeterministicValidatorEngine.VALID_TYPES` rejects (`{feature,architecture,requirements,testing,bugfix,refactor}`); domain routing is by keyword detection, not `type`. Correct fixture = `type:"feature"` + api-rich description. This is the same "verify claims against real code" discipline that caught the false F10.
 
 *Third-pass addendum. F7 closed (squad code now execution-grounded). Remaining open thread: **F8 (Law 20 boundary keyword bypass by paraphrase)** — a design limitation of substring matching, lower priority.*
+
+---
+
+## 10. Recheck (2026-08-04) — most critical/medium findings already resolved
+
+A recheck against the current tree (post-`c92fd39`, `7fd39fe`, `86dbd11`) shows the audit's
+earlier findings have since been fixed by later commits. Re-applying them would be churn:
+
+- **F1 (missing Laws 14/15/16):** RESOLVED. `LAWS.md` now defines Law 14 (Signal
+  Determinism), Law 15 (Latency Budget), Law 16 (Reproducible Evidence). Citations match.
+- **F2 (silent `except Exception:`):** RESOLVED to the audit's own "excusable" bar. The 11
+  originally-flagged blocks are down to 3, all in best-effort paths (`_cleanup_worktree`
+  git/dir cleanup; `run_improvement_cycle.load_last_measurement` JSON fallback) where
+  swallow-and-continue is the intended behaviour (same class the audit itself excused at
+  `test_runner_agent.py:149`).
+- **F4 (stale `allow_mock` warning):** RESOLVED. `BENCHMARK-REPORT.md §7` already states
+  "The `allow_mock` fallback is gone" and explains the no-mock path; `SWEBENCH-REPORT.md`
+  carries no such warning. `grep allow_mock` in source returns nothing.
+- **F6 (CI coverage gate):** RESOLVED. `.github/workflows/ci.yml` line 33 and
+  `Makefile` `coverage` target both pass `--cov-fail-under=80`, enforcing Law 5.
+
+**Open (low priority, design-level, not a regression):** F8 (Law 20 substring boundary
+bypass by paraphrase). Acknowledged as a known limitation; fix is normalize+tokenize or
+regex on canonical phrases (per audit F8). Deferred — not blocking.
+
+**Net:** the system is in better shape than this audit (08-03) recorded. No new code churn
+required from these findings; the live work is the SWE-bench loop experiment (network-blocked
+at time of recheck) and keeping `make test` green.
