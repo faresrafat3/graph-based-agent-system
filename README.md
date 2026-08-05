@@ -290,3 +290,5 @@ Governed by Constitution and 20 Laws
 <!-- auto-sync smoke test: 2026-08-05T15:00:25Z -->
 
 <!-- auto-sync verify: 2026-08-05T15:04:18Z -->
+
+<!-- sync-verify: 2026-08-05T15:41:24Z -->
