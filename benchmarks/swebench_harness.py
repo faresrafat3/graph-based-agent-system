@@ -829,6 +829,7 @@ def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: i
     # so a failure in one dimension never crashes the whole graph -- Law 3: no silent failure).
     gen_reflection = None
     debug_code = None
+    gen_surgical = None
     try:
         from agents.reflexion_agent import generate_reflection as _gr
         gen_reflection = _gr
@@ -837,6 +838,11 @@ def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: i
     try:
         from agents.debugger_agent import debug_code as _dc
         debug_code = _dc
+    except Exception:
+        pass
+    try:
+        from agents.surgical_refiner import generate_refinement_feedback as _si
+        gen_surgical = _si
     except Exception:
         pass
 
@@ -884,7 +890,12 @@ def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: i
             break
         graph_rounds += 1
 
-        # Build the multi-dimensional context for the Refiner.
+        # Build the focused context + SEQUENCE the dimensions (no "too many cooks"):
+        #   round 1 -> Refiner only (fresh diagnosis + failing tests)
+        #   round 2 -> + Debugger (real traceback from Analyst)
+        #   round 3 -> + SurgicalRefiner (Law 13) + Reflexion (failure history)
+        # Each dimension FIRES ONLY when prior rounds failed, so context stays small and
+        # targeted (Fares's directive: organize/sequence small strong steps, remove chaos).
         ftp_cmds = instance.get("FAIL_TO_PASS", [])
         if ftp_cmds and isinstance(ftp_cmds[0], list):
             ftp_cmds = [c for sub in ftp_cmds for c in sub]
@@ -892,7 +903,7 @@ def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: i
         failing_block = "\n".join(f"- {c}" for c in failing[:8]) or "(no test output captured)"
         traceback_txt = res.get("fail_log", "") or ""
 
-        # DIMENSION: Reflexion -- learn from failure history
+        # DIMENSION 1 (always): Reflexion -- learn from failure history
         reflection_txt = ""
         if gen_reflection is not None:
             try:
@@ -907,27 +918,32 @@ def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: i
             except Exception:
                 reflection_txt = ""
 
-        # DIMENSION: Debugger -- fix from traceback
+        # DIMENSION 2 (round>=2): Debugger -- REAL traceback fix (now that fail_log is captured)
         debugger_txt = ""
-        if debug_code is not None and traceback_txt:
+        if graph_rounds >= 1 and debug_code is not None and traceback_txt:
             try:
                 dbg = debug_code(
                     failed_code=patch, test_failure=traceback_txt,
                     problem_spec=instance.get("problem_statement", ""),
                 )
-                debugger_txt = dbg.get("fixed_code", "") or dbg.get("suggestion", "")
+                debugger_txt = dbg.get("fixed_code", "") or dbg.get("debug_summary", "")
                 if debugger_txt:
                     dim["debugger_used"] = True
             except Exception:
                 debugger_txt = ""
 
-        # DIMENSION: SurgicalRefiner -- targeted AST-breach fix (Law 13) when applicable
+        # DIMENSION 3 (round>=2): SurgicalRefiner -- REAL Law 13 targeted fix (engine invoked)
         surgical_txt = ""
-        if validation["breaches"]:
-            surgical_txt = "\n".join(f"- {b}" for b in validation["breaches"])
-            dim["surgical_used"] = True
+        if graph_rounds >= 1 and gen_surgical is not None and validation["breaches"]:
+            try:
+                surgical = gen_surgical(validation["breaches"], previous_output=patch)
+                surgical_txt = surgical.get("surgical_feedback", "") if isinstance(surgical, dict) else str(surgical)
+                if surgical_txt:
+                    dim["surgical_used"] = True
+            except Exception:
+                surgical_txt = ""
 
-        # Compose the Refiner prompt from ALL dimensions.
+        # Compose the Refiner prompt from the dimensions active this round.
         ctx = (
             f"# Issue\n\n{ContextCuratorEngine.sanitize_raw_text(instance['problem_statement'])}\n\n"
             f"# Original diagnosis\n\n{diagnosis}\n\n"
@@ -937,9 +953,9 @@ def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: i
         if reflection_txt:
             ctx += f"\n# Reflection on why prior attempts failed\n{reflection_txt}\n"
         if debugger_txt:
-            ctx += f"\n# Debugger suggestion (from traceback)\n{debugger_txt}\n"
+            ctx += f"\n# Debugger fix suggestion (from test traceback)\n{debugger_txt}\n"
         if surgical_txt:
-            ctx += f"\n# Surgical breaches to address (Law 13)\n{surgical_txt}\n"
+            ctx += f"\n# Surgical correction guidance (Law 13)\n{surgical_txt}\n"
         ctx += "\nRevise the patch so EVERY failing test passes. Output ONLY the complete unified diff."
 
         new_patch = strip_patch_fences(call_llm(prompt=ctx, system_prompt=GRAPHFULL_SYSTEM_PROMPT, timeout=180))
@@ -1010,19 +1026,26 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
     def run_commands(cmds) -> tuple:
         passed = 0
         total = 0
+        fail_log_parts = []
         for cmd in cmds:
             total += 1
             # SWE-bench stores bare pytest node IDs / paths (e.g.
             # "test_requests.py::RequestsTestCase::test_x"). These are NOT shell commands;
             # they must be invoked via the test runner. Prefix with `python -m pytest`.
-            full = cmd if cmd.strip().startswith(("python", "pytest", "python3")) else f"python -m pytest {cmd}"
+            full = cmd if cmd.strip().startswith(("python", "pytest", "python3")) else f"python -m pytest {cmd} -x -q"
             p = subprocess.run(
                 full, shell=True, cwd=root, capture_output=True, timeout=timeout,
                 env={**os.environ, "PYTHONPATH": root},
             )
             if p.returncode == 0:
                 passed += 1
-        return passed, total
+            else:
+                # Capture the tail of the failing test's output so downstream Debugger /
+                # Reflexion dimensions receive a REAL traceback (this was missing before,
+                # which is why the Debugger dimension never fired).
+                out = (p.stdout or b"") + (p.stderr or b"")
+                fail_log_parts.append(out.decode("utf-8", "ignore")[-1200:])
+        return passed, total, "\n----\n".join(fail_log_parts)
 
     ftp_cmds = instance.get("FAIL_TO_PASS", [])
     ptp_cmds = instance.get("PASS_TO_PASS", [])
@@ -1031,8 +1054,8 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
     if ptp_cmds and isinstance(ptp_cmds[0], list):
         ptp_cmds = [c for sub in ptp_cmds for c in sub]
 
-    ftp_pass, ftp_total = run_commands(ftp_cmds)
-    ptp_pass, ptp_total = (0, 0) if skip_ptp else run_commands(ptp_cmds)
+    ftp_pass, ftp_total, ftp_fail_log = run_commands(ftp_cmds)
+    ptp_pass, ptp_total, _ = (0, 0, "") if skip_ptp else run_commands(ptp_cmds)
 
     _clean()  # always leave the tree pristine for the next sample
 
@@ -1042,6 +1065,7 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
         "ftp_pass": ftp_pass, "ftp_total": ftp_total,
         "ptp_pass": ptp_pass, "ptp_total": ptp_total,
         "score": score, "error": None,
+        "fail_log": ftp_fail_log,
     }
 
 
