@@ -76,6 +76,10 @@ def _similarity(a: str, b: str) -> float:
     Used only for OBSERVABILITY (P7): detect when the debugger repeats a
     near-identical hypothesis across retries (thrashing). Returns 0.0-1.0.
     No control flow depends on this.
+
+    HARDENED (v9, opus-5 P4 review): callers should pass EXTRACTED hypotheses
+    (see extract_hypothesis), not raw reflection text, so rephrasing of one theory
+    is detected as thrash instead of missed (false negative).
     """
     if not a or not b:
         return 0.0
@@ -83,6 +87,66 @@ def _similarity(a: str, b: str) -> float:
     if not a_set or not b_set:
         return 0.0
     return len(a_set & b_set) / len(a_set | b_set)
+
+
+# Canonical hypothesis "kinds" we can detect from a reflection without an LLM.
+# Each maps a set of trigger words to a normalized claim fragment. This lets us
+# compare HYPOTHESIS IDENTITY (what is being tried) rather than word reuse.
+_HYPOTHESIS_KINDS = [
+    ("off_by_one", ["off-by-one", "off by one", "boundary", "loop limit", "off-by",
+                    "upper bound", "increment", "off by", "one less", "one more"]),
+    ("div_by_zero", ["divide by zero", "division by zero", "divided by", "zero division"]),
+    ("wrong_sort", ["sort", "ordering", "ascending", "descending"]),
+    ("index_error", ["index", "out of range", "subscript"]),
+    ("type_error", ["type", "cast", "convert"]),
+    ("null_none", ["none", "null", "nil", "missing"]),
+    ("wrong_var", ["variable", "wrong variable", "typo in name"]),
+    ("logic_flaw", ["logic", "condition", "branch", "if statement"]),
+]
+
+
+def extract_hypothesis(reflection: str) -> str:
+    """Extract a structured HYPOTHESIS claim from a free-text reflection (zero-LLM).
+
+    Returns a canonical string like "off_by_one|limit+1" so that two rephrasings
+    of the same theory map to the SAME string (fixing the false-negative opus-5 flagged).
+    Two genuinely different theories map to DIFFERENT strings.
+
+    Method: detect the error KIND from trigger words, then capture the concrete
+    TARGET of the fix (the noun after the kind keyword, e.g. "limit", "bound", "b") as
+    a normalized fragment. Deterministic + auditable. Comparing TARGET not wording
+    means "add 1 to the limit" == "incrementing the limit" (same hypothesis).
+    """
+    if not reflection:
+        return ""
+    low = reflection.lower()
+
+    # 1) error kind
+    kind = "unknown"
+    for k, triggers in _HYPOTHESIS_KINDS:
+        if any(t in low for t in triggers):
+            kind = k
+            break
+
+    # 2) concrete TARGET fragment: the kind-related word itself is the fix target
+    #    signature (e.g. "limit", "bound", "b"). Comparing the TARGET not surrounding
+    #    wording means "add 1 to the limit" == "incrementing the limit" (same hypothesis).
+    target = ""
+    for marker in ("limit", "bound", "boundary", "index", "variable", "range"):
+        if marker in low:
+            target = marker
+            break
+    # special-case single-letter variables b / n
+    if not target:
+        for ch in ("b", "n"):
+            if f" {ch} " in low or low.endswith(f" {ch}"):
+                target = f"var_{ch}"
+                break
+    if not target:
+        target = " ".join(low.split()[:3])
+
+    return f"{kind}|{target}".strip("|")
+
 
 
 class DebuggerEngine:
@@ -166,10 +230,14 @@ def execute(state: DebuggerState) -> dict:
     code = re.sub(r"```\s*$", "", code)
 
     # Observability (P7): detect thrashing — repeated near-identical hypotheses.
+    # HARDENED (v9, opus-5 P4 review): compare EXTRACTED hypotheses, not raw text, so
+    # rephrasing of one theory is caught (false negative fixed), while genuinely
+    # narrowing (different hypothesis) is not falsely flagged (false positive fixed).
     repeated = state.get("repeated_hypothesis_count", 0)
     if len(past_reflections) >= 2:
         prev, curr = past_reflections[-2], past_reflections[-1]
-        if _similarity(prev, curr) >= 0.6:
+        prev_h, curr_h = extract_hypothesis(prev), extract_hypothesis(curr)
+        if prev_h and curr_h and _similarity(prev_h, curr_h) >= 0.99:
             repeated += 1
 
     return {

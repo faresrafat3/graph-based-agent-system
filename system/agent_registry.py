@@ -273,4 +273,14 @@ AGENT_REGISTRY = [
         "category": "generation",
         "standard_permissions": True,
     },
+    {
+        "name": "Systems Layer (Meta-Loop)",
+        "module": "agents.systems_layer",
+        "entrypoint": "build_systems_graph",
+        "permission_symbol": None,
+        "lifecycle_doc": "docs/reconciliation/METHODOLOGY-RECONCILIATION.md",
+        "test_file": "tests/test_systems_layer.py",
+        "category": "systems_layer",
+        "standard_permissions": False,
+    },
 ]
