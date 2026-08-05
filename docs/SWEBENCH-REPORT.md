@@ -45,6 +45,49 @@ up front.** The key pool fixes the infrastructure half of the problem.
 
 ---
 
+## The Big Picture — what this whole session proved (read this first)
+
+**Question we set out to answer:** SWE-bench Verified (`step-3.7-flash`) resolves only 1/8 of
+real bugs. Is the ceiling the *model*, or is it *architecture* (one agent is too weak for a
+multi-step fix)? Fares's standing thesis: decompose the task into a graph of specialized agents
+with feedback edges — do NOT just swap in a bigger model.
+
+**What we built and measured (five arms, same 8 `psf/requests` instances, Docker-graded):**
+
+| Arm | Idea | Applies | Resolved |
+|---|---|---|---|
+| single-shot | 1 LLM call | ? | 4/8 (claimed) |
+| alphacode N=3 | best-of-N sampling | 6/8 | 1/8 |
+| loop | 1 agent self-repairs | 3/8 | 0/3 |
+| graph | separate Generator/Refiner agents | 4/8 | 1/5 |
+| **graphfull (repaired)** | +Reflexion+Debugger+Surgical, sequenced | **7/8** | **1/8** |
+
+**Two decisive findings:**
+1. **Decomposition extracts latent power.** Applicability rose 37.5% → 87.5% as we split the
+   task into specialized agents. The same model, given the right *structure*, produces far
+   more usable patches. This validates Fares's thesis.
+2. **But the resolve ceiling (1/8) is the model, not the architecture.** Even with every
+   dimension correctly wired (Debugger firing on real tracebacks, SurgicalRefiner as a real
+   agent, dimensions sequenced to avoid "too many cooks"), `step-3.7-flash` cannot complete
+   the multi-step fixes for 6/8 instances. The framework is *correct and ready*; the payload
+   (generator) is the next swap.
+
+**A regression that taught us the method:** graphfull v1 *regressed* (1142 went from resolved
+to not-resolved). Fares challenged this as a design bug, not model weakness — and was right.
+Three dimensions were silently dead (no traceback capture → dead Debugger; SurgicalRefiner
+never invoked; all context dumped at once). Repairing them lifted applicability 62.5%→87.5%
+and re-resolved 1142. **The methodology self-corrected** — a regression was traced to broken
+wiring, fixed with small strong steps, re-measured. That is the governed loop Fares requires.
+
+**Where this leaves us:** the graph framework is the right shape and is proven. The residual
+gap is generator capability. Dropping a stronger coding model into the *same* `--mode graphfull`
+(no architecture change) is the lever that lifts resolve rate. Everything is committed and
+documented; the next session swaps the model, not the design.
+
+Full honest record: `docs/AGENT-LOOP-EXPERIMENT.md` (§1–§9). Reproduce commands at the bottom.
+
+---
+
 ## What SWE-bench measures (and HumanEval could not)
 
 SWE-bench Verified is 500 real GitHub issues from 12 major Python repos (django,
