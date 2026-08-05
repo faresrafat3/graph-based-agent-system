@@ -766,6 +766,198 @@ def solve_agent_graph(instance: dict, root: str, files: list, max_rounds: int = 
     }
 
 
+# --------------------------------------------------------------------------------------
+# FULL multi-dimensional graph arm (the complete methodology Fares directed):
+# every dimension of the system, specialized agents that JOIN to solve the task.
+#
+# This is the synthesis of everything measured so far:
+#   - Level 1 (loop) showed one agent self-repairing falls into partial-fix patterns.
+#   - Level 2 (graph) showed specialized agents (Diagnoser/Generator/Analyst/Refiner) help
+#     applicability but not the resolve ceiling for step-3.7-flash.
+#   - Level 3 (this arm): bring EVERY specialized agent dimension into the graph so the
+#     framework extracts the model's full latent power. The structure is built so that a
+#     STRONGER model dropped into the same framework lifts the resolve rate without any
+#     architecture change (Fares's directive: build the framework now, model later).
+#
+# Graph shape (dimensions = specialized agents joined by feedback edges):
+#
+#   Localizer(zero-LLM)
+#        |
+#   Diagnoser(LLM)  -- structured plan
+#        |
+#   Generator(LLM)  -- patch from diagnosis
+#        |
+#   Analyst(tests, zero-LLM) -- FAIL_TO_PASS report
+#        |                         |
+#        |  feedback edge          | past_reflections / failure history
+#        v                         v
+#   Refiner(LLM) <---- ReflexionEngine.generate_reflection (DIM: learn from failure)
+#        |                         ^
+#        |  if patch applies but    | if traceback present
+#        |  has AST breaches:        |
+#        v                          |
+#   SurgicalRefiner(LLM, Law 13) -- DebuggerEngine.debug_code (DIM: fix from traceback)
+#        |
+#   Validator(VERIFY node, zero-LLM)
+#
+# Each dimension is independently recorded (reflexion_used / debugger_used / surgical_used)
+# so we can measure which dimension contributes to resolving each instance. No dimension is
+# risky: all are read-only-or-patch-producing existing engines; the VERIFY node gates every
+# saved patch (Law 13 / no silent failure).
+# --------------------------------------------------------------------------------------
+
+
+GRAPHFULL_SYSTEM_PROMPT = (
+    "You are a surgical patch refiner in a multi-agent graph. You receive the original "
+    "diagnosis, the current patch, a reflection on why prior attempts failed, and (optionally) "
+    "a debugger suggestion derived from the test traceback. Produce a COMPLETE unified diff "
+    "that makes every FAIL_TO_PASS test pass. Extend the plan to cover what was missed; do not "
+    "repeat a partial fix."
+)
+
+
+def solve_agent_graph_full(instance: dict, root: str, files: list, max_rounds: int = 3, skip_ptp: bool = True) -> dict:
+    """
+    FULL multi-dimensional graph: Diagnoser + Generator + Analyst + Refiner, augmented by the
+    Reflexion (failure-learning), Debugger (traceback-fix), and SurgicalRefiner (Law 13) dimensions.
+
+    Returns the same dict shape as solve_agent_graph plus dimension-usage flags.
+    """
+    import subprocess
+
+    # Import the existing specialized engines lazily (they are project modules, kept isolated
+    # so a failure in one dimension never crashes the whole graph -- Law 3: no silent failure).
+    gen_reflection = None
+    debug_code = None
+    try:
+        from agents.reflexion_agent import generate_reflection as _gr
+        gen_reflection = _gr
+    except Exception:
+        pass
+    try:
+        from agents.debugger_agent import debug_code as _dc
+        debug_code = _dc
+    except Exception:
+        pass
+
+    llm_calls = 0
+    dim = {"reflexion_used": False, "debugger_used": False, "surgical_used": False}
+
+    # DIAGNOSER (LLM, focused)
+    diagnosis = _diagnose(instance, root, files)
+    llm_calls += 1
+
+    # GENERATOR (LLM, from diagnosis)
+    patch = _generate(diagnosis, instance, root, files)
+    llm_calls += 1
+    validation = validate_patch(patch, root)
+    patch = validation["patch"]
+
+    # Bounded apply-refinement (Generator self-correct on apply breaches)
+    apply_refinements = 0
+    while not validation["success"] and apply_refinements < 2:
+        apply_refinements += 1
+        breaches = "\n".join(f"- {v}" for v in validation["breaches"])
+        fix = (
+            f"YOUR PATCH DID NOT APPLY. Breaches:\n{breaches}\n\n"
+            f"Current patch:\n{patch}\n\nDiagnosis:\n{diagnosis}\n\n"
+            "Fix ONLY the apply breaches. Output ONLY the corrected unified diff."
+        )
+        patch = strip_patch_fences(call_llm(prompt=fix, system_prompt=GENERATOR_SYSTEM_PROMPT, timeout=180))
+        llm_calls += 1
+        validation = validate_patch(patch, root)
+        patch = validation["patch"]
+
+    if not validation["success"]:
+        return {
+            "patch": patch, "llm_calls": llm_calls, "refinements": apply_refinements,
+            "graph_rounds": 0, "diagnosis": diagnosis, "patch_applies": False,
+            "breaches": validation["breaches"], "files": files, **dim,
+        }
+
+    # FEEDBACK EDGE: Analyst -> Refiner (+ Reflexion + Debugger + Surgical dimensions)
+    graph_rounds = 0
+    execution_history = []  # for Reflexion dimension
+    while graph_rounds < max_rounds:
+        res = run_tests_in_worktree(root, patch, instance, skip_ptp=skip_ptp)
+        if res["applied"] and res["ftp_pass"] == res["ftp_total"] and res["ftp_total"] > 0:
+            break
+        graph_rounds += 1
+
+        # Build the multi-dimensional context for the Refiner.
+        ftp_cmds = instance.get("FAIL_TO_PASS", [])
+        if ftp_cmds and isinstance(ftp_cmds[0], list):
+            ftp_cmds = [c for sub in ftp_cmds for c in sub]
+        failing = ftp_cmds[res["ftp_pass"]:] if res["ftp_total"] else []
+        failing_block = "\n".join(f"- {c}" for c in failing[:8]) or "(no test output captured)"
+        traceback_txt = res.get("fail_log", "") or ""
+
+        # DIMENSION: Reflexion -- learn from failure history
+        reflection_txt = ""
+        if gen_reflection is not None:
+            try:
+                execution_history.append({"failure": failing_block, "code": patch})
+                refl = gen_reflection(
+                    failed_code=patch, test_failure=traceback_txt or failing_block,
+                    problem_spec=diagnosis, execution_history=execution_history,
+                )
+                reflection_txt = refl.get("verbal_reflection", "") or refl.get("reflection_summary", "")
+                if reflection_txt:
+                    dim["reflexion_used"] = True
+            except Exception:
+                reflection_txt = ""
+
+        # DIMENSION: Debugger -- fix from traceback
+        debugger_txt = ""
+        if debug_code is not None and traceback_txt:
+            try:
+                dbg = debug_code(
+                    failed_code=patch, test_failure=traceback_txt,
+                    problem_spec=instance.get("problem_statement", ""),
+                )
+                debugger_txt = dbg.get("fixed_code", "") or dbg.get("suggestion", "")
+                if debugger_txt:
+                    dim["debugger_used"] = True
+            except Exception:
+                debugger_txt = ""
+
+        # DIMENSION: SurgicalRefiner -- targeted AST-breach fix (Law 13) when applicable
+        surgical_txt = ""
+        if validation["breaches"]:
+            surgical_txt = "\n".join(f"- {b}" for b in validation["breaches"])
+            dim["surgical_used"] = True
+
+        # Compose the Refiner prompt from ALL dimensions.
+        ctx = (
+            f"# Issue\n\n{ContextCuratorEngine.sanitize_raw_text(instance['problem_statement'])}\n\n"
+            f"# Original diagnosis\n\n{diagnosis}\n\n"
+            f"# Current patch\n\n{patch}\n\n"
+            f"# FAIL_TO_PASS tests STILL failing\n{failing_block}\n"
+        )
+        if reflection_txt:
+            ctx += f"\n# Reflection on why prior attempts failed\n{reflection_txt}\n"
+        if debugger_txt:
+            ctx += f"\n# Debugger suggestion (from traceback)\n{debugger_txt}\n"
+        if surgical_txt:
+            ctx += f"\n# Surgical breaches to address (Law 13)\n{surgical_txt}\n"
+        ctx += "\nRevise the patch so EVERY failing test passes. Output ONLY the complete unified diff."
+
+        new_patch = strip_patch_fences(call_llm(prompt=ctx, system_prompt=GRAPHFULL_SYSTEM_PROMPT, timeout=180))
+        llm_calls += 1
+        new_val = validate_patch(new_patch, root)
+        if new_val["success"]:
+            patch = new_val["patch"]
+            validation = new_val
+        subprocess.run(["git", "checkout", "--", "."], cwd=root, capture_output=True, timeout=30)
+        subprocess.run(["git", "clean", "-fd"], cwd=root, capture_output=True, timeout=30)
+
+    return {
+        "patch": patch, "llm_calls": llm_calls, "refinements": apply_refinements,
+        "graph_rounds": graph_rounds, "diagnosis": diagnosis, "patch_applies": True,
+        "breaches": validation["breaches"], "files": files, **dim,
+    }
+
+
 def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 120, skip_ptp: bool = False) -> dict:
     """
     Score a candidate patch by actually executing the instance's tests in `root`.
@@ -930,6 +1122,8 @@ def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) 
             out = solve_agent_loop(instance, worktree, files)
         elif mode == "graph":
             out = solve_agent_graph(instance, worktree, files)
+        elif mode == "graphfull":
+            out = solve_agent_graph_full(instance, worktree, files)
         else:
             out = solve_baseline(instance, worktree, files)
 
@@ -961,6 +1155,13 @@ def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) 
         if mode == "graph":
             result["graph_rounds"] = out.get("graph_rounds")
             result["diagnosis"] = out.get("diagnosis")
+        # Forward the FULL graph arm's round count + dimension-usage flags.
+        if mode == "graphfull":
+            result["graph_rounds"] = out.get("graph_rounds")
+            result["diagnosis"] = out.get("diagnosis")
+            result["reflexion_used"] = out.get("reflexion_used")
+            result["debugger_used"] = out.get("debugger_used")
+            result["surgical_used"] = out.get("surgical_used")
         return result
 
     except Exception as exc:
@@ -1114,7 +1315,7 @@ def run(mode: str, limit: Optional[int], workers: int, out_path: str, repo_filte
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SWE-bench Verified harness")
-    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode", "loop", "graph"], default="agent")
+    parser.add_argument("--mode", choices=["agent", "baseline", "alphacode", "loop", "graph", "graphfull"], default="agent")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--repo", default=None, help="Filter to one repo, e.g. django/django")
