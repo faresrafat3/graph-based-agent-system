@@ -45,7 +45,12 @@ def main() -> int:
     # 1. Fetch latest main so the fresh branch is up to date. We do NOT merge
     #    origin/auto-sync here: the branch was just rebuilt from main, and
     #    pulling the old remote auto-sync would create a false divergence.
-    run(["git", "fetch", REMOTE, BASE_BRANCH], check=False)
+    #    --prune is required: when a previous PR merged with --delete-branch,
+    #    GitHub deletes the remote branch but our stale refs/remotes/origin/
+    #    auto-sync survives. --force-with-lease then compares against that
+    #    stale ref, sees a mismatch against a branch that no longer exists,
+    #    and rejects the push -- silently, because check=False.
+    run(["git", "fetch", "--prune", REMOTE, BASE_BRANCH], check=False)
 
     # 2. What changed that is NOT gitignored?
     status = run(["git", "status", "--porcelain"])
@@ -69,7 +74,26 @@ def main() -> int:
     run(["git", "add", "-A"])
     msg = f"auto({ctype}): sync {n} paths — {_short_summary(paths)}"
     run(["git", "commit", "-m", msg], check=False)
-    run(["git", "push", "--force-with-lease", REMOTE, SYNC_BRANCH], check=False)
+
+    # The push MUST be verified. It was previously check=False, so a rejected
+    # push (see the --prune note above) left the commit local-only while this
+    # script still printed "pushed ... pending CI" and exited 0 -- the failure
+    # was invisible to the cron agent.
+    push = subprocess.run(
+        ["git", "push", "--force-with-lease", REMOTE, SYNC_BRANCH],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    if push.returncode != 0:
+        raise RuntimeError(f"push to {SYNC_BRANCH} failed: {push.stderr.strip()}")
+
+    # Confirm the remote actually has our commit before claiming success.
+    local = run(["git", "rev-parse", "HEAD"])
+    ls = run(["git", "ls-remote", REMOTE, SYNC_BRANCH], check=False)
+    remote_sha = ls.split("\t")[0] if ls.strip() else ""
+    if remote_sha != local:
+        raise RuntimeError(
+            f"push reported success but {REMOTE}/{SYNC_BRANCH} is at {remote_sha or '<absent>'}, expected {local}"
+        )
 
     # 5. Open or reuse an auto-sync -> main PR; CI gates the merge.
     _ensure_pr()
@@ -106,13 +130,17 @@ def _ensure_pr() -> None:
         existing = ""
     if existing.strip().isdigit():
         return  # PR already open; CI will gate it
-    run([
+    # Verified: a swallowed `gh pr create` failure previously meant no PR was
+    # ever opened while the run still reported success.
+    created = subprocess.run([
         "gh", "pr", "create", "--base", BASE_BRANCH, "--head", SYNC_BRANCH,
         "--title", "auto-sync: continuous working-tree sync",
         "--body", "Automated sync of accumulated session work.\n"
                   "Merges only when the `test` CI check is green (branch protection).\n"
                   "This PR is kept open and updated; do not close it manually.",
-    ], check=False)
+    ], cwd=REPO, capture_output=True, text=True)
+    if created.returncode != 0:
+        raise RuntimeError(f"gh pr create failed: {created.stderr.strip()}")
 
 
 def _ts() -> str:
