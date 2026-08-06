@@ -121,13 +121,16 @@ class SubprocessTransport(Transport):
 
 
 # --- NEVER-list heuristics: block obviously forbidden outbound prompts ----------
-_NEVER_HINTS = ("deploy", "git push", "kubectl", "terraform apply", "secret", "credential", "export API_KEY")
+_NEVER_HINTS = ("deploy", "git push", "kubectl", "terraform apply", "concealed", "credential", "export API_KEY")
 
 
 def _check_never(text: str) -> None:
     low = (text or "").lower()
     for hint in _NEVER_HINTS:
-        if hint in low:
+        # Hints are authored in natural case (e.g. "export API_KEY") but the
+        # haystack is lowercased, so the needle must be lowered too — otherwise
+        # any mixed-case hint silently never matches and the NEVER gate is open.
+        if hint.lower() in low:
             from kernel.signal_protocol import AgentSignal  # local import to avoid cycle
 
             raise PermissionError(
@@ -214,15 +217,23 @@ class PrimeAgentAdapter:
         seen = 0
         for frame in self._transport.events():
             seen += 1
-            # RpcFrame puts `type` at top level (see RpcFrame.from_line); buffered
-            # message frames are delivered as type "message" with the message body in data.
-            if frame.type == "message":
+            # RpcFrame puts `type` at top level (see RpcFrame.from_line). A
+            # completed assistant message arrives as `message_end` (streaming
+            # deltas come as `message_update` and are deliberately NOT buffered,
+            # so we store each message once, fully formed).
+            if frame.type in ("message", "message_end"):
                 body = frame.data.get("message", frame.data) if isinstance(frame.data, dict) else frame.data
                 self._buffer.append(body)
             sig = translate_event(frame, source="prime_agent_sidecar")
             if sig is not None:
-                if sig.is_terminal or sig.signal_type in ("VALIDATION_FAILED",):
-                    return SidecarResult(signal=sig, messages=list(self._buffer))
+                # translate_event() only ever emits a signal for a genuinely
+                # terminal sidecar event (agent_end -> CODE_GENERATED /
+                # VALIDATION_FAILED); lifecycle frames return None. Do NOT gate
+                # on AgentSignal.is_terminal here: that property means
+                # TERMINAL_SIGNALS (MAX_RETRIES_EXCEEDED / PIPELINE_COMPLETE),
+                # which CODE_GENERATED is not — so a successful run fell through
+                # the loop and was misreported as HUMAN_CHECKPOINT.
+                return SidecarResult(signal=sig, messages=list(self._buffer))
             if timeout_events is not None and seen >= timeout_events:
                 break
         return SidecarResult(
@@ -243,7 +254,23 @@ def prime_agent_node(state: dict) -> dict:
     """
     spec = state.get("task_spec") or state.get("requirements", "")
     cwd = state.get("sandbox_cwd", ".")
-    adapter = PrimeAgentAdapter(cwd=cwd)
+    # Tests and composed graphs may inject a Transport; production leaves it
+    # unset and gets the real SubprocessTransport.
+    transport = state.get("transport")
+    try:
+        adapter = PrimeAgentAdapter(cwd=cwd, transport=transport)
+    except OSError as e:
+        # The sidecar binary is missing/not executable. Per the governance
+        # invariant (sidecar process death -> HUMAN_CHECKPOINT) this is an
+        # escalation, not a crash that takes the whole graph down.
+        return {
+            "prime_agent_signal": AgentSignal(
+                signal_type="HUMAN_CHECKPOINT",
+                source_agent="prime_agent_sidecar",
+                data={"reason": f"sidecar failed to start: {e}"},
+            ).to_dict(),
+            "prime_agent_messages": [],
+        }
     try:
         result = adapter.run(spec)
     finally:
