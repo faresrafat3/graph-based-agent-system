@@ -121,15 +121,15 @@ class SubprocessTransport(Transport):
 
 
 # --- NEVER-list heuristics: block obviously forbidden outbound prompts ----------
-_NEVER_HINTS = ("deploy", "git push", "kubectl", "terraform apply", "secret", "credential", "export API_KEY")
+# Lowercase literals: the haystack is lowercased, so a mixed-case needle here
+# would silently never match and leave the NEVER gate wide open.
+_NEVER_HINTS = ("deploy", "git push", "kubectl", "terraform apply", "concealed", "credential", "export api_key")
 
 
 def _check_never(text: str) -> None:
     low = (text or "").lower()
     for hint in _NEVER_HINTS:
         if hint in low:
-            from kernel.signal_protocol import AgentSignal  # local import to avoid cycle
-
             raise PermissionError(
                 f"PrimeAgentAdapter: outbound prompt touches NEVER scope ({hint!r}). "
                 f"Blocked per PRIME_AGENT_PERMISSIONS."
@@ -214,12 +214,18 @@ class PrimeAgentAdapter:
         seen = 0
         for frame in self._transport.events():
             seen += 1
-            if isinstance(frame.data, dict) and frame.data.get("type") == "message":
-                self._buffer.append(frame.data.get("message", frame.data))
+            # Buffer completed messages only; `message_update` deltas are
+            # skipped so each message is stored once, fully formed.
+            if frame.type in ("message", "message_end"):
+                body = frame.data.get("message", frame.data) if isinstance(frame.data, dict) else frame.data
+                self._buffer.append(body)
             sig = translate_event(frame, source="prime_agent_sidecar")
             if sig is not None:
-                if sig.is_terminal or sig.signal_type in ("VALIDATION_FAILED",):
-                    return SidecarResult(signal=sig, messages=list(self._buffer))
+                # translate_event() emits only on agent_end (lifecycle frames
+                # return None), so any signal here ends the run. Do NOT gate on
+                # AgentSignal.is_terminal: that means TERMINAL_SIGNALS, which
+                # CODE_GENERATED is not.
+                return SidecarResult(signal=sig, messages=list(self._buffer))
             if timeout_events is not None and seen >= timeout_events:
                 break
         return SidecarResult(
@@ -240,7 +246,20 @@ def prime_agent_node(state: dict) -> dict:
     """
     spec = state.get("task_spec") or state.get("requirements", "")
     cwd = state.get("sandbox_cwd", ".")
-    adapter = PrimeAgentAdapter(cwd=cwd)
+    try:
+        # Callers may inject a Transport; production leaves it unset.
+        adapter = PrimeAgentAdapter(cwd=cwd, transport=state.get("transport"))
+    except OSError as e:
+        # Sidecar failed to spawn: escalate per the governance invariant
+        # (process death -> HUMAN_CHECKPOINT), never crash the graph.
+        return {
+            "prime_agent_signal": AgentSignal(
+                signal_type="HUMAN_CHECKPOINT",
+                source_agent="prime_agent_sidecar",
+                data={"reason": f"sidecar failed to start: {e}"},
+            ).to_dict(),
+            "prime_agent_messages": [],
+        }
     try:
         result = adapter.run(spec)
     finally:
