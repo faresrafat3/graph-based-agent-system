@@ -33,6 +33,34 @@ def run(cmd: list[str], check: bool = True) -> str:
     return r.stdout.strip()
 
 
+def _status_paths() -> list[str]:
+    """Changed paths from `git status --porcelain -z`.
+
+    Deliberately does NOT go through run(): that strips stdout, which ate the
+    leading space of a ' M path' record so a blind rec[3:] slice dropped the
+    first character ("scripts" -> "cripts") and skewed the commit type to misc.
+    -z also makes paths with spaces/newlines safe (no quoting/escaping).
+    Each record is `XY<space><path>`; rename/copy emits a second record with
+    the old path, which we consume and discard so only the new name counts.
+    """
+    r = subprocess.run(
+        ["git", "status", "--porcelain", "-z"],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    )
+    records = [rec for rec in r.stdout.split("\0") if rec]
+    paths: list[str] = []
+    i = 0
+    while i < len(records):
+        rec = records[i]
+        i += 1
+        if len(rec) < 4:
+            continue
+        paths.append(rec[3:])
+        if rec[0] in ("R", "C"):
+            i += 1  # skip the paired old path
+    return paths
+
+
 def main() -> int:
     # 0. Safety: must be on the sync branch.
     cur = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -52,19 +80,16 @@ def main() -> int:
     #    and rejects the push -- silently, because check=False.
     run(["git", "fetch", "--prune", REMOTE, BASE_BRANCH], check=False)
 
-    # 2. What changed that is NOT gitignored?
-    status = run(["git", "status", "--porcelain"])
-    if not status.strip():
+    # 2. What changed that is NOT gitignored? (git already excludes ignored
+    #    paths, so every record here is a real change.)
+    paths = _status_paths()
+    if not paths:
         print(f"[{_ts()}] auto-sync: nothing to sync — tree clean")
         return 0
-
-    # Count real (tracked-modified or new-non-ignored) changes.
-    real = [l for l in status.splitlines() if not l.startswith("??") or True]
-    n = len(real)
+    n = len(paths)
     print(f"[{_ts()}] auto-sync: {n} changed paths detected")
 
     # 3. Classify a rough "type" from the paths for the commit message.
-    paths = [l[3:].strip() for l in status.splitlines()]
     ctype = _classify(paths)
 
     # 4. Stage everything that is not gitignored, commit, push.
