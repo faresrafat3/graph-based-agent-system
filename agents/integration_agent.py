@@ -10,6 +10,13 @@ from typing import Any, TypedDict
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    record_effect,
+    verified_closure_enabled,
+)
+
 
 INTEGRATION_AGENT_PERMISSIONS = {
     "READ": ["software_agent_artifacts", "module_exports", "test_reports"],
@@ -141,7 +148,10 @@ def integrate_artifacts(
     artifacts: list[dict],
     thread_id: str = "integration_agent_session",
 ) -> dict[str, Any]:
-    """Build a deterministic integration manifest from artifacts."""
+    """Build a deterministic integration manifest from artifacts, closed by VERIFY (P2)."""
+    # P2: postcondition declared at propose time, before the manifest is written.
+    postcondition = {"kind": "non_empty", "path": None}
+
     result = integration_agent_graph.invoke(
         {
             "artifacts": artifacts,
@@ -152,8 +162,25 @@ def integrate_artifacts(
         },
         config={"configurable": {"thread_id": thread_id}},
     )
-    return {
+    manifest = result.get("integration_manifest", {})
+    output = {
         "success": result.get("success", False),
-        "integration_manifest": result.get("integration_manifest", {}),
+        "integration_manifest": manifest,
         "conflicts": result.get("conflicts", []),
     }
+
+    # === VERIFY node (P2) === the manifest write is graph-state only, so it is
+    # first recorded as a real effect and then checked by the zero-LLM verifier.
+    if verified_closure_enabled() and output["success"]:
+        postcondition["path"] = record_effect("integration_agent", {
+            "artifact_count": manifest.get("artifact_count", 0),
+            "modules": manifest.get("modules", []),
+            "tests": manifest.get("tests", []),
+            "exports": manifest.get("exports", {}),
+        })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        output = apply_verify_verdict(output, postcondition, verify_breaches)
+        if verify_breaches:
+            output["conflicts"] = list(output.get("conflicts", [])) + verify_breaches
+
+    return output

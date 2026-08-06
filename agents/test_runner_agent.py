@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    verified_closure_enabled,
+)
+
 
 # Permission Boundaries (Law 2)
 TEST_RUNNER_PERMISSIONS = {
@@ -213,6 +219,11 @@ def run_code_and_tests(
     except ValueError as exc:
         return _failure("preflight", str(exc), breaches=[str(exc)])
 
+    # P2 (CONSTITUTION Article VI) — postcondition DECLARED AT PROPOSE TIME, before
+    # any byte is written. The path is bound once the sandbox exists; the kind is
+    # fixed here so the agent cannot pick a convenient assertion after the fact.
+    postcondition = {"kind": "non_empty", "path": None}
+
     breaches = []
     breaches.extend(scan_code_for_risky_patterns(code, "source_code"))
     if test_code:
@@ -236,6 +247,26 @@ def run_code_and_tests(
             test_path = _resolve_inside(temp_dir, safe_test_filename)
             with open(test_path, "w", encoding="utf-8") as f:
                 f.write(test_code)
+
+        # === VERIFY node (P2) ===
+        # The write edge terminates here, INSIDE the sandbox lifetime. Verifying
+        # after the caller receives the result is a ghost check: `finally` below
+        # rmtree's temp_dir, so a post-hoc file_exists on source_path can never
+        # pass. Zero LLM: the verdict is DeterministicValidatorEngine's alone.
+        postcondition["path"] = source_path
+        verify_breaches = []
+        if verified_closure_enabled():
+            verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        if verify_breaches:
+            return apply_verify_verdict(
+                _failure(
+                    "verify",
+                    "Postcondition VERIFY failed: generated source was not written to the sandbox",
+                    breaches=verify_breaches,
+                ),
+                postcondition,
+                verify_breaches,
+            )
 
         # Stage 1: Syntax & Import Check (python -m py_compile)
         compile_cmd = [sys.executable, "-I", "-m", "py_compile", source_path]
@@ -275,7 +306,7 @@ def run_code_and_tests(
                     stderr=test_proc.stderr,
                 )
 
-            return {
+            return apply_verify_verdict({
                 "success": is_success,
                 "stage": "testing",
                 "error": None if is_success else "Pytest test suite failures detected",
@@ -286,9 +317,9 @@ def run_code_and_tests(
                 "traceback": test_proc.stdout if not is_success else "",
                 "breaches": [],
                 "source_path": source_path,
-            }
+            }, postcondition, verify_breaches)
 
-        return {
+        return apply_verify_verdict({
             "success": True,
             "stage": "compilation",
             "error": None,
@@ -299,7 +330,7 @@ def run_code_and_tests(
             "traceback": "",
             "breaches": [],
             "source_path": source_path,
-        }
+        }, postcondition, verify_breaches)
 
     except subprocess.TimeoutExpired:
         return _failure(

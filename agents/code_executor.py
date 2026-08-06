@@ -10,11 +10,22 @@ import os
 import sys
 import ast
 import re
+import logging
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from llm.llm_integration import call_llm
 from tools.json_output_parser import parse_json_object_response
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    digest,
+    record_effect,
+    verified_closure_enabled,
+)
 
 
 # Permission Boundaries (Law 2)
@@ -205,20 +216,50 @@ def _validate_extracted_code_package(extracted: dict) -> tuple:
     return success, code_validation, test_validation, combined_breaches
 
 
-def execute_task(task: dict, project_context: str = "", max_retries: int = 3) -> dict:
+def _write_code_artifacts(output_dir: str, extracted: dict) -> dict:
+    """Materialise the generated package on disk — the code executor's write edge.
+
+    Never raises: a failed write leaves the declared postcondition unsatisfied, and
+    the VERIFY node downgrades the result. Filenames are already constrained to a
+    single safe module name by _validate_generated_filenames.
+    """
+    paths = {}
+    try:
+        base = Path(output_dir)
+        base.mkdir(parents=True, exist_ok=True)
+        source_path = base / Path(extracted.get("filename", "")).name
+        source_path.write_text(extracted.get("code", ""), encoding="utf-8")
+        paths["source_path"] = str(source_path)
+        test_code = extracted.get("test_code", "")
+        if extracted.get("test_filename") and test_code:
+            test_path = base / Path(extracted["test_filename"]).name
+            test_path.write_text(test_code, encoding="utf-8")
+            paths["test_path"] = str(test_path)
+    except OSError as exc:
+        logger.warning("Code artifact write failed under %s: %s", output_dir, exc)
+    return paths
+
+
+def execute_task(task: dict, project_context: str = "", max_retries: int = 3, output_dir: "str | None" = None) -> dict:
     """
     Full Karpathy Loop for code execution:
-    Propose → Execute (LLM) → Evaluate (AST) → Commit/Refine
+    Propose → Execute (LLM) → Evaluate (AST) → Commit/Refine → VERIFY (P2)
     
     Args:
         task: Decomposed task dict with title, description, type, acceptance_criteria
         project_context: Project context string
         max_retries: Max surgical refinement attempts
+        output_dir: Optional directory to materialise the generated package into.
+            When omitted the artifact is recorded as a P2 effect file instead, so the
+            write edge always terminates in a checkable postcondition.
         
     Returns:
-        Dict with generated code, validation results, and metadata
+        Dict with generated code, validation results, postcondition verdict, metadata
     """
     
+    # === P2: postcondition declared at PROPOSE time (before any write) ===
+    postcondition = {"kind": "non_empty", "path": None}
+
     # === Permission Boundary Check ===
     task_title = task.get("title", "").lower()
     task_desc = task.get("description", "").lower()
@@ -295,7 +336,7 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
 
     test_code = extracted.get("test_code", "")
 
-    return {
+    result = {
         "success": package_success,
         "filename": extracted["filename"],
         "code": extracted.get("code", ""),
@@ -310,3 +351,27 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
         "breaches": combined_breaches,
         "refinement_attempts": attempt
     }
+
+    # === Stage 6: WRITE + VERIFY node (P2 — Verified Closure) ===
+    # The agent does not get to close on its own report. It writes the artifact
+    # (to output_dir when given, otherwise as a recorded effect) and the
+    # zero-LLM verifier decides whether the write actually landed.
+    if verified_closure_enabled() and package_success:
+        code_text = extracted.get("code", "")
+        if output_dir:
+            written = _write_code_artifacts(output_dir, extracted)
+            result["artifact_paths"] = written
+            postcondition["path"] = written.get("source_path", str(Path(output_dir) / extracted["filename"]))
+        else:
+            postcondition["path"] = record_effect("code_executor", {
+                "task_title": task.get("title", ""),
+                "filename": extracted["filename"],
+                "code_sha256": digest(code_text),
+                "code_bytes": len(code_text.encode("utf-8")),
+                "test_filename": extracted["test_filename"],
+                "test_bytes": len(test_code.encode("utf-8")),
+            })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        result = apply_verify_verdict(result, postcondition, verify_breaches)
+
+    return result

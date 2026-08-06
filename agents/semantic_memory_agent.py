@@ -24,6 +24,12 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from memory.custom_memory import memory as global_memory
 from llm.llm_integration import call_llm
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    record_effect,
+    verified_closure_enabled,
+)
 
 
 SEMANTIC_MEMORY_PERMISSIONS = {
@@ -61,6 +67,7 @@ class SemanticState(TypedDict):
     breaches: List[str]
     retry_count: int
     success: bool
+    memory_write_error: str
 
 
 class SemanticEngine:
@@ -166,6 +173,7 @@ def evaluate(state: SemanticState) -> dict:
 def commit(state: SemanticState) -> dict:
     rule = state.get("semantic_rule", "")
     supporting = state.get("supporting_episodes", [])
+    write_error = ""
     try:
         global_memory.add_to_long_term(
             data={
@@ -178,7 +186,9 @@ def commit(state: SemanticState) -> dict:
         )
     except Exception as exc:  # Memory failure shouldn't break commit, but MUST be loud
         logger.warning("Semantic commit to long-term memory failed: %s", exc)
-    return {"committed": True}
+        # P2: the entrypoint converts this into a breach instead of self-reporting done.
+        write_error = f"Semantic long-term write failed: {exc}"
+    return {"committed": True, "memory_write_error": write_error}
 
 
 def refine(state: SemanticState) -> dict:
@@ -216,7 +226,10 @@ def extract_semantic_rule(
     episodic_entries: List[Dict] = None,
     thread_id: str = "semantic_session"
 ) -> dict:
-    """Main entrypoint - extracts rule from episodic entries"""
+    """Main entrypoint - extracts rule from episodic entries, closed by VERIFY (P2)."""
+    # P2: postcondition declared at propose time, before the knowledge-base write.
+    postcondition = {"kind": "non_empty", "path": None}
+
     if episodic_entries is None:
         # Auto-retrieve recent episodic entries
         try:
@@ -234,18 +247,37 @@ def extract_semantic_rule(
             "supporting_episodes": [],
             "breaches": [],
             "retry_count": 0,
-            "success": False
+            "success": False,
+            "memory_write_error": ""
         },
         config={"configurable": {"thread_id": thread_id}}
     )
 
-    return {
-        "semantic_rule": result.get("semantic_rule", ""),
+    rule = result.get("semantic_rule", "")
+    output = {
+        "semantic_rule": rule,
         "rule_summary": result.get("rule_summary", ""),
         "supporting_episodes": result.get("supporting_episodes", []),
         "success": result.get("success", False),
         "breaches": result.get("breaches", [])
     }
+
+    # === VERIFY node (P2) === the rule write lands in long-term memory; the effect is
+    # recorded as a real file and that file is the postcondition declared at propose time.
+    # A swallowed add_to_long_term failure is surfaced as `memory_write_error` (Law 3)
+    # rather than staying invisible; it is not part of the postcondition verdict.
+    if verified_closure_enabled() and output["success"]:
+        write_error = result.get("memory_write_error", "")
+        output["memory_write_error"] = write_error
+        postcondition["path"] = record_effect("semantic_memory_agent", {
+            "rule": rule[:500],
+            "supporting_episodes": output["supporting_episodes"],
+            "memory_write_error": write_error,
+        })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        output = apply_verify_verdict(output, postcondition, verify_breaches)
+
+    return output
 
 
 def get_semantic_rules(limit: int = 10) -> List[str]:

@@ -525,6 +525,217 @@ def check_counter_proposals_operational(registry: list[dict] | None = None) -> G
     return GovernanceCheckResult("counter_proposals_operational", not breaches, breaches)
 
 
+# ---------------------------------------------------------------------------
+# P2 — Verified Closure (CONSTITUTION Article VI, Section 1 / Section 3)
+# ---------------------------------------------------------------------------
+# "No WRITE agent returns to the orchestrator on its own report; every write edge
+# terminates in a VERIFY node checking a postcondition declared at propose time,
+# evaluated without an LLM."
+#
+# Until now that sentence lived only in prose. This check turns it into a
+# structural invariant over the real source: a registered write agent whose
+# entrypoint does not terminate in a
+# DeterministicValidatorEngine.verify_execution_postcondition call is a HARD breach.
+
+VERIFY_CALL = "verify_execution_postcondition"
+POSTCONDITION_NAME = "postcondition"
+
+# Registered WRITE-path entrypoints -> what their write edge actually changes.
+# Adding a write agent to the system means adding it here; the discovery guard
+# below makes it impossible to quietly leave a new writer out.
+WRITE_PATH_ENTRYPOINTS = {
+    "execute_task": "Produces/materialises the generated source + test package.",
+    "run_code_and_tests": "Writes generated modules into the execution sandbox.",
+    "integrate_artifacts": "Writes the integration manifest.",
+    "store_episode": "Writes an episode into long-term memory.",
+    "extract_semantic_rule": "Writes a semantic rule into the knowledge base.",
+    "assemble_working_memory": "Writes the assembled context + budget report.",
+}
+
+# Modules that contain write calls but are NOT agent write edges.
+VERIFIED_CLOSURE_EXEMPT = {
+    "agents.deterministic_validator": (
+        "The P2 verifier/effect-recorder itself — it is the VERIFY node, not a write edge "
+        "that terminates in one."
+    ),
+}
+
+# Registered modules with a write call whose VERIFY wiring is not done yet. Declared
+# explicitly (Law 3: no silent gaps) and reported as warnings so the debt stays visible
+# without hiding it behind a green audit. Moving one here is a reviewed act, not drift.
+VERIFIED_CLOSURE_PENDING = {
+    "agents.task_decomposer": "Writes decomposition into long-term memory; VERIFY wiring pending.",
+    "agents.reflexion_agent": "Writes reflections into long-term memory; VERIFY wiring pending.",
+    "agents.systems_layer": "Meta-loop (proposes, does not apply — Ruling C1); VERIFY wiring pending.",
+}
+
+# AST markers of a state write (filesystem or long-term memory).
+_WRITE_CALL_MARKERS = {
+    "add_to_long_term",
+    "record_effect",
+    "write_text",
+    "write_bytes",
+    "writelines",
+    "makedirs",
+    "mkdir",
+    "mkdtemp",
+    "rmtree",
+    "copytree",
+}
+_WRITE_MODES = ("w", "a", "x", "+")
+
+
+def _called_name(node: ast.Call) -> str:
+    """Callee name for a Call node (plain name or attribute tail)."""
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _module_writes_state(tree: ast.AST) -> bool:
+    """True when the module contains a filesystem or long-term-memory write call."""
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _called_name(node)
+        if name in _WRITE_CALL_MARKERS:
+            return True
+        if name == "open":
+            modes = [a for a in node.args[1:] if isinstance(a, ast.Constant)]
+            modes += [kw.value for kw in node.keywords
+                      if kw.arg == "mode" and isinstance(kw.value, ast.Constant)]
+            for mode in modes:
+                if isinstance(mode.value, str) and any(m in mode.value for m in _WRITE_MODES):
+                    return True
+    return False
+
+
+def _find_function(tree: ast.AST, name: str):
+    """Return the top-level-or-nested FunctionDef with the given name, if any."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+            return node
+    return None
+
+
+def check_verified_closure(registry: list[dict] | None = None) -> GovernanceCheckResult:
+    """P2 — Verified Closure. Every WRITE agent must terminate in a VERIFY node.
+
+    HARD invariant, enforced over the real AST (architecture, not a prompt):
+
+    1. Every registered write agent (``WRITE_PATH_ENTRYPOINTS``, or an entry flagged
+       ``write_path``) MUST call ``verify_execution_postcondition`` inside its
+       entrypoint, and that call MUST precede the entrypoint's final ``return`` —
+       the write edge terminates in VERIFY, it does not self-report.
+    2. The postcondition MUST be declared before the verify call (``postcondition = ...``),
+       i.e. at propose time, so the agent cannot pick a convenient assertion afterwards.
+    3. Discovery guard: any registered module that writes state but is neither a declared
+       write agent nor explicitly exempt/pending is an undeclared write path -> breach.
+       This is what stops the write set from silently shrinking.
+    """
+    registry = AGENT_REGISTRY if registry is None else registry
+    breaches: list[str] = []
+    warnings: list[str] = []
+    verified: list[str] = []
+
+    entries = [e for e in registry if isinstance(e, dict)]
+    declared_seen: set[str] = set()
+
+    for entry in entries:
+        module_name = entry.get("module", "")
+        entrypoint = entry.get("entrypoint", "")
+        name = entry.get("name", "<unknown>")
+        is_write_agent = bool(entry.get("write_path")) or entrypoint in WRITE_PATH_ENTRYPOINTS
+        source_path = module_path(module_name)
+
+        if not source_path.exists():
+            if is_write_agent:
+                breaches.append(f"{name}: write-agent source not found: {source_path}.")
+            continue
+        try:
+            tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:
+            breaches.append(f"{source_path}: could not parse ({exc}).")
+            continue
+
+        if is_write_agent:
+            declared_seen.add(entrypoint)
+            function = _find_function(tree, entrypoint)
+            if function is None:
+                breaches.append(
+                    f"{name}: write-agent entrypoint '{entrypoint}' not found in {source_path}."
+                )
+                continue
+            verify_lines = [
+                child.lineno for child in ast.walk(function)
+                if isinstance(child, ast.Call) and _called_name(child) == VERIFY_CALL
+            ]
+            if not verify_lines:
+                breaches.append(
+                    f"P2 breach: {name} ({module_name}.{entrypoint}) writes state but never calls "
+                    f"{VERIFY_CALL}. A WRITE agent may not return on its own report "
+                    f"(CONSTITUTION Article VI, P2)."
+                )
+                continue
+            returns = [child.lineno for child in ast.walk(function) if isinstance(child, ast.Return)]
+            if returns and min(verify_lines) > max(returns):
+                breaches.append(
+                    f"P2 breach: {name} ({module_name}.{entrypoint}) calls {VERIFY_CALL} after its "
+                    f"final return — the write edge does not terminate in a VERIFY node."
+                )
+                continue
+            declared = [
+                child.lineno for child in ast.walk(function)
+                if isinstance(child, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == POSTCONDITION_NAME for t in child.targets)
+            ]
+            if not declared or min(declared) > min(verify_lines):
+                breaches.append(
+                    f"P2 breach: {name} ({module_name}.{entrypoint}) does not declare a "
+                    f"'{POSTCONDITION_NAME}' before verifying it — the postcondition must be "
+                    f"declared at propose time, not chosen after the write."
+                )
+                continue
+            verified.append(f"{name} ({module_name}.{entrypoint})")
+            continue
+
+        # Discovery guard — an undeclared writer is a hidden write edge.
+        if module_name in VERIFIED_CLOSURE_EXEMPT:
+            continue
+        if module_name in VERIFIED_CLOSURE_PENDING:
+            warnings.append(
+                f"P2 gap (TRACKED): {name} ({module_name}) writes state without a VERIFY node — "
+                f"{VERIFIED_CLOSURE_PENDING[module_name]}"
+            )
+            continue
+        if _module_writes_state(tree):
+            breaches.append(
+                f"P2 breach: {name} ({module_name}) writes state but is not a declared write agent. "
+                f"Wire its entrypoint into a {VERIFY_CALL} closure and add it to "
+                f"WRITE_PATH_ENTRYPOINTS, or declare it in VERIFIED_CLOSURE_EXEMPT / "
+                f"VERIFIED_CLOSURE_PENDING with a reason."
+            )
+
+    missing = sorted(set(WRITE_PATH_ENTRYPOINTS) - declared_seen)
+    if missing:
+        breaches.append(
+            "P2 breach: declared write agents are absent from the registry (a write path cannot "
+            f"escape governance by de-registering): {missing}."
+        )
+
+    detail = {
+        "verified_write_agents": sorted(verified),
+        "pending": sorted(VERIFIED_CLOSURE_PENDING),
+        "exempt": sorted(VERIFIED_CLOSURE_EXEMPT),
+    }
+    return GovernanceCheckResult(
+        "verified_closure", not breaches, breaches, detail=detail, warnings=warnings or None
+    )
+
+
 def run_governance_checks(registry: list[dict] | None = None) -> dict[str, Any]:
 
     """Run independent governance checks and aggregate their factual reports."""
@@ -541,6 +752,7 @@ def run_governance_checks(registry: list[dict] | None = None) -> dict[str, Any]:
         check_langgraph_orchestration,
         check_forge_wired,
         check_counter_proposals_operational,
+        check_verified_closure,
     ]
     results = [check(registry) for check in checks]
     breaches = [breach for result in results for breach in result.breaches]

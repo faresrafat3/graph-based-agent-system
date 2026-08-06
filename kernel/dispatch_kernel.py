@@ -239,16 +239,14 @@ class DispatchKernel:
                     test_code=code_result.get("test_code", "")
                 )
 
-                # VERIFY node (P2): ground-truth check that the artifact was
-                # actually written, not just narrated as successful. The test
-                # runner writes the file into a sandbox temp dir; we confirm it
-                # exists on disk at the real path it returned, regardless of the
-                # self-reported test_result["success"]. This is the concrete
-                # closure against "silent partial completion".
-                written_path = test_result.get("source_path") or code_result["filename"]
-                verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(
-                    {"kind": "file_exists", "path": written_path}
-                )
+                # VERIFY node (P2): consume the verdict the test runner produced
+                # INSIDE its sandbox. Re-verifying here is a ghost check — the
+                # sandbox temp dir is rmtree'd before run_code_and_tests returns,
+                # so a post-hoc file_exists on source_path can never pass. The
+                # single zero-LLM verdict engine remains
+                # DeterministicValidatorEngine.verify_execution_postcondition,
+                # called by the write agent at the moment the effect exists.
+                verify_breaches = test_result.get("verify_breaches") or []
                 if verify_breaches:
                     self.emit(AgentSignal(
                         signal_type="VERIFY_FAILED",
