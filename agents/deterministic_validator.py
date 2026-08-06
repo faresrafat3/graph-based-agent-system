@@ -3,9 +3,19 @@ Deterministic Validator Agent - Meta-Agent for Execution-Grounded Validation & G
 Implements Karpathy's 4th Engineering Pillar: Execution-Grounded Grader & Zero-LLM Self-Assessment.
 """
 
+import hashlib
+import json
+import logging
+import os
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List, Any
+
+logger = logging.getLogger(__name__)
 
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)
 DETERMINISTIC_VALIDATOR_PERMISSIONS = {
@@ -420,3 +430,85 @@ def validate_output(
         "validation_report": result.get("validation_report", {}),
         "success": result.get("success", False)
     }
+
+
+# ---------------------------------------------------------------------------
+# P2 — Verified Closure toolkit (CONSTITUTION Article VI, Principle P2)
+# ---------------------------------------------------------------------------
+# "No WRITE agent returns to the orchestrator on its own report; every write edge
+# terminates in a VERIFY node checking a postcondition declared at propose time,
+# evaluated without an LLM."
+#
+# These helpers do NOT verify anything themselves and are NOT a second authority:
+# the single verdict engine remains DeterministicValidatorEngine
+# .verify_execution_postcondition, which every write agent calls directly.
+# What they provide is the *effect surface*: an agent whose write lands only in
+# graph state (a manifest, a memory entry, an assembled context) has nothing a
+# zero-LLM verifier can inspect, so it first records the effect as a real file and
+# then declares that file as its postcondition. Proof of effect, not permission.
+
+VERIFIED_CLOSURE_FLAG = "GBAS_VERIFIED_CLOSURE"
+EFFECT_LEDGER_DIR_ENV = "GBAS_EFFECT_LEDGER_DIR"
+DEFAULT_EFFECT_LEDGER_DIR = "logs/effects"
+_FALSE_VALUES = {"0", "false", "off", "no"}
+
+
+def verified_closure_enabled() -> bool:
+    """Reversibility switch (P2 rollout): set GBAS_VERIFIED_CLOSURE=0 to disable.
+
+    When disabled, write agents skip recording/verifying effects and behave exactly
+    as they did before P2 was wired. The AST governance invariant still holds because
+    the VERIFY call remains in the source; only its runtime execution is gated.
+    """
+    return os.environ.get(VERIFIED_CLOSURE_FLAG, "1").strip().lower() not in _FALSE_VALUES
+
+
+def effect_ledger_dir() -> Path:
+    """Directory that holds per-write effect evidence files."""
+    return Path(os.environ.get(EFFECT_LEDGER_DIR_ENV, DEFAULT_EFFECT_LEDGER_DIR))
+
+
+def record_effect(agent: str, effect: dict) -> str:
+    """Materialise a write effect as a file and return its path (the VERIFY target).
+
+    This is the *write*, not the verdict. It never raises: if the write fails the
+    path simply will not exist / will be empty, and the caller's
+    verify_execution_postcondition call turns that into a breach — which is exactly
+    the behaviour P2 requires (a failed write must never be self-reported as done).
+    """
+    effect_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}_{uuid.uuid4().hex[:8]}"
+    target = effect_ledger_dir() / agent / f"{effect_id}.json"
+    payload = {
+        "agent": agent,
+        "effect_id": effect_id,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "effect": effect,
+    }
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, default=str), encoding="utf-8")
+    except OSError as exc:
+        logger.warning("P2 effect record failed for %s (%s): %s", agent, target, exc)
+    return str(target)
+
+
+def digest(text: str) -> str:
+    """Stable content digest used inside effect records (zero-LLM, no side effects)."""
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def apply_verify_verdict(result: dict, postcondition: dict, verify_breaches: List[str]) -> dict:
+    """Attach a VERIFY verdict to an agent result and demote a false success.
+
+    Demotion is one-way: a breach can only turn success True -> False. A passing
+    postcondition never promotes a failed agent to success (P2 verifies effects,
+    it does not grant permission).
+    """
+    result["postcondition"] = postcondition
+    result["verify_breaches"] = list(verify_breaches or [])
+    if verify_breaches:
+        result["success"] = False
+        existing = result.get("breaches")
+        result["breaches"] = (list(existing) if isinstance(existing, list) else []) + list(verify_breaches)
+    return result
+

@@ -23,6 +23,12 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from memory.custom_memory import memory as global_memory
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    record_effect,
+    verified_closure_enabled,
+)
 
 
 WORKING_MEMORY_PERMISSIONS = {
@@ -221,7 +227,10 @@ def assemble_working_memory(
     long_term_entries: List[Dict] = None,
     thread_id: str = "working_session"
 ) -> dict:
-    """Main entrypoint - Memory to Context bridge"""
+    """Main entrypoint - Memory to Context bridge, closed by a VERIFY node (P2)."""
+    # P2: postcondition declared at propose time, before the context is assembled.
+    postcondition = {"kind": "non_empty", "path": None}
+
     result = working_graph.invoke(
         {
             "problem_spec": problem_spec,
@@ -238,10 +247,24 @@ def assemble_working_memory(
         config={"configurable": {"thread_id": thread_id}}
     )
 
-    return {
+    output = {
         "working_memory": result.get("working_memory", []),
         "assembled_context": result.get("assembled_context", ""),
         "budget_report": result.get("budget_report", {}),
         "success": result.get("success", False),
         "breaches": result.get("breaches", [])
     }
+
+    # === VERIFY node (P2) === assembled context is graph state only. evaluate()
+    # hard-codes success=True, which is exactly the self-report P2 forbids: the
+    # budget report is recorded as a real effect and verified with zero LLM.
+    if verified_closure_enabled() and output["success"]:
+        postcondition["path"] = record_effect("working_memory_agent", {
+            "budget_report": output["budget_report"],
+            "entries_included": len(output["working_memory"]),
+            "assembled_chars": len(output["assembled_context"]),
+        })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        output = apply_verify_verdict(output, postcondition, verify_breaches)
+
+    return output

@@ -24,6 +24,12 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from memory.custom_memory import memory as global_memory
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    record_effect,
+    verified_closure_enabled,
+)
 
 
 EPISODIC_MEMORY_PERMISSIONS = {
@@ -46,6 +52,7 @@ class EpisodicState(TypedDict):
     breaches: List[str]
     retry_count: int
     success: bool
+    memory_write_error: str
 
 
 class EpisodicEngine:
@@ -141,6 +148,7 @@ def evaluate(state: EpisodicState) -> dict:
 
 def commit(state: EpisodicState) -> dict:
     entry = state.get("episodic_entry", {})
+    write_error = ""
     try:
         global_memory.add_to_long_term(
             data=entry,
@@ -152,7 +160,10 @@ def commit(state: EpisodicState) -> dict:
         )
     except Exception as exc:  # Memory failure shouldn't break commit, but MUST be loud
         logger.warning("Episodic commit to long-term memory failed: %s", exc)
-    return {"committed": True}
+        # P2: a swallowed write can no longer be reported as done — the entrypoint
+        # turns this into a breach instead of returning the agent's own success.
+        write_error = f"Episodic long-term write failed: {exc}"
+    return {"committed": True, "memory_write_error": write_error}
 
 
 def refine(state: EpisodicState) -> dict:
@@ -196,7 +207,10 @@ def store_episode(
     metadata: Dict = None,
     thread_id: str = "episodic_session"
 ) -> dict:
-    """Main entrypoint - stores full episode"""
+    """Main entrypoint - stores full episode, closed by a VERIFY node (P2)."""
+    # P2: postcondition declared at propose time, before the memory write.
+    postcondition = {"kind": "non_empty", "path": None}
+
     result = episodic_graph.invoke(
         {
             "problem_spec": problem_spec,
@@ -209,16 +223,37 @@ def store_episode(
             "episodic_entry": {},
             "breaches": [],
             "retry_count": 0,
-            "success": False
+            "success": False,
+            "memory_write_error": ""
         },
         config={"configurable": {"thread_id": thread_id}}
     )
 
-    return {
-        "episodic_entry": result.get("episodic_entry", {}),
+    entry = result.get("episodic_entry", {})
+    output = {
+        "episodic_entry": entry,
         "success": result.get("success", False),
         "breaches": result.get("breaches", [])
     }
+
+    # === VERIFY node (P2) === the episode write lands in long-term memory, which a
+    # zero-LLM verifier cannot inspect; the effect is recorded as a real file and that
+    # file is the declared postcondition. NOTE: long-term memory is process-local, so a
+    # swallowed add_to_long_term failure is surfaced as `memory_write_error` (Law 3,
+    # no longer silent) but is not part of the postcondition verdict.
+    if verified_closure_enabled() and output["success"]:
+        write_error = result.get("memory_write_error", "")
+        output["memory_write_error"] = write_error
+        postcondition["path"] = record_effect("episodic_memory_agent", {
+            "episode_id": entry.get("episode_id", ""),
+            "outcome": entry.get("outcome", ""),
+            "tags": entry.get("tags", []),
+            "memory_write_error": write_error,
+        })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        output = apply_verify_verdict(output, postcondition, verify_breaches)
+
+    return output
 
 
 def retrieve_episodes(problem_spec: str, limit: int = 5, outcome_filter: str = None) -> List[Dict]:
