@@ -9,21 +9,22 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from system.governance_checks import check_verified_closure, run_governance_checks
 
-# Checks the audit refuses to run without. P2 (CONSTITUTION Article VI) is a HARD
-# structural invariant, so unwiring check_verified_closure from run_governance_checks
-# must fail the audit rather than quietly shrink it.
-REQUIRED_CHECKS = {check_verified_closure("verified_closure_probe" and None).check_name}
-
 
 def main() -> int:
+    # P2 (CONSTITUTION Article VI) is a HARD structural invariant: every WRITE agent
+    # must terminate in a VERIFY node. Call it explicitly and refuse to pass the audit
+    # if it is not part of the aggregated suite, so it cannot be quietly unwired.
+    p2 = check_verified_closure()
     result = run_governance_checks()
     executed = {check["check_name"] for check in result["checks"]}
-    missing = sorted(REQUIRED_CHECKS - executed)
-    if missing:
+
+    if p2.check_name not in executed:
         print("Distributed governance checks failed:")
         print("[audit_wiring]")
-        for check_name in missing:
-            print(f"- required check '{check_name}' was not executed by run_governance_checks().")
+        print(
+            f"- required check '{p2.check_name}' is not wired into run_governance_checks(); "
+            "P2 Verified Closure would go unenforced."
+        )
         return 1
 
     for warning in result.get("warnings", []):
