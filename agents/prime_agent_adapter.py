@@ -214,8 +214,11 @@ class PrimeAgentAdapter:
         seen = 0
         for frame in self._transport.events():
             seen += 1
-            if isinstance(frame.data, dict) and frame.data.get("type") == "message":
-                self._buffer.append(frame.data.get("message", frame.data))
+            # RpcFrame puts `type` at top level (see RpcFrame.from_line); buffered
+            # message frames are delivered as type "message" with the message body in data.
+            if frame.type == "message":
+                body = frame.data.get("message", frame.data) if isinstance(frame.data, dict) else frame.data
+                self._buffer.append(body)
             sig = translate_event(frame, source="prime_agent_sidecar")
             if sig is not None:
                 if sig.is_terminal or sig.signal_type in ("VALIDATION_FAILED",):
