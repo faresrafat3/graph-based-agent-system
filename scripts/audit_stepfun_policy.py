@@ -28,6 +28,7 @@ SKIP_FILES = {
     ".env",
     "docs/BENCHMARK-REPORT.md",
     "docs/CODE-AUDIT-2026-08-03.md",
+    "docs/prime-agent-study.md",  # Karpathy study cites competitors by name
     "CONTRIBUTING.md",
     "scripts/audit_stepfun_policy.py",
 }

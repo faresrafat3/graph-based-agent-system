@@ -28,6 +28,15 @@ from agents.graph_execution_orchestrator import orchestrate_graph_execution
 from agents.quality_reviewer import review_quality
 from agents.code_executor import execute_task
 from agents.test_runner_agent import run_code_and_tests
+# Intelligence Forge (opt-in, default-deny): the pipeline can forge bespoke agents for
+# the task at hand, assemble their topology, expose the whole system as their context,
+# and put the resulting spec through the real Sage Council. Wired behind
+# `forge_agent_graph` so the default run is unchanged (P7: least sufficient
+# intervention) while the modules sit on a real call path, not an amputated one.
+from agents.agent_forge import forge_agent, assert_distinct
+from agents.topology_assembler import assemble_topology
+from agents.context_system_view import build_context_view, context_includes_system
+from agents.sage_council import build_council_from_registry
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +61,7 @@ class KarpathyPipelineState(TypedDict):
     execute_code: bool
     dispatch_domains: bool
     orchestrate_graph: bool
+    forge_agent_graph: bool  # Intelligence Forge opt-in (default False, P7)
     max_retries: int
 
     curated: dict
@@ -63,6 +73,7 @@ class KarpathyPipelineState(TypedDict):
     combined_breaches: list
     domain_dispatch_result: dict
     graph_execution_result: dict
+    forge_result: dict
     squad_test_results: dict
     executed_modules: list
     acceptance_criteria: list
@@ -149,6 +160,91 @@ def assign_node(state: KarpathyPipelineState) -> dict:
         "assignment": assignment,
         "pipeline_success": pipeline_success,
         "combined_breaches": combined_breaches,
+    }
+
+
+# ---- Stage 5b: Intelligence Forge (opt-in) ----
+
+def forge_node(state: KarpathyPipelineState) -> dict:
+    """Forge bespoke agents for THIS task's plan, then review the topology (opt-in).
+
+    Default-deny (P7 / C1-rev1): with `forge_agent_graph=False` this is a no-op, so the
+    default pipeline behaviour is untouched. When enabled it exercises the real forge
+    path end-to-end:
+
+      1. forge_agent()          — one BESPOKE agent per planned task (no role-play clones:
+                                  distinct task + distinct spec slice => distinct agent,
+                                  asserted by assert_distinct).
+      2. build_context_view()   — each agent's context IS the managed system (peers +
+                                  cycle_log + constitution binding), bounded by design.
+      3. assemble_topology()    — constraints live in the TOPOLOGY layer, not in a prompt.
+      4. SageCouncil            — the REAL council built from the project registry
+                                  (build_council_from_registry, not the mock default),
+                                  reconciled through ConsensusMechanism.
+
+    Emits a proposal only. Nothing here mutates the global registry and nothing is
+    applied to the run: the council's spec is reported for review, matching the
+    meta-loop rule that proposals are held unless independently opted in.
+    """
+    if not state.get("forge_agent_graph"):
+        return {"forge_result": {"enabled": False, "reason": "forge_agent_graph=False (default-deny)"}}
+
+    tasks = state["decomposition"].get("tasks", [])
+    if not (state["pipeline_success"] and tasks):
+        return {"forge_result": {"enabled": True, "forged": 0, "reason": "no validated plan to forge against"}}
+
+    assignments = state["assignment"].get("assignments", {})
+    forged = []
+    for task in tasks[:MAX_EXEC_TASKS]:
+        title = str(task.get("title") or task.get("id") or "task")
+        # spec_slice: the constitutional slice this agent is bound to. Derived from the
+        # task's own shape so two different tasks cannot forge the same agent.
+        criteria = [str(c) for c in (task.get("acceptance_criteria") or [])]
+        spec_slice: list[str] = sorted(set(criteria) | {
+            f"assigned_to:{assignments.get(task.get('id'), 'unassigned')}"
+        }) or [f"task:{title}"]
+        forged.append(forge_agent(
+            name=f"forged::{title}",
+            spec_slice=spec_slice,
+            focused_task=str(task.get("description") or title),
+        ))
+
+    # P-NO-ROLE-PLAY, enforced not asserted: raises if the forge produced clones.
+    assert_distinct(forged)
+
+    contexts = [build_context_view(a, dict(state)) for a in forged]
+    context_is_system = all(context_includes_system(a, dict(state)) for a in forged)
+    topology = assemble_topology(forged)
+
+    # The REAL council (registry-backed, not the 3-sage mock). It reasons on
+    # context-isolated signals only (CIR) and is complexity-gated, so a trivial plan
+    # skips deliberation instead of over-philosophizing it.
+    council = build_council_from_registry()
+    measurement = {
+        "complexity_score": len(tasks),
+        "breach_count": len(state["combined_breaches"]),
+        "repeated_hypothesis_count": state["attempt"],
+        "success_rate": 100.0 if state["pipeline_success"] else 0.0,
+    }
+    council_out = (
+        council.convene(measurement) if council.should_convene(measurement)
+        else council.skip(measurement)
+    )
+
+    return {
+        "forge_result": {
+            "enabled": True,
+            "forged": len(forged),
+            "agent_names": [a.name for a in forged],
+            "context_is_system": context_is_system,
+            "context_peer_counts": [len(c["system_context"]["peer_agents"]) for c in contexts],
+            "topology": topology,
+            "council_size": len(council.sages),
+            "council_convened": council_out["convened"],
+            "reconciled_spec": council_out["reconciled_spec"],
+            "conflicts": (council_out.get("consensus") or {}).get("conflicts", []),
+            "applied": False,  # proposal only — held for review (C1-rev1)
+        }
     }
 
 
@@ -322,6 +418,7 @@ def finalize_node(state: KarpathyPipelineState) -> dict:
             "assignment_success": state["assignment"].get("success", False),
             "domain_dispatch": state["domain_dispatch_result"],
             "graph_execution": state["graph_execution_result"],
+            "forge": state["forge_result"],
             "quality_review": state["quality_review"],
             "executed_modules": state["executed_modules"],
         }
@@ -334,6 +431,7 @@ def build_pipeline_graph():
     workflow.add_node("context_curate", context_curate_node)
     workflow.add_node("decompose_and_refine", decompose_refine_node)
     workflow.add_node("assign", assign_node)
+    workflow.add_node("forge", forge_node)
     workflow.add_node("dispatch_orchestrate", dispatch_orchestrate_node)
     workflow.add_node("execute", execute_node)
     workflow.add_node("quality_review", quality_review_node)
@@ -346,7 +444,8 @@ def build_pipeline_graph():
         {"decompose_and_refine": "decompose_and_refine", "finalize": "finalize"},
     )
     workflow.add_edge("decompose_and_refine", "assign")
-    workflow.add_edge("assign", "dispatch_orchestrate")
+    workflow.add_edge("assign", "forge")
+    workflow.add_edge("forge", "dispatch_orchestrate")
     workflow.add_edge("dispatch_orchestrate", "execute")
     workflow.add_edge("execute", "quality_review")
     workflow.add_edge("quality_review", "finalize")
@@ -363,6 +462,7 @@ def run_karpathy_pipeline(
     execute_code: bool = False,
     dispatch_domains: bool = False,
     orchestrate_graph: bool = False,
+    forge_agent_graph: bool = False,
     max_retries: int = 3,
 ) -> dict:
     """
@@ -380,6 +480,7 @@ def run_karpathy_pipeline(
         "execute_code": execute_code,
         "dispatch_domains": dispatch_domains,
         "orchestrate_graph": orchestrate_graph,
+        "forge_agent_graph": forge_agent_graph,
         "max_retries": max_retries,
         "curated": {},
         "decomposition": {},
@@ -390,6 +491,7 @@ def run_karpathy_pipeline(
         "combined_breaches": [],
         "domain_dispatch_result": {},
         "graph_execution_result": {},
+        "forge_result": {},
         "squad_test_results": {},
         "executed_modules": [],
         "acceptance_criteria": [],

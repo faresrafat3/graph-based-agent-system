@@ -419,6 +419,53 @@ def check_langgraph_orchestration(registry: list[dict] | None = None) -> Governa
     return GovernanceCheckResult("langgraph_orchestration", not breaches, breaches)
 
 
+def _live_path_source(live_src: Path, max_depth: int = 3) -> str:
+    """Concatenated source of the live path: the entry module + what it transitively imports.
+
+    The forge-wiring invariant is "reachable from the LIVE production path", but a
+    single-file AST scan only sees depth-1 imports. That understates reachability: a
+    module wired into the pipeline *through* another live module (e.g. bounded_probe
+    used inside surgical_refiner's refinement loop) would be reported as unwired, which
+    pushes toward importing modules into the entry file purely to satisfy the check —
+    cosmetic wiring, exactly what this check exists to prevent. Walking first-party
+    imports transitively measures the invariant as written.
+    """
+    root = Path(__file__).resolve().parent.parent
+    first_party = {"agents", "system", "kernel", "llm", "memory", "tools"}
+    sources: list[str] = []
+    seen: set[Path] = set()
+    frontier = [(live_src, 0)]
+    while frontier:
+        path, depth = frontier.pop()
+        resolved = (root / path) if not path.is_absolute() else path
+        if resolved in seen or not resolved.exists():
+            continue
+        seen.add(resolved)
+        try:
+            text = resolved.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        sources.append(text)
+        if depth >= max_depth:
+            continue
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            module = None
+            if isinstance(node, ast.ImportFrom) and node.module:
+                module = node.module
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] in first_party:
+                        frontier.append((module_path(alias.name), depth + 1))
+                continue
+            if module and module.split(".")[0] in first_party:
+                frontier.append((module_path(module), depth + 1))
+    return "\n".join(sources)
+
+
 def check_forge_wired(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Forge-wiring invariant (Task 5 strong-model review fix, opus-5 #1).
 
@@ -439,7 +486,7 @@ def check_forge_wired(registry: list[dict] | None = None) -> GovernanceCheckResu
         "agents.sage_council",
     ]
     if live_src.exists():
-        tree = ast.parse(live_src.read_text(encoding="utf-8"))
+        tree = ast.parse(_live_path_source(live_src))
         imported: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -550,6 +597,8 @@ WRITE_PATH_ENTRYPOINTS = {
     "store_episode": "Writes an episode into long-term memory.",
     "extract_semantic_rule": "Writes a semantic rule into the knowledge base.",
     "assemble_working_memory": "Writes the assembled context + budget report.",
+    "decompose_requirements": "Writes the task decomposition into long-term memory.",
+    "generate_reflection": "Writes a reflection into long-term memory, re-read as later guidance.",
 }
 
 # Modules that contain write calls but are NOT agent write edges.
@@ -558,16 +607,19 @@ VERIFIED_CLOSURE_EXEMPT = {
         "The P2 verifier/effect-recorder itself — it is the VERIFY node, not a write edge "
         "that terminates in one."
     ),
+    "agents.systems_layer": (
+        "Meta-loop (C1-rev1): its only write is record_node appending one JSON line to "
+        "system/measurements/systems_layer_cycles.jsonl — an append-only AUDIT LOG of what "
+        "the loop observed, not an executive state change. The loop proposes control changes "
+        "and holds them (default-deny); nothing it writes is consumed as authority by a "
+        "downstream agent, so there is no write edge for a VERIFY node to close."
+    ),
 }
 
 # Registered modules with a write call whose VERIFY wiring is not done yet. Declared
 # explicitly (Law 3: no silent gaps) and reported as warnings so the debt stays visible
 # without hiding it behind a green audit. Moving one here is a reviewed act, not drift.
-VERIFIED_CLOSURE_PENDING = {
-    "agents.task_decomposer": "Writes decomposition into long-term memory; VERIFY wiring pending.",
-    "agents.reflexion_agent": "Writes reflections into long-term memory; VERIFY wiring pending.",
-    "agents.systems_layer": "Meta-loop (proposes, does not apply — Ruling C1); VERIFY wiring pending.",
-}
+VERIFIED_CLOSURE_PENDING: dict[str, str] = {}
 
 # AST markers of a state write (filesystem or long-term memory).
 _WRITE_CALL_MARKERS = {
