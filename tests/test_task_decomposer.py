@@ -100,7 +100,7 @@ def test_task_decomposition_cache(monkeypatch):
     
     # Mock find_similar to return cached tasks directly
     monkeypatch.setattr(
-        memory, 
+        memory,
         "find_similar", 
         lambda *a, **k: [{"entry": {"data": {"tasks": cached_tasks, "metadata": cached_metadata}}, "similarity": 1.0}]
     )

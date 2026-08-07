@@ -16,18 +16,23 @@ Categories emitted:
                           imported name(s) are already bound in an outer/equal scope
                           before the later occurrence.
   2. missing_final_newline -- file does not end with '\\n' (a real, safe, mechanical fix).
+  3. trailing_whitespace_code -- a code/comment line has trailing whitespace, where the
+                          line is proven (via tokenize) NOT to lie inside a string literal,
+                          so stripping it cannot alter any string content or behavior.
 
 Explicitly NOT emitted (would violate the 100%-safe rule):
-  * trailing whitespace inside code/strings (may be inside string literals / code fences)
+  * trailing whitespace INSIDE string literals (may be intentional, e.g. docstring diagrams)
   * "unused" imports (cannot be certain without data-flow analysis)
   * anything requiring intent inference
 """
 from __future__ import annotations
 
 import ast
+import io
 import json
 import os
 import sys
+import tokenize
 
 # Directories that are never source-of-truth for this project's own code.
 SKIP_ROOTS = (".venv", ".git", "__pycache__", "logs", ".pytest_cache", ".hermes",
@@ -67,6 +72,30 @@ def _iter_imports_with_scope(tree: ast.AST):
     visit(tree, ())
     out.sort(key=lambda x: x[0])
     return out
+
+
+def _lines_inside_string_literals(src: str) -> set[int]:
+    """Return the set of 1-based line numbers that lie entirely within a string
+    literal token (incl. triple-quoted strings / docstrings).
+
+    A trailing space on a line that is PART of a string literal could be
+    intentional (e.g. a diagram in a docstring), so those lines are EXCLUDED
+    from the whitespace finding. This is what makes the finding 100%-safe:
+    we only flag trailing whitespace on lines that are real code or comments.
+    """
+    inside: set[int] = set()
+    try:
+        toks = list(tokenize.generate_tokens(io.StringIO(src).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        # If tokenize fails (obfuscated/binary), bail out of this sub-check.
+        return inside
+    for tok in toks:
+        if tok.type == tokenize.STRING:
+            start_line, _ = tok.start
+            end_line, _ = tok.end
+            for ln in range(start_line, end_line + 1):
+                inside.add(ln)
+    return inside
 
 
 def scan_file(path: str) -> list[dict]:
@@ -118,6 +147,19 @@ def scan_file(path: str) -> list[dict]:
                 })
         else:
             seen_text[text] = ln
+
+    # 3. trailing whitespace on CODE/COMMENT lines (never inside string literals)
+    string_lines = _lines_inside_string_literals(src)
+    for i, line in enumerate(lines, 1):
+        # only flag if there is actually trailing whitespace
+        if line != line.rstrip() and line.strip() != "":
+            if i not in string_lines:
+                findings.append({
+                    "kind": "trailing_whitespace_code",
+                    "path": path,
+                    "line": i,
+                    "detail": "trailing whitespace on a code/comment line (not inside a string literal)",
+                })
 
     return findings
 
