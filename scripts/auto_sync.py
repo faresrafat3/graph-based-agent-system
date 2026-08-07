@@ -136,19 +136,6 @@ def main() -> int:
     run(["git", "remote", "prune", REMOTE], check=False)
     run(["git", "fetch", "--prune", REMOTE, BASE_BRANCH], check=False)
 
-    # 1b. Re​-base the sync branch onto the CURRENT main.
-    #     Step 0 only rebuilds when we are not already on SYNC_BRANCH, but cron
-    #     always leaves us on it, so the branch kept the merge base it had when
-    #     it was first created. Every PR merges with --squash, which rewrites the
-    #     content into a brand​-new commit that shares no history with our branch,
-    #     so the stale base made GitHub replay already​-merged files as add/add
-    #     conflicts: the PR went mergeStateStatus=DIRTY with zero CI checks and
-    #     auto​-merge could never fire.
-    #     A merge (not a reset) keeps this push a fast​-forward, so the unattended
-    #     cron run never needs a force push. The working tree is the source of
-    #     truth for this mechanism, so conflicted paths resolve to our side.
-    _sync_with_base()
-
     # 2. What changed that is NOT gitignored? (git already excludes ignored
     #    paths, so every record here is a real change.)
     paths = _status_paths()
@@ -178,6 +165,21 @@ def main() -> int:
         run(["git", "commit", "-m", msg], check=False)
     else:
         print(f"[{_ts()}] auto​-sync: tree clean; pushing unpushed local commits")
+
+    # 4b. Re​-base the sync branch onto the CURRENT main, now that the tree is
+    #     committed and clean. This MUST run after the commit: git refuses to
+    #     merge with local modifications, so doing it earlier aborted every time
+    #     and left the stale base in place.
+    #     Why it is needed: step 0 only rebuilds the branch when we are not
+    #     already on SYNC_BRANCH, but cron always leaves us on it, so the branch
+    #     kept its original merge base. Each PR merges with --squash, which
+    #     rewrites content into a new commit sharing no history with our branch,
+    #     so the stale base made GitHub replay already​-merged files as add/add
+    #     conflicts: PRs went mergeStateStatus=DIRTY with zero CI checks and
+    #     auto​-merge could never fire.
+    #     A merge (not a reset) keeps the push a fast​-forward, so the unattended
+    #     cron run never needs a force push.
+    _sync_with_base()
 
     # The push MUST be verified. It was previously check=False, so a rejected
     # push (see the --prune note above) left the commit local-only while this
