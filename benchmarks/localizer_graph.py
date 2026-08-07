@@ -275,22 +275,28 @@ def verify(ranked: list[Candidate], root: str) -> tuple[list[Candidate], dict]:
 
 # ---- Stage 4: EMIT -------------------------------------------------------------------
 
-def localize_graph(problem: str, root: str, top_k: int = 5,
-                   with_trace: bool = False) -> list[str] | tuple[list[str], dict]:
-    """Run the staged localizer. Drop-in replacement for `localize()`.
+def localize_graph_traced(problem: str, root: str, top_k: int = 5) -> tuple[list[str], dict]:
+    """Run the staged localizer and return the ranking WITH its evidence trail.
 
-    `with_trace=True` returns the per-stage evidence so a wrong answer can be attributed
-    to the stage that produced it rather than to "the localizer".
+    Split from `localize_graph` rather than switched by a flag so both have a single
+    return type: a caller (and a type checker) always knows what it is holding.
     """
     pool, retrieve_info = retrieve(problem, root)
     ranked, rerank_info = rerank(pool, problem)
     kept, verify_info = verify(ranked, root)
 
     top = kept[:top_k]
-    paths = [c.path for c in top]
-    if not with_trace:
-        return paths
-    return paths, {
+    return [c.path for c in top], {
         "stages": [retrieve_info, rerank_info, verify_info],
         "evidence": [c.evidence() for c in top],
     }
+
+
+def localize_graph(problem: str, root: str, top_k: int = 5) -> list[str]:
+    """Staged localizer. Drop-in replacement for `localize()` in swebench_harness.
+
+    Use `localize_graph_traced` when a wrong answer needs to be attributed to the stage
+    that produced it rather than to "the localizer".
+    """
+    paths, _ = localize_graph_traced(problem, root, top_k)
+    return paths
