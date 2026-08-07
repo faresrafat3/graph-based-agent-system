@@ -62,17 +62,22 @@ def _status_paths() -> list[str]:
 
 
 def _unpushed_commits() -> bool:
-    """True if HEAD has commits that origin/BASE_BRANCH does not contain.
+    """True if HEAD has real content that origin/BASE_BRANCH lacks.
 
     Guards the "clean tree" early return: a run that committed but failed to
     push leaves real work stranded locally, and a later run would otherwise
     see a clean tree and exit 0 without ever retrying the push.
+
+    This deliberately compares TREE CONTENT, not commit counts. PRs merge with
+    --squash, so after a merge our branch still holds commits that origin/main
+    has no history link to (plus the base-refresh merge commit), and a naive
+    `rev-list --count origin/main..HEAD` reported them as unpushed forever.
+    Every clean-tree cron run then opened a brand-new PR with an empty diff.
+    An empty `git diff origin/main HEAD` means main already has our content,
+    whatever the history shape.
     """
-    out = run(
-        ["git", "rev-list", "--count", f"{REMOTE}/{BASE_BRANCH}..HEAD"],
-        check=False,
-    )
-    return out.strip().isdigit() and int(out.strip()) > 0
+    diff = run(["git", "diff", "--name-only", f"{REMOTE}/{BASE_BRANCH}", "HEAD"], check=False)
+    return bool(diff.strip())
 
 
 def _sync_with_base() -> None:
