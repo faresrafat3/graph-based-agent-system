@@ -301,3 +301,46 @@ def localize_graph(problem: str, root: str, top_k: int = 5) -> list[str]:
     """
     paths, _ = localize_graph_traced(problem, root, top_k)
     return paths
+
+
+# ---- Ensemble ------------------------------------------------------------------------
+
+def localize_ensemble(problem: str, root: str, top_k: int = 5) -> list[str]:
+    """Interleave the flat lexical ranker with the staged graph ranker.
+
+    MEASURED JUSTIFICATION (n=336, `benchmarks/results/localizer_ab.json`) — this is not
+    a hedge, it is what the data says:
+
+        flat   hit@3  69.64%
+        graph  hit@3  69.35%      (delta -0.30pp, McNemar exact p=1.0 — a tie)
+        both agree    57.44%      <- they agree on far less than either scores
+        UNION         81.55%      <- +11.9pp available to a perfect arm-selector
+
+    The two arms score the same and disagree on 81 instances (40 solved only by graph,
+    41 only by flat). That is the signature of COMPLEMENTARY evidence, not of one ranker
+    being better: lexical mass and symbol definitions fail on different issues.
+
+    So the lever is not "write a smarter single scorer" — both attempts land at ~69.5%.
+    It is to run distinct rankers and combine them. Simple round-robin interleaving,
+    with no oracle and no extra cost beyond running both, measures **73.51% hit@3
+    (+3.87pp over flat)**, capturing about a third of the 11.9pp union headroom.
+
+    Kept deliberately simple: a learned combiner could capture more of that headroom,
+    but it would need training data and would stop being zero-LLM and auditable.
+    """
+    flat_ranked = _flat_localize(problem, root, top_k=top_k * 2)
+    graph_ranked = localize_graph(problem, root, top_k=top_k * 2)
+
+    merged: list[str] = []
+    for i in range(max(len(flat_ranked), len(graph_ranked))):
+        for source in (flat_ranked, graph_ranked):
+            if i < len(source) and source[i] not in merged:
+                merged.append(source[i])
+    return merged[:top_k]
+
+
+def _flat_localize(problem: str, root: str, top_k: int) -> list[str]:
+    """Import the flat scorer lazily: swebench_harness pulls in heavy deps at import."""
+    from benchmarks.swebench_harness import localize as flat
+
+    return flat(problem, root, top_k=top_k)

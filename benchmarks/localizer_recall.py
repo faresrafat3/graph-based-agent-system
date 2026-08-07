@@ -48,14 +48,14 @@ from benchmarks.swebench_harness import (  # noqa: E402
     remove_worktree,
     repo_path,
 )
-from benchmarks.localizer_graph import localize_graph  # noqa: E402
+from benchmarks.localizer_graph import localize_ensemble, localize_graph  # noqa: E402
 
 DATASET = "benchmarks/results/swebench_verified_local.json"
 DEFAULT_KS = (1, 3, 5, 10)
 
-# Two arms over the SAME instances: the flat scorer in swebench_harness vs the staged
-# graph. Same worktree, same top_k, same scoring code — the only variable is the ranker.
-ARMS = {"flat": localize, "graph": localize_graph}
+# Arms over the SAME instances: the flat scorer in swebench_harness, the staged graph,
+# and their interleaved ensemble. Same worktree, same top_k — only the ranker varies.
+ARMS = {"flat": localize, "graph": localize_graph, "ensemble": localize_ensemble}
 
 
 def gold_files(patch: str) -> list[str]:
