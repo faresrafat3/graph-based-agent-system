@@ -75,6 +75,43 @@ def _unpushed_commits() -> bool:
     return out.strip().isdigit() and int(out.strip()) > 0
 
 
+def _sync_with_base() -> None:
+    """Merge origin/BASE_BRANCH into the sync branch, keeping our side on conflict.
+
+    Returns quietly when the branch already contains main (nothing to do).
+    """
+    behind = run(["git", "rev​-list", "--count", f"HEAD..{REMOTE}/{BASE_BRANCH}"], check=False)
+    if not (behind.strip().isdigit() and int(behind.strip()) > 0):
+        return
+
+    merged = subprocess.run(
+        ["git", "merge", "--no-edit", "-m",
+         f"merge {BASE_BRANCH} into {SYNC_BRANCH} (refresh squashed base)",
+         f"{REMOTE}/{BASE_BRANCH}"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    if merged.returncode == 0:
+        return
+
+    # Conflicts are expected after a squash merge re​-adds files we still carry.
+    # Resolve every conflicted path to our version, which is what the working
+    # tree (the thing we are syncing) actually contains.
+    conflicted = [p for p in run(["git", "diff", "--name-only", "--diff-filter=U"],
+                                 check=False).splitlines() if p.strip()]
+    if not conflicted:
+        run(["git", "merge", "--abort"], check=False)
+        raise RuntimeError(f"merge of {BASE_BRANCH} failed: {merged.stderr.strip()}")
+    for path in conflicted:
+        # --ours can fail for add/add on a path missing from our side; fall back
+        # to whatever main has so the merge never stalls half​-resolved.
+        if subprocess.run(["git", "checkout", "--ours", "--", path],
+                          cwd=REPO, capture_output=True, text=True).returncode != 0:
+            run(["git", "checkout", "--theirs", "--", path], check=False)
+        run(["git", "add", "--", path], check=False)
+    run(["git", "commit", "--no-edit"], check=False)
+    print(f"[{_ts()}] auto​-sync: refreshed base, kept our side on {len(conflicted)} path(s)")
+
+
 def main() -> int:
     # 0. Safety: must be on the sync branch.
     cur = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -98,6 +135,19 @@ def main() -> int:
     #    Prune the whole remote first, then fetch the base branch.
     run(["git", "remote", "prune", REMOTE], check=False)
     run(["git", "fetch", "--prune", REMOTE, BASE_BRANCH], check=False)
+
+    # 1b. Re​-base the sync branch onto the CURRENT main.
+    #     Step 0 only rebuilds when we are not already on SYNC_BRANCH, but cron
+    #     always leaves us on it, so the branch kept the merge base it had when
+    #     it was first created. Every PR merges with --squash, which rewrites the
+    #     content into a brand​-new commit that shares no history with our branch,
+    #     so the stale base made GitHub replay already​-merged files as add/add
+    #     conflicts: the PR went mergeStateStatus=DIRTY with zero CI checks and
+    #     auto​-merge could never fire.
+    #     A merge (not a reset) keeps this push a fast​-forward, so the unattended
+    #     cron run never needs a force push. The working tree is the source of
+    #     truth for this mechanism, so conflicted paths resolve to our side.
+    _sync_with_base()
 
     # 2. What changed that is NOT gitignored? (git already excludes ignored
     #    paths, so every record here is a real change.)
