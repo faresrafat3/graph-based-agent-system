@@ -44,13 +44,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from benchmarks.swebench_harness import (  # noqa: E402
     checkout_worktree,
-    remove_worktree,
     localize,
+    remove_worktree,
     repo_path,
 )
+from benchmarks.localizer_graph import localize_graph  # noqa: E402
 
 DATASET = "benchmarks/results/swebench_verified_local.json"
 DEFAULT_KS = (1, 3, 5, 10)
+
+# Two arms over the SAME instances: the flat scorer in swebench_harness vs the staged
+# graph. Same worktree, same top_k, same scoring code — the only variable is the ranker.
+ARMS = {"flat": localize, "graph": localize_graph}
 
 
 def gold_files(patch: str) -> list[str]:
@@ -74,8 +79,13 @@ def wilson(k: int, n: int, z: float = 1.959964) -> tuple[float, float]:
     return (max(0.0, centre - half), min(1.0, centre + half))
 
 
-def measure_instance(inst: dict, max_k: int) -> dict | None:
-    """Rank files for one instance and score the ranking against its gold patch."""
+def measure_instance(inst: dict, max_k: int, arms: tuple[str, ...] = ("flat",)) -> dict | None:
+    """Rank files for one instance and score every arm against its gold patch.
+
+    All arms run inside ONE worktree checkout, so they see byte-identical source. That
+    makes the comparison genuinely paired: any difference is the ranker, not the
+    environment, and no arm can be advantaged by a different repo state.
+    """
     gold = gold_files(inst["patch"])
     if not gold:
         return None
@@ -88,25 +98,31 @@ def measure_instance(inst: dict, max_k: int) -> dict | None:
         return {"instance_id": inst["instance_id"], "repo": inst["repo"],
                 "error": f"{type(exc).__name__}: {exc}"}
 
+    per_arm: dict[str, dict] = {}
     try:
-        started = time.time()
-        ranked = localize(inst["problem_statement"], root, top_k=max_k)
-        elapsed = time.time() - started
+        for arm in arms:
+            started = time.time()
+            ranked = ARMS[arm](inst["problem_statement"], root, top_k=max_k)
+            elapsed = time.time() - started
+            first = next((i + 1 for i, f in enumerate(ranked) if f in set(gold)), None)
+            per_arm[arm] = {
+                "ranked": ranked,
+                "first_hit_rank": first,
+                "reciprocal_rank": (1.0 / first) if first else 0.0,
+                "seconds": round(elapsed, 3),
+            }
     finally:
         remove_worktree(inst["repo"], dest)
 
-    gold_set = set(gold)
-    first_hit = next((i + 1 for i, f in enumerate(ranked) if f in gold_set), None)
+    primary = per_arm[arms[0]]
     return {
         "instance_id": inst["instance_id"],
         "repo": inst["repo"],
         "difficulty": inst.get("difficulty"),
         "gold": gold,
-        "ranked": ranked,
-        "first_hit_rank": first_hit,
-        "reciprocal_rank": (1.0 / first_hit) if first_hit else 0.0,
-        "seconds": round(elapsed, 3),
+        "arms": per_arm,
         "error": None,
+        **primary,  # primary arm's fields stay top-level for backward compatibility
     }
 
 
