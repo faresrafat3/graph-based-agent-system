@@ -10,17 +10,21 @@ Safety model (raised from 100%-certain to gated-~99%-certain):
   * Categories 1-3 (duplicate_import / trailing_whitespace_code /
     missing_final_newline) are applied directly — they are behavior-preserving
     by construction (proven across v21/v22).
-  * Categories 4-5 (unused_module_import / duplicate_definition) are applied
-    ONLY after a side-effect probe: `python -c "import <module>"` must succeed
-    AND the import must not be the file's only import of a first-party module
-    AND the file must NOT be under tests/ (pytest collection / fixtures are
-    invisible to a naive AST walk). If any probe fails, the finding is skipped.
+  * unused_module_import / duplicate_definition are EXCLUDED from auto-fix.
+    The scanner reports the whole import LINE, not the specific unused name,
+    so removing the line would drop still-used names in a multi-name import
+    (e.g. `from typing import Any, Callable` where only Callable is dead).
+    Applying it requires name-level surgery the scanner does not yet provide.
+    Keep detection-only.
 
 After applying, the fixer runs `make test` (or `pytest`); if it fails, every
 change is reverted via git and the run aborts. This keeps the zero-harm
 invariant even though we are now acting, not just observing.
 
-Never edits user WIP: files listed in WIP_EXCLUDE are skipped.
+Never edits user WIP: files listed in WIP_EXCLUDE are skipped. The fixer also
+writes a marker file (.hygiene_touched.txt) listing exactly the files it
+modified, so the autorun can `git add` ONLY those files (never `git add -A`,
+which would sweep in user WIP).
 """
 from __future__ import annotations
 
@@ -34,11 +38,7 @@ SCANNER_PATH = os.path.join(ROOT, "scripts", "code_hygiene_scan.py")
 
 # Categories applied directly (behavior-preserving by construction).
 DIRECT_APPLY = {"duplicate_import", "trailing_whitespace_code", "missing_final_newline"}
-# NOTE: unused_module_import / duplicate_definition are intentionally EXCLUDED from
-# auto-fix. The scanner reports the whole import LINE, not the specific unused name,
-# so removing the line would drop still-used names in a multi-name import
-# (e.g. `from typing import Any, Callable` where only Callable is dead). Applying it
-# requires name-level surgery the scanner does not yet provide. Keep detection-only.
+# NOTE: unused_module_import / duplicate_definition intentionally excluded (see docstring).
 PROBED_APPLY: set[str] = set()
 
 # User WIP — never touch.
@@ -60,13 +60,10 @@ def _is_test_file(rel: str) -> bool:
 
 
 def _module_of(imp_text: str) -> str | None:
-    """Best-effort: the top-level module a from/import statement loads."""
     t = imp_text.strip()
     if t.startswith("from "):
         parts = t.split()
-        # from X.Y import ...  -> top-level X
-        mod = parts[1].split(".")[0]
-        return mod
+        return parts[1].split(".")[0]
     if t.startswith("import "):
         parts = t.split()
         return parts[1].split(".")[0]
@@ -74,19 +71,14 @@ def _module_of(imp_text: str) -> str | None:
 
 
 def _side_effect_ok(imp_text: str, rel: str) -> bool:
-    """Probe: importing the module must succeed AND must not be a first-party
-    module whose only binding in this file we would drop."""
     mod = _module_of(imp_text)
     if mod is None:
         return False
-    # First-party modules: only safe if the file imports the same module
-    # elsewhere (handled by caller via scope check). For the auto-fixer we
-    # SKIP first-party unused imports entirely — too risky to be automatic.
     if mod in FIRST_PARTY_ROOTS:
         return False
     try:
         subprocess.run(
-            [sys.executable, "-c", f"import {mod}", "as _probe"],
+            [sys.executable, "-c", f"import {mod}"],
             cwd=ROOT, capture_output=True, text=True, timeout=30,
         )
     except Exception:
@@ -95,43 +87,44 @@ def _side_effect_ok(imp_text: str, rel: str) -> bool:
 
 
 def _apply_finding(chs, f: dict, src_lines: list[str]) -> list[str] | None:
-    """Return new source lines if the fix applies, else None (skip)."""
     kind = f["kind"]
     ln = f.get("line")
-    if kind == "missing_final_newline":
-        # re-read raw to preserve exact bytes
-        return None  # handled separately on raw text
     if kind == "trailing_whitespace_code":
-        idx = ln - 1
+        idx = (ln or 0) - 1
         if 0 <= idx < len(src_lines):
             src_lines[idx] = src_lines[idx].rstrip()
             return src_lines
         return None
     if kind == "duplicate_import":
-        idx = ln - 1
+        idx = (ln or 0) - 1
         if 0 <= idx < len(src_lines):
             del src_lines[idx]
             return src_lines
         return None
-    if kind == "unused_module_import":
-        rel = os.path.relpath(f["path"], ROOT)
-        if _is_test_file(rel):
-            return None  # pytest collection/fixtures invisible to AST
-        if not _side_effect_ok(f["text"], rel):
-            return None
-        idx = ln - 1
-        if 0 <= idx < len(src_lines):
-            del src_lines[idx]
-            return src_lines
-        return None
-    # duplicate_definition: skip automatically (may be intentional overload/reg)
+    # unused_module_import / duplicate_definition: intentionally not applied.
     return None
+
+
+def _record_touched(path: str) -> None:
+    marker = os.path.join(ROOT, ".hygiene_touched.txt")
+    with open(marker, "a", encoding="utf-8") as fh:
+        fh.write(path + "\n")
+
+
+def touched_files() -> list[str]:
+    """Read and clear the marker file listing files the fixer modified."""
+    marker = os.path.join(ROOT, ".hygiene_touched.txt")
+    if not os.path.exists(marker):
+        return []
+    with open(marker, encoding="utf-8") as fh:
+        files = [ln.strip() for ln in fh if ln.strip()]
+    os.remove(marker)
+    return files
 
 
 def main() -> int:
     dry_run = "--dry-run" in sys.argv[1:]
     chs = _load_scanner()
-    # collect findings grouped by file
     by_file: dict[str, list[dict]] = {}
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in chs.SKIP_ROOTS]
@@ -160,7 +153,6 @@ def main() -> int:
                 new_lines = res
                 changed = True
                 applied.append(f"{path}:{f.get('line')} [{f['kind']}]")
-        # missing_final_newline handled on raw text
         if any(f["kind"] == "missing_final_newline" for f in actionable):
             if raw and not raw.endswith("\n"):
                 raw = raw + "\n"
@@ -172,6 +164,7 @@ def main() -> int:
                 new_raw = new_raw + "\n"
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(new_raw)
+            _record_touched(path)
 
     if not applied:
         print("NOTHING TO FIX — repo clean of actionable safe findings.")
@@ -186,9 +179,7 @@ def main() -> int:
 
     # stability gate: run the test suite; revert on failure
     print("Running stability gate (make test)...")
-    res = subprocess.run(
-        ["make", "test"], cwd=ROOT, capture_output=True, text=True,
-    )
+    res = subprocess.run(["make", "test"], cwd=ROOT, capture_output=True, text=True)
     if res.returncode != 0:
         print("STABILITY GATE FAILED — reverting all changes via git.")
         subprocess.run(["git", "checkout", "--", "."], cwd=ROOT)

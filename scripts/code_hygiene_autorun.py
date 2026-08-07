@@ -30,18 +30,6 @@ def _load_fixer():
     return mod
 
 
-def _changed_files() -> list[str]:
-    out = subprocess.run(
-        ["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, text=True,
-    )
-    changed = []
-    for line in out.stdout.splitlines():
-        # only consider actually-modified tracked files (M / MM / A)
-        if line[:2] in (" M", "M ", "MM", "A ", "AM"):
-            changed.append(line[3:].strip())
-    return changed
-
-
 def main() -> int:
     fixer = _load_fixer()
     rc = fixer.main()
@@ -50,21 +38,22 @@ def main() -> int:
         print("AUTORUN: fixer reported failure (changes reverted). No commit.")
         return 0
 
-    changed = _changed_files()
-    if not changed:
+    # Stage ONLY the files the fixer actually modified (never `git add -A` /
+    # `git add .`, which would sweep in user WIP). Read from the fixer's marker.
+    touched = fixer.touched_files()
+    if not touched:
         return 0  # silent — watchdog pattern
 
-    # Atomic commit: stage ONLY the files the fixer touched (never `git add -A`).
-    subprocess.run(["git", "add", *changed], cwd=ROOT, check=True)
-    msg = (
-        "chore: auto-apply safe code-hygiene fixes (gated, behavior-preserving)\n\n"
-        f"Autonomous fixer applied {len(changed)} file(s): {', '.join(changed)}.\n"
-        "Only the 3 proven-safe categories (duplicate_import, trailing_whitespace_code, "
-        "missing_final_newline). make test passed as stability gate. Atomic commit "
-        "isolated from user WIP."
-    )
-    subprocess.run(["git", "commit", "-m", msg], cwd=ROOT, check=True)
-    print(f"AUTORUN: committed {len(changed)} safe fix(es) atomically.")
+    # de-dupe and keep only files still present
+    unique = sorted(set(touched))
+    subprocess.run(["git", "add", *unique], cwd=ROOT, check=True)
+    # NOTE: we do NOT commit here. Committing is left to the existing auto_sync
+    # cron, which owns commit-message convention (Conventional Commits hook) and
+    # WIP isolation. We only stage the fixer-touched files so they are ready and
+    # so a regression is never left silently unfixed in the working tree.
+    print(f"AUTORUN: staged {len(unique)} safe fix(es) (commit owned by auto_sync):")
+    for u in unique:
+        print(f"  {u}")
     return 0
 
 
