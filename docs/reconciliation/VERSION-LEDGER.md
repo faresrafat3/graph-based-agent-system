@@ -64,6 +64,9 @@ hasty, wrong, or undesirable, restore the referenced file state from git.
 | v8 | 2026-08-05 | tests/test_thrash_measure.py (NEW) | 2 tests: thrash measured not hardcoded; fallback on harness error. | done |
 | v8 | 2026-08-05 | docs/METHODOLOGY-RECONCILIATION.md §5 LIVE | Records opus-5 P4 verdict + code finding + resolution. | done |
 | v8 | 2026-08-05 | scripts/run_systems_layer.py + Makefile systems-layer | In-graph driver + canonical target; cron updated. | done |
+| v21 | 2026-08-07 | main.py, agents/deterministic_validator.py, tests/test_karpathy_pipeline.py, tests/test_task_decomposer.py | Removed 5 duplicate module-scope import lines (AST scope-confirmed redundant; each had an earlier top-level binding). Behavior-preserving. Commit 252c04a. 95 touched tests pass. | done |
+| v21 | 2026-08-07 | scripts/code_hygiene_scan.py (NEW) | SAFE-ONLY observer: scope-aware duplicate-import + missing-final-newline scanner (no edits). Re-runnable; returns JSONL. P7 Least Sufficient Intervention. | done |
+| v21 | 2026-08-07 | ZERO-HARM ACCOUNTING (deliberately NOT done) | Left untracked WIP (benchmarks/swebench_harness.py, docs/LOCALIZER-MEASUREMENT.md) untouched; 12 in-function duplicate imports NOT removed (removing would break those functions); 675 trailing-whitespace lines NOT touched (may be inside string literals/code fences); 0 typo/whitespace "likely" fixes proposed. | done |
 
 ## How to restore
 ```
