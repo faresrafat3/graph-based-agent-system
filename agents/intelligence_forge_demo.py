@@ -56,13 +56,19 @@ def run_intelligence_forge_scenario(
                                                   "repeated_hypothesis_count": 1, "breach_count": 0,
                                                   "success_rate": 70})
 
-    # 5) SYSTEMS LAYER — the live meta-loop backbone records the cycle
+    # 5) SYSTEMS LAYER — the live meta-loop backbone records the cycle.
+    # COMPLETE Measurement shape (Law 3): compare_node now fails loudly on a short
+    # shape, so the demo must supply every required field or the cycle is void.
     graph = build_systems_graph()
     sl_state = {
         "prior_measurement": {"complexity_score": 3, "repeated_hypothesis_count": 0,
-                               "breach_count": 0, "success_rate": 80},
+                               "breach_count": 0, "success_rate": 80,
+                               "defense_rate": 100.0, "quality": 0.80,
+                               "health": 80.0, "thrash_count": 0},
         "current_measurement": measurement or {"complexity_score": 9, "repeated_hypothesis_count": 2,
-                                                "breach_count": 1, "success_rate": 60},
+                                                "breach_count": 1, "success_rate": 60,
+                                                "defense_rate": 100.0, "quality": 0.65,
+                                                "health": 66.0, "thrash_count": 2},
         "delta": None, "proposals": [], "decisions": [], "control_proposals": [],
         "counter_proposals": [], "philosopher_strategy": None, "reconciled_spec": None,
         "cycle_log": [],

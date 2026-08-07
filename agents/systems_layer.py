@@ -116,19 +116,19 @@ def reconciler_node(state: SystemsLayerState) -> SystemsLayerState:
 
 
 def compare_node(state: SystemsLayerState) -> SystemsLayerState:
-    """Diff prior vs current into a delta of observable signals."""
+    """Diff prior vs current into a delta of observable signals.
+
+    LAW 3 (Fail Loudly): the caller MUST supply the complete Measurement shape
+    (success_rate, defense_rate, quality, health, thrash_count).  Short shapes
+    that produce a TypeError are NOT caught here — they propagate and the
+    cycle is recorded as a failure, not silently swallowed.
+    """
     from system.self_improvement import Measurement
-    try:
-        before = Measurement(**{k: v for k, v in state["prior_measurement"].items()
-                                 if k in Measurement.__dataclass_fields__})
-        after = Measurement(**{k: v for k, v in state["current_measurement"].items()
-                                if k in Measurement.__dataclass_fields__})
-        delta = compare(before, after)
-    except Exception as exc:
-        # Measurement shape mismatch -> no observable delta this cycle (Law 3: loud, not silent)
-        delta = {"deltas": {}, "signals": [], "has_meaningful_delta": False,
-                 "error": f"{type(exc).__name__}: {exc}"}
-        log = list(state.get("cycle_log", [])) + [f"compare: error {delta['error']}"]
+    before = Measurement(**{k: v for k, v in state["prior_measurement"].items()
+                             if k in Measurement.__dataclass_fields__})
+    after = Measurement(**{k: v for k, v in state["current_measurement"].items()
+                            if k in Measurement.__dataclass_fields__})
+    delta = compare(before, after)
     log = list(state.get("cycle_log", [])) + [f"compare: signals={delta['signals']}"]
     return {**state, "delta": delta, "cycle_log": log}
 

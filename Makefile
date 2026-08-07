@@ -23,6 +23,11 @@ audit:
 	$(VENV_PYTHON) scripts/audit_stepfun_policy.py
 	$(VENV_PYTHON) scripts/audit_governance.py
 
+# Strict audit: tracked WARNINGS fail too. This is what CI runs.
+audit-strict:
+	$(VENV_PYTHON) scripts/audit_stepfun_policy.py
+	$(VENV_PYTHON) scripts/audit_governance.py --strict
+
 # Governed self-improvement meta-loop (META-SYSTEM.md)
 improve:
 	$(VENV_PYTHON) scripts/run_improvement_cycle.py --measurements-dir system/measurements

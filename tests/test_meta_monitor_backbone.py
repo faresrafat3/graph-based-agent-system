@@ -16,11 +16,16 @@ from agents.topology_assembler import assemble_topology
 
 
 def _base_state():
+    # COMPLETE Measurement shape (Law 3) — see test_systems_layer_cir._base_state.
     return {
         "prior_measurement": {"complexity_score": 3, "repeated_hypothesis_count": 0,
-                               "breach_count": 0, "success_rate": 80},
+                               "breach_count": 0, "success_rate": 80,
+                               "defense_rate": 100.0, "quality": 0.80,
+                               "health": 80.0, "thrash_count": 0},
         "current_measurement": {"complexity_score": 9, "repeated_hypothesis_count": 2,
-                                 "breach_count": 1, "success_rate": 60},
+                                 "breach_count": 1, "success_rate": 60,
+                                 "defense_rate": 100.0, "quality": 0.65,
+                                 "health": 66.0, "thrash_count": 2},
         "delta": None, "proposals": [], "decisions": [], "control_proposals": [],
         "counter_proposals": [], "philosopher_strategy": None, "reconciled_spec": None,
         "cycle_log": [],
