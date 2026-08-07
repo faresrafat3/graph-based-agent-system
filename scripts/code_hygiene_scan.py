@@ -161,7 +161,110 @@ def scan_file(path: str) -> list[dict]:
                     "detail": "trailing whitespace on a code/comment line (not inside a string literal)",
                 })
 
+    # 4. unused module-level import (name never referenced anywhere else in file)
+    for u in _detect_unused_module_imports(tree, lines):
+        u["path"] = path
+        findings.append(u)
+
+    # 5. duplicate definition (same name defined twice in the same scope)
+    for d in _detect_duplicate_definitions(tree):
+        d["path"] = path
+        findings.append(d)
+
     return findings
+
+
+def _detect_unused_module_imports(tree: ast.AST, lines: list[str]) -> list[dict]:
+    """Report module-level imports whose bound name is NEVER referenced elsewhere
+    in the file. Mechanically safe to remove only when 100% certain:
+      - the name does not appear in any other ast.Name / attribute base / annotation
+      - it is not re-exported via __all__
+    A name used as an attribute base (e.g. `os.path` -> os) still counts as a use.
+    """
+    out: list[dict] = []
+    exported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == "__all__":
+                    if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
+                        for elt in node.value.elts:
+                            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                                exported.add(elt.value)
+
+    used: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            used.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            base = node
+            while isinstance(base, ast.Attribute):
+                base = base.value
+            if isinstance(base, ast.Name):
+                used.add(base.id)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            for tok in node.value.replace(".", " ").split():
+                used.add(tok.strip("\"'"))
+
+    for node in tree.body:  # module-level only
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        # __future__ imports are compiler directives, not regular bindings.
+        # Removing them changes annotation evaluation semantics — NEVER flag them.
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            continue
+        for nm in _imported_names(node):
+            if nm in exported:
+                continue
+            if nm not in used:
+                out.append({
+                    "kind": "unused_module_import",
+                    "path": None,
+                    "line": node.lineno,
+                    "text": lines[node.lineno - 1].strip(),
+                    "detail": f"module-level import '{nm}' is never referenced in this file",
+                })
+    return out
+
+
+def _detect_duplicate_definitions(tree: ast.AST) -> list[dict]:
+    """Report a function/method/class defined twice with the same name in the SAME
+    enclosing scope (later shadows earlier). Second definition's line is reported.
+    """
+    out: list[dict] = []
+
+    def _names_in(scope_nodes):
+        seen: dict[str, int] = {}
+        dups: list[tuple[str, int]] = []
+        for child in scope_nodes:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                name = child.name
+                if name in seen:
+                    dups.append((name, child.lineno))
+                else:
+                    seen[name] = child.lineno
+        return dups
+
+    for name, ln in _names_in(tree.body):
+        out.append({
+            "kind": "duplicate_definition",
+            "path": None,
+            "line": ln,
+            "text": name,
+            "detail": f"'{name}' defined more than once at module scope (later shadows earlier)",
+        })
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for name, ln in _names_in(node.body):
+                out.append({
+                    "kind": "duplicate_definition",
+                    "path": None,
+                    "line": ln,
+                    "text": name,
+                    "detail": f"'{name}' defined more than once in class {node.name} (later shadows earlier)",
+                })
+    return out
 
 
 def main() -> int:
