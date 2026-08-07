@@ -230,22 +230,23 @@ def rerank(pool: list[Candidate], problem: str) -> tuple[list[Candidate], dict]:
     """Re-order the pool using evidence retrieval could not weigh.
 
     Targets the 47 measured ranking failures: gold was already retrieved, just ranked
-    4..10. Two corrections, both derived from the failure sample:
+    4..10. A candidate matching SEVERAL distinct issue symbols is far stronger evidence
+    than one matching a single common token, so multi-symbol agreement is promoted.
 
-      * dunder/private modules (`__init__.py`, `base.py`, `utils.py`) accumulate lexical
-        mass because everything imports them — demoted unless they carry symbol evidence.
-      * a candidate matching several distinct issue symbols is far stronger than one
-        matching a single common token.
+    MEASURED CORRECTION (2026-08-07): an earlier revision also DEMOTED generically-named
+    modules (`base.py`, `utils.py`, `__init__.py`) on the theory that they accumulate
+    lexical mass because everything imports them. That was an assumption, and the data
+    refutes it: **11.2% of gold files are generically named** (`base.py` alone is gold 20
+    times, `__init__.py` 16). The penalty demoted the correct answer roughly 1 instance
+    in 9 — it cost psf__requests-6028, where `utils.py` was the gold file ranked #1 by
+    the flat scorer and pushed to #6 by the penalty. Removed; only positive evidence is
+    used to move a candidate.
     """
-    generic = {"__init__.py", "base.py", "utils.py", "core.py", "common.py", "helpers.py"}
     adjusted = []
     for cand in pool:
-        bonus = 0.0
         if len(cand.matched_symbols) >= 2:
-            bonus += 2.0 * len(set(cand.matched_symbols))
-        if os.path.basename(cand.path) in generic and not cand.matched_symbols:
-            bonus -= 0.35 * cand.lexical  # lexical mass without a definition is weak
-        cand.lexical += bonus
+            # Agreement across distinct definitions, not repetition of one token.
+            cand.lexical += 2.0 * len(set(cand.matched_symbols))
         adjusted.append(cand)
 
     ranked = sorted(adjusted, key=lambda c: (-c.score, c.path))
@@ -275,22 +276,28 @@ def verify(ranked: list[Candidate], root: str) -> tuple[list[Candidate], dict]:
 
 # ---- Stage 4: EMIT -------------------------------------------------------------------
 
-def localize_graph(problem: str, root: str, top_k: int = 5,
-                   with_trace: bool = False) -> list[str] | tuple[list[str], dict]:
-    """Run the staged localizer. Drop-in replacement for `localize()`.
+def localize_graph_traced(problem: str, root: str, top_k: int = 5) -> tuple[list[str], dict]:
+    """Run the staged localizer and return the ranking WITH its evidence trail.
 
-    `with_trace=True` returns the per-stage evidence so a wrong answer can be attributed
-    to the stage that produced it rather than to "the localizer".
+    Split from `localize_graph` rather than switched by a flag so both have a single
+    return type: a caller (and a type checker) always knows what it is holding.
     """
     pool, retrieve_info = retrieve(problem, root)
     ranked, rerank_info = rerank(pool, problem)
     kept, verify_info = verify(ranked, root)
 
     top = kept[:top_k]
-    paths = [c.path for c in top]
-    if not with_trace:
-        return paths
-    return paths, {
+    return [c.path for c in top], {
         "stages": [retrieve_info, rerank_info, verify_info],
         "evidence": [c.evidence() for c in top],
     }
+
+
+def localize_graph(problem: str, root: str, top_k: int = 5) -> list[str]:
+    """Staged localizer. Drop-in replacement for `localize()` in swebench_harness.
+
+    Use `localize_graph_traced` when a wrong answer needs to be attributed to the stage
+    that produced it rather than to "the localizer".
+    """
+    paths, _ = localize_graph_traced(problem, root, top_k)
+    return paths
