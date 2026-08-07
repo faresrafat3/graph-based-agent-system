@@ -184,13 +184,71 @@ def _group(rows: list[dict], key) -> dict:
     return dict(out)
 
 
+def paired_comparison(results: list[dict], a: str, b: str, k: int = 3) -> dict:
+    """McNemar's exact test over the SAME instances — the honest way to compare arms.
+
+    Two rankers on the same 336 instances are paired data. Comparing two independent
+    proportions would throw away that pairing and widen the interval for no reason.
+    Only the DISCORDANT pairs (one arm hits, the other misses) carry information.
+    """
+    scored = [r for r in results if not r.get("error") and "arms" in r]
+    def hit(r, arm):
+        return bool(set(r["gold"]) & set(r["arms"][arm]["ranked"][:k]))
+
+    both = a_only = b_only = neither = 0
+    gained, lost = [], []
+    for r in scored:
+        ha, hb = hit(r, a), hit(r, b)
+        if ha and hb:
+            both += 1
+        elif ha:
+            a_only += 1
+            lost.append(r["instance_id"])   # b lost what a had
+        elif hb:
+            b_only += 1
+            gained.append(r["instance_id"])
+        else:
+            neither += 1
+
+    # Exact binomial two-sided p on the discordant pairs.
+    n_disc = a_only + b_only
+    if n_disc == 0:
+        p = 1.0
+    else:
+        smaller = min(a_only, b_only)
+        tail = sum(math.comb(n_disc, i) for i in range(smaller + 1)) / (2 ** n_disc)
+        p = min(1.0, 2 * tail)
+
+    n = len(scored) or 1
+    return {
+        "n": len(scored),
+        f"{a}_hit@{k}": round(100 * (both + a_only) / n, 2),
+        f"{b}_hit@{k}": round(100 * (both + b_only) / n, 2),
+        "delta_pp": round(100 * (b_only - a_only) / n, 2),
+        "both": both, "neither": neither,
+        f"only_{a}": a_only, f"only_{b}": b_only,
+        "discordant": n_disc,
+        "mcnemar_exact_p": round(p, 6),
+        "gained_examples": gained[:8],
+        "lost_examples": lost[:8],
+    }
+
+
 def main(args: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Measure localizer recall (zero LLM)")
     ap.add_argument("--limit", type=int, default=0, help="Cap instances (0 = all available)")
     ap.add_argument("--repo", default=None, help="Restrict to one repo slug")
     ap.add_argument("--max-k", type=int, default=10)
+    ap.add_argument("--arms", default="flat",
+                    help="Comma-separated ranker arms to run: flat, graph")
     ap.add_argument("--out", default="benchmarks/results/localizer_recall.json")
     ns = ap.parse_args(args)
+
+    arms = tuple(a.strip() for a in ns.arms.split(",") if a.strip())
+    unknown = [a for a in arms if a not in ARMS]
+    if unknown:
+        print(f"Unknown arm(s): {unknown}. Available: {sorted(ARMS)}", file=sys.stderr)
+        return 1
 
     rows = json.load(open(DATASET, encoding="utf-8"))
     pool = locally_available(rows)
@@ -204,41 +262,72 @@ def main(args: list[str] | None = None) -> int:
         return 1
 
     print(f"Measuring {len(pool)} instances across "
-          f"{len(Counter(r['repo'] for r in pool))} repos (zero LLM)...", flush=True)
+          f"{len(Counter(r['repo'] for r in pool))} repos | arms={list(arms)} (zero LLM)...",
+          flush=True)
 
     results = []
     for i, inst in enumerate(pool, 1):
-        res = measure_instance(inst, ns.max_k)
+        res = measure_instance(inst, ns.max_k, arms)
         if res is None:
             continue
         results.append(res)
         if i % 10 == 0 or i == len(pool):
             done = [r for r in results if not r.get("error")]
-            hits = sum(1 for r in done if r["first_hit_rank"] and r["first_hit_rank"] <= 3)
-            rate = (100 * hits / len(done)) if done else 0.0
-            print(f"  [{i}/{len(pool)}] hit@3 so far: {rate:.1f}%", flush=True)
+            parts = []
+            for arm in arms:
+                h = sum(1 for r in done
+                        if set(r["gold"]) & set(r["arms"][arm]["ranked"][:3]))
+                parts.append(f"{arm}={100 * h / len(done):.1f}%" if done else f"{arm}=-")
+            print(f"  [{i}/{len(pool)}] hit@3 " + "  ".join(parts), flush=True)
 
-    summary = aggregate(results, tuple(k for k in DEFAULT_KS if k <= ns.max_k))
+    ks = tuple(k for k in DEFAULT_KS if k <= ns.max_k)
+    per_arm_summary = {}
+    for arm in arms:
+        view = [
+            {**r, **r["arms"][arm]} if not r.get("error") else r
+            for r in results
+        ]
+        per_arm_summary[arm] = aggregate(view, ks)
+    summary = per_arm_summary[arms[0]]
+
+    payload = {"summary": summary, "arms": per_arm_summary, "results": results}
+    if len(arms) == 2:
+        payload["paired"] = paired_comparison(results, arms[0], arms[1])
 
     os.makedirs(os.path.dirname(ns.out), exist_ok=True)
     with open(ns.out, "w", encoding="utf-8") as fh:
-        json.dump({"summary": summary, "results": results}, fh, indent=1)
+        json.dump(payload, fh, indent=1)
 
     print("\n=== LOCALIZER MEASUREMENT ===")
-    print(f"instances scored      : {summary['instances_scored']}")
-    print(f"infrastructure failures: {summary['infrastructure_failures']}")
-    print(f"MRR                   : {summary['mrr']}")
-    for k in DEFAULT_KS:
-        if f"recall@{k}" not in summary:
-            continue
-        ci = summary[f"hit@{k}_ci95"]
-        print(f"  k={k:<3} recall={summary[f'recall@{k}']:6.2f}%  "
-              f"hit={summary[f'hit@{k}']:6.2f}% (95% CI {ci[0]:.1f}-{ci[1]:.1f})  "
-              f"precision={summary[f'precision@{k}']:6.2f}%")
-    print("\nby repo (hit@3):")
+    for arm in arms:
+        s = per_arm_summary[arm]
+        print(f"\n--- arm: {arm} ---")
+        print(f"instances scored       : {s['instances_scored']}")
+        print(f"infrastructure failures: {s['infrastructure_failures']}")
+        print(f"MRR                    : {s['mrr']}")
+        for k in ks:
+            ci = s[f"hit@{k}_ci95"]
+            print(f"  k={k:<3} recall={s[f'recall@{k}']:6.2f}%  "
+                  f"hit={s[f'hit@{k}']:6.2f}% (95% CI {ci[0]:.1f}-{ci[1]:.1f})  "
+                  f"precision={s[f'precision@{k}']:6.2f}%")
+
+    if "paired" in payload:
+        p = payload["paired"]
+        a, b = arms
+        print(f"\n=== PAIRED COMPARISON ({a} vs {b}, n={p['n']}, McNemar exact) ===")
+        print(f"  {a:6} hit@3 : {p[f'{a}_hit@3']:6.2f}%")
+        print(f"  {b:6} hit@3 : {p[f'{b}_hit@3']:6.2f}%")
+        print(f"  delta        : {p['delta_pp']:+.2f} pp")
+        print(f"  discordant   : {p['discordant']}  "
+              f"(only-{a}={p[f'only_{a}']}, only-{b}={p[f'only_{b}']})")
+        print(f"  exact p      : {p['mcnemar_exact_p']}")
+        verdict = "SIGNIFICANT" if p["mcnemar_exact_p"] < 0.05 else "not significant"
+        print(f"  verdict      : {verdict} at alpha=0.05")
+
+    print("\nby repo (hit@3, primary arm):")
     for repo, s in sorted(summary["by_repo"].items()):
         print(f"  {repo:28} n={s['n']:4d}  hit@3={s['hit@3']:6.2f}%  mrr={s['mrr']}")
-    print("\nby gold-file count:")
+    print("\nby gold-file count (primary arm):")
     for bucket, s in sorted(summary["by_gold_count"].items()):
         print(f"  {bucket:8} n={s['n']:4d}  recall@3={s['recall@3']:6.2f}%  hit@3={s['hit@3']:6.2f}%")
     print(f"\nsaved -> {ns.out}")
