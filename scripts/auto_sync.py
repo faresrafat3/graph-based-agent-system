@@ -69,7 +69,7 @@ def _unpushed_commits() -> bool:
     see a clean tree and exit 0 without ever retrying the push.
     """
     out = run(
-        ["git", "rev​-list", "--count", f"{REMOTE}/{BASE_BRANCH}..HEAD"],
+        ["git", "rev-list", "--count", f"{REMOTE}/{BASE_BRANCH}..HEAD"],
         check=False,
     )
     return out.strip().isdigit() and int(out.strip()) > 0
@@ -80,7 +80,7 @@ def _sync_with_base() -> None:
 
     Returns quietly when the branch already contains main (nothing to do).
     """
-    behind = run(["git", "rev​-list", "--count", f"HEAD..{REMOTE}/{BASE_BRANCH}"], check=False)
+    behind = run(["git", "rev-list", "--count", f"HEAD..{REMOTE}/{BASE_BRANCH}"], check=False)
     if not (behind.strip().isdigit() and int(behind.strip()) > 0):
         return
 
@@ -93,7 +93,7 @@ def _sync_with_base() -> None:
     if merged.returncode == 0:
         return
 
-    # Conflicts are expected after a squash merge re​-adds files we still carry.
+    # Conflicts are expected after a squash merge re-adds files we still carry.
     # Resolve every conflicted path to our version, which is what the working
     # tree (the thing we are syncing) actually contains.
     conflicted = [p for p in run(["git", "diff", "--name-only", "--diff-filter=U"],
@@ -103,13 +103,13 @@ def _sync_with_base() -> None:
         raise RuntimeError(f"merge of {BASE_BRANCH} failed: {merged.stderr.strip()}")
     for path in conflicted:
         # --ours can fail for add/add on a path missing from our side; fall back
-        # to whatever main has so the merge never stalls half​-resolved.
+        # to whatever main has so the merge never stalls half-resolved.
         if subprocess.run(["git", "checkout", "--ours", "--", path],
                           cwd=REPO, capture_output=True, text=True).returncode != 0:
             run(["git", "checkout", "--theirs", "--", path], check=False)
         run(["git", "add", "--", path], check=False)
     run(["git", "commit", "--no-edit"], check=False)
-    print(f"[{_ts()}] auto​-sync: refreshed base, kept our side on {len(conflicted)} path(s)")
+    print(f"[{_ts()}] auto-sync: refreshed base, kept our side on {len(conflicted)} path(s)")
 
 
 def main() -> int:
@@ -122,16 +122,16 @@ def main() -> int:
         run(["git", "checkout", "-B", SYNC_BRANCH, f"{REMOTE}/{BASE_BRANCH}"], check=False)
 
     # 1. Fetch latest main so the fresh branch is up to date. We do NOT merge
-    #    origin/auto​-sync here: the branch was just rebuilt from main, and
-    #    pulling the old remote auto​-sync would create a false divergence.
-    #    --prune is required: when a previous PR merged with --delete​-branch,
+    #    origin/auto-sync here: the branch was just rebuilt from main, and
+    #    pulling the old remote auto-sync would create a false divergence.
+    #    --prune is required: when a previous PR merged with --delete-branch,
     #    GitHub deletes the remote branch but our stale refs/remotes/origin/
-    #    auto​-sync survives. --force​-with​-lease then compares against that
+    #    auto-sync survives. --force-with-lease then compares against that
     #    stale ref, sees a mismatch against a branch that no longer exists,
     #    and rejects the push with "stale info".
     #    The prune MUST NOT be scoped to a refspec: `fetch --prune origin main`
-    #    only considers refs matching `main`, so the dead origin/auto​-sync ref
-    #    was never removed and every push after a --delete​-branch merge failed.
+    #    only considers refs matching `main`, so the dead origin/auto-sync ref
+    #    was never removed and every push after a --delete-branch merge failed.
     #    Prune the whole remote first, then fetch the base branch.
     run(["git", "remote", "prune", REMOTE], check=False)
     run(["git", "fetch", "--prune", REMOTE, BASE_BRANCH], check=False)
@@ -141,32 +141,32 @@ def main() -> int:
     paths = _status_paths()
 
     # A clean tree is not the same as nothing to sync: a previous run may have
-    # committed locally and then failed to push (see the stale​-ref bug above),
+    # committed locally and then failed to push (see the stale-ref bug above),
     # leaving the work stranded on the local branch forever because this early
     # return fired before the push. Only bail out when the tree is clean AND
     # the branch has no commits that origin/main is missing.
     if not paths and not _unpushed_commits():
-        print(f"[{_ts()}] auto​-sync: nothing to sync — tree clean, nothing unpushed")
+        print(f"[{_ts()}] auto-sync: nothing to sync — tree clean, nothing unpushed")
         return 0
 
     if paths:
         n = len(paths)
-        print(f"[{_ts()}] auto​-sync: {n} changed paths detected")
+        print(f"[{_ts()}] auto-sync: {n} changed paths detected")
 
         # 3. Classify a rough "type" from the paths for the commit message.
         ctype = _classify(paths)
 
         # 4. Stage everything that is not gitignored, commit, push.
         #    The sync branch is rebuilt fresh from main every run (step 0), so a
-        #    force​-with​-lease push is safe and avoids "tip behind" rejections
-        #    from a stale remote auto​-sync left over after a previous merge.
+        #    force-with-lease push is safe and avoids "tip behind" rejections
+        #    from a stale remote auto-sync left over after a previous merge.
         run(["git", "add", "-A"])
         msg = f"auto({ctype}): sync {n} paths — {_short_summary(paths)}"
         run(["git", "commit", "-m", msg], check=False)
     else:
-        print(f"[{_ts()}] auto​-sync: tree clean; pushing unpushed local commits")
+        print(f"[{_ts()}] auto-sync: tree clean; pushing unpushed local commits")
 
-    # 4b. Re​-base the sync branch onto the CURRENT main, now that the tree is
+    # 4b. Re-base the sync branch onto the CURRENT main, now that the tree is
     #     committed and clean. This MUST run after the commit: git refuses to
     #     merge with local modifications, so doing it earlier aborted every time
     #     and left the stale base in place.
@@ -174,10 +174,10 @@ def main() -> int:
     #     already on SYNC_BRANCH, but cron always leaves us on it, so the branch
     #     kept its original merge base. Each PR merges with --squash, which
     #     rewrites content into a new commit sharing no history with our branch,
-    #     so the stale base made GitHub replay already​-merged files as add/add
+    #     so the stale base made GitHub replay already-merged files as add/add
     #     conflicts: PRs went mergeStateStatus=DIRTY with zero CI checks and
-    #     auto​-merge could never fire.
-    #     A merge (not a reset) keeps the push a fast​-forward, so the unattended
+    #     auto-merge could never fire.
+    #     A merge (not a reset) keeps the push a fast-forward, so the unattended
     #     cron run never needs a force push.
     _sync_with_base()
 
@@ -208,7 +208,7 @@ def main() -> int:
 
 
 def _classify(paths: list[str]) -> str:
-    """Rough conventional​-commit scope from the changed top​-level dirs."""
+    """Rough conventional-commit scope from the changed top-level dirs."""
     cats = {
         "agents": "agents", "system": "system", "tests": "tests",
         "scripts": "scripts", "docs": "docs", "benchmarks": "bench",

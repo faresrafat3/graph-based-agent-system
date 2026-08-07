@@ -75,12 +75,21 @@ def test_test_files_are_never_candidates(repo):
     assert not any(r.startswith("tests/") for r in ranked)
 
 
-def test_generic_module_demoted_without_symbol_evidence(repo):
-    """`base.py`/`utils.py` accumulate lexical mass because everything imports them."""
+def test_generic_module_is_not_penalised(repo):
+    """MEASURED: 11.2% of gold files are generically named (`base.py` is gold 20 times).
+
+    An earlier revision demoted `base.py`/`utils.py`/`__init__.py` on the assumption that
+    they only accumulate lexical mass from being widely imported. The data refuted it —
+    the penalty pushed the correct file down roughly 1 instance in 9. Only positive
+    evidence may move a candidate.
+    """
     pool, _ = retrieve("filler word problem", repo)
+    before = {c.path: c.score for c in pool}
     reranked, info = rerank(pool, "filler word problem")
+    after = {c.path: c.score for c in reranked}
     base = next((c for c in reranked if c.path == "db/base.py"), None)
     assert base is not None and not base.matched_symbols
+    assert after["db/base.py"] >= before["db/base.py"]  # never demoted
     assert "promoted_by_symbols" in info
 
 

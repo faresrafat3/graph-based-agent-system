@@ -230,22 +230,23 @@ def rerank(pool: list[Candidate], problem: str) -> tuple[list[Candidate], dict]:
     """Re-order the pool using evidence retrieval could not weigh.
 
     Targets the 47 measured ranking failures: gold was already retrieved, just ranked
-    4..10. Two corrections, both derived from the failure sample:
+    4..10. A candidate matching SEVERAL distinct issue symbols is far stronger evidence
+    than one matching a single common token, so multi-symbol agreement is promoted.
 
-      * dunder/private modules (`__init__.py`, `base.py`, `utils.py`) accumulate lexical
-        mass because everything imports them — demoted unless they carry symbol evidence.
-      * a candidate matching several distinct issue symbols is far stronger than one
-        matching a single common token.
+    MEASURED CORRECTION (2026-08-07): an earlier revision also DEMOTED generically-named
+    modules (`base.py`, `utils.py`, `__init__.py`) on the theory that they accumulate
+    lexical mass because everything imports them. That was an assumption, and the data
+    refutes it: **11.2% of gold files are generically named** (`base.py` alone is gold 20
+    times, `__init__.py` 16). The penalty demoted the correct answer roughly 1 instance
+    in 9 — it cost psf__requests-6028, where `utils.py` was the gold file ranked #1 by
+    the flat scorer and pushed to #6 by the penalty. Removed; only positive evidence is
+    used to move a candidate.
     """
-    generic = {"__init__.py", "base.py", "utils.py", "core.py", "common.py", "helpers.py"}
     adjusted = []
     for cand in pool:
-        bonus = 0.0
         if len(cand.matched_symbols) >= 2:
-            bonus += 2.0 * len(set(cand.matched_symbols))
-        if os.path.basename(cand.path) in generic and not cand.matched_symbols:
-            bonus -= 0.35 * cand.lexical  # lexical mass without a definition is weak
-        cand.lexical += bonus
+            # Agreement across distinct definitions, not repetition of one token.
+            cand.lexical += 2.0 * len(set(cand.matched_symbols))
         adjusted.append(cand)
 
     ranked = sorted(adjusted, key=lambda c: (-c.score, c.path))
