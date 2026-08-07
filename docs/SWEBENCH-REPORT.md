@@ -17,6 +17,16 @@
 | **Localizer recall@3** | 70% (IDF-weighted, current code) / 57.5% pre-upgrade |
 | **Localizer recall@10** | 80% |
 
+> **Superseded (2026-08-07):** those two rows came from a 40-instance sample (95% CI
+> ≈ ±14pp). The localizer has since been measured standalone over **336 instances**
+> (zero LLM, zero network): **hit@3 = 69.64% [64.5–74.3]**, recall@3 = 65.35%,
+> hit@10 = 83.63%, MRR 0.593. The 70% figure held up — but the measurement also showed
+> the 30% failure is **two** problems, not one: 46% of misses have the gold file already
+> in the top-10 (a *ranking* defect, oracle-bounded at **+14pp**) and 54% never retrieve
+> it at all. It also showed the `psf/requests` slice used for every arm comparison is the
+> **easiest** repo in the set (87.5% vs django's 69.7%). Full analysis:
+> `docs/LOCALIZER-MEASUREMENT.md`.
+
 **The headline is not the resolve rate. It is this:** SWE-bench Verified could not be
 completed to a statistically meaningful sample (the leaderboard uses 500 instances,
 best-of-N) because **the StepFun API rate limit is the binding constraint, not the
