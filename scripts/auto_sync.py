@@ -61,6 +61,20 @@ def _status_paths() -> list[str]:
     return paths
 
 
+def _unpushed_commits() -> bool:
+    """True if HEAD has commits that origin/BASE_BRANCH does not contain.
+
+    Guards the "clean tree" early return: a run that committed but failed to
+    push leaves real work stranded locally, and a later run would otherwise
+    see a clean tree and exit 0 without ever retrying the push.
+    """
+    out = run(
+        ["git", "rev​-list", "--count", f"{REMOTE}/{BASE_BRANCH}..HEAD"],
+        check=False,
+    )
+    return out.strip().isdigit() and int(out.strip()) > 0
+
+
 def main() -> int:
     # 0. Safety: must be on the sync branch.
     cur = run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -71,34 +85,49 @@ def main() -> int:
         run(["git", "checkout", "-B", SYNC_BRANCH, f"{REMOTE}/{BASE_BRANCH}"], check=False)
 
     # 1. Fetch latest main so the fresh branch is up to date. We do NOT merge
-    #    origin/auto-sync here: the branch was just rebuilt from main, and
-    #    pulling the old remote auto-sync would create a false divergence.
-    #    --prune is required: when a previous PR merged with --delete-branch,
+    #    origin/auto​-sync here: the branch was just rebuilt from main, and
+    #    pulling the old remote auto​-sync would create a false divergence.
+    #    --prune is required: when a previous PR merged with --delete​-branch,
     #    GitHub deletes the remote branch but our stale refs/remotes/origin/
-    #    auto-sync survives. --force-with-lease then compares against that
+    #    auto​-sync survives. --force​-with​-lease then compares against that
     #    stale ref, sees a mismatch against a branch that no longer exists,
-    #    and rejects the push -- silently, because check=False.
+    #    and rejects the push with "stale info".
+    #    The prune MUST NOT be scoped to a refspec: `fetch --prune origin main`
+    #    only considers refs matching `main`, so the dead origin/auto​-sync ref
+    #    was never removed and every push after a --delete​-branch merge failed.
+    #    Prune the whole remote first, then fetch the base branch.
+    run(["git", "remote", "prune", REMOTE], check=False)
     run(["git", "fetch", "--prune", REMOTE, BASE_BRANCH], check=False)
 
     # 2. What changed that is NOT gitignored? (git already excludes ignored
     #    paths, so every record here is a real change.)
     paths = _status_paths()
-    if not paths:
-        print(f"[{_ts()}] auto-sync: nothing to sync — tree clean")
+
+    # A clean tree is not the same as nothing to sync: a previous run may have
+    # committed locally and then failed to push (see the stale​-ref bug above),
+    # leaving the work stranded on the local branch forever because this early
+    # return fired before the push. Only bail out when the tree is clean AND
+    # the branch has no commits that origin/main is missing.
+    if not paths and not _unpushed_commits():
+        print(f"[{_ts()}] auto​-sync: nothing to sync — tree clean, nothing unpushed")
         return 0
-    n = len(paths)
-    print(f"[{_ts()}] auto-sync: {n} changed paths detected")
 
-    # 3. Classify a rough "type" from the paths for the commit message.
-    ctype = _classify(paths)
+    if paths:
+        n = len(paths)
+        print(f"[{_ts()}] auto​-sync: {n} changed paths detected")
 
-    # 4. Stage everything that is not gitignored, commit, push.
-    #    The sync branch is rebuilt fresh from main every run (step 0), so a
-    #    force-with-lease push is safe and avoids "tip behind" rejections from
-    #    a stale remote auto-sync left over after a previous PR merge.
-    run(["git", "add", "-A"])
-    msg = f"auto({ctype}): sync {n} paths — {_short_summary(paths)}"
-    run(["git", "commit", "-m", msg], check=False)
+        # 3. Classify a rough "type" from the paths for the commit message.
+        ctype = _classify(paths)
+
+        # 4. Stage everything that is not gitignored, commit, push.
+        #    The sync branch is rebuilt fresh from main every run (step 0), so a
+        #    force​-with​-lease push is safe and avoids "tip behind" rejections
+        #    from a stale remote auto​-sync left over after a previous merge.
+        run(["git", "add", "-A"])
+        msg = f"auto({ctype}): sync {n} paths — {_short_summary(paths)}"
+        run(["git", "commit", "-m", msg], check=False)
+    else:
+        print(f"[{_ts()}] auto​-sync: tree clean; pushing unpushed local commits")
 
     # The push MUST be verified. It was previously check=False, so a rejected
     # push (see the --prune note above) left the commit local-only while this
@@ -127,6 +156,7 @@ def main() -> int:
 
 
 def _classify(paths: list[str]) -> str:
+    """Rough conventional​-commit scope from the changed top​-level dirs."""
     cats = {
         "agents": "agents", "system": "system", "tests": "tests",
         "scripts": "scripts", "docs": "docs", "benchmarks": "bench",
