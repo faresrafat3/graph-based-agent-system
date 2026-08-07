@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -33,6 +34,36 @@ ACTIONABLE = {"duplicate_import", "trailing_whitespace_code", "missing_final_new
 WIP_EXCLUDE = {
     os.path.join(ROOT, "benchmarks", "swebench_harness.py"),
 }
+
+# Files this autonomous loop has already committed safe edits to. If the user
+# later starts editing one of these (it appears in the working tree as modified),
+# that is a collision risk with the running auto-sync cron — surface a warning so
+# we do not let auto_sync bundle our earlier commit with the user's live work.
+SAFE_EDIT_FILES = [
+    "main.py",
+    "agents/deterministic_validator.py",
+    "agents/code_executor.py",
+    "agents/task_decomposer.py",
+    "tests/test_karpathy_pipeline.py",
+    "tests/test_task_decomposer.py",
+]
+
+
+def _collision_warnings() -> list[str]:
+    warnings = []
+    out = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    modified = {line[3:].strip() for line in out.stdout.splitlines() if line[:2] in (" M", "M ")}
+    for f in SAFE_EDIT_FILES:
+        if f in modified:
+            warnings.append(
+                f"WIP-COLLISION: {f} is now modified in the working tree "
+                f"(user edit overlaps a file this loop committed). "
+                f"auto_sync may bundle it — review before next sync."
+            )
+    return warnings
 
 
 def _load_scanner():
@@ -56,14 +87,19 @@ def main() -> int:
             findings.extend(chs.scan_file(full))
 
     actionable = [f for f in findings if f.get("kind") in ACTIONABLE]
-    if not actionable:
+    warnings = _collision_warnings()
+
+    if not actionable and not warnings:
         return 0  # silent — watchdog pattern
 
-    actionable.sort(key=lambda r: (r["path"], r.get("line", 0)))
-    print(f"SAFE-ACTIONABLE CODE-HYGIENE FINDINGS: {len(actionable)}")
-    for f in actionable:
-        line = f.get("line", "?")
-        print(f"  {f['path']}:{line} [{f['kind']}] {f.get('detail', '')}")
+    if actionable:
+        actionable.sort(key=lambda r: (r["path"], r.get("line", 0)))
+        print(f"SAFE-ACTIONABLE CODE-HYGIENE FINDINGS: {len(actionable)}")
+        for f in actionable:
+            line = f.get("line", "?")
+            print(f"  {f['path']}:{line} [{f['kind']}] {f.get('detail', '')}")
+    for w in warnings:
+        print(f"  {w}")
     return 0
 
 
