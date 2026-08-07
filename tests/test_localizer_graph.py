@@ -14,6 +14,8 @@ import pytest
 
 from benchmarks.localizer_graph import (
     Candidate,
+    _flat_localize,
+    localize_ensemble,
     localize_graph,
     localize_graph_traced,
     rerank,
