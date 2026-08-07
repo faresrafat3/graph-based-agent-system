@@ -36,10 +36,15 @@ def test_systems_layer_runs_with_disk_saver(tmp_path):
     from agents.systems_layer import build_systems_graph
     graph = build_systems_graph(_fresh_saver(tmp_path))
     state = {
+        # COMPLETE Measurement shape (Law 3) — compare_node fails loudly on short shapes.
         "prior_measurement": {"complexity_score": 3, "repeated_hypothesis_count": 0,
-                               "breach_count": 0, "success_rate": 80},
+                               "breach_count": 0, "success_rate": 80,
+                               "defense_rate": 100.0, "quality": 0.80,
+                               "health": 80.0, "thrash_count": 0},
         "current_measurement": {"complexity_score": 9, "repeated_hypothesis_count": 2,
-                                 "breach_count": 1, "success_rate": 60},
+                                 "breach_count": 1, "success_rate": 60,
+                                 "defense_rate": 100.0, "quality": 0.65,
+                                 "health": 66.0, "thrash_count": 2},
         "delta": None, "proposals": [], "decisions": [], "control_proposals": [],
         "counter_proposals": [], "philosopher_strategy": None, "reconciled_spec": None,
         "cycle_log": [],

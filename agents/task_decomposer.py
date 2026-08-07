@@ -16,6 +16,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from llm.llm_integration import call_llm
 from memory.custom_memory import memory
 from tools.mcp_tools import mcp_tools
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    record_effect,
+    verified_closure_enabled,
+)
 
 
 # State Definition
@@ -460,7 +466,11 @@ def decompose_requirements(
     Returns:
         Dict with tasks, metadata, clarifications_needed
     """
-    
+    # P2 (Verified Closure): postcondition declared at PROPOSE time — before the
+    # graph runs and before anything is written to long-term memory — so the agent
+    # cannot pick a convenient assertion after seeing its own output.
+    postcondition = {"kind": "non_empty", "path": None}
+
     result = task_decomposer_graph.invoke(
         {
             "requirements": requirements,
@@ -480,12 +490,27 @@ def decompose_requirements(
         config={"configurable": {"thread_id": thread_id}}
     )
     
-    return {
+    output = {
         "tasks": result.get("tasks", []),
         "metadata": result.get("metadata", {}),
         "clarifications_needed": result.get("clarifications_needed", []),
         "success": result.get("success", False)
     }
+
+    # === VERIFY node (P2) === commit() writes the decomposition into long-term
+    # memory, then evaluate() reports its own success. That self-report is exactly
+    # what P2 forbids: the write edge is closed here by recording the effect and
+    # verifying it with zero LLM involvement.
+    if verified_closure_enabled() and output["success"]:
+        postcondition["path"] = record_effect("task_decomposer", {
+            "task_count": len(output["tasks"]),
+            "metadata_keys": sorted(output["metadata"].keys()),
+            "clarifications": len(output["clarifications_needed"]),
+        })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        output = apply_verify_verdict(output, postcondition, verify_breaches)
+
+    return output
 
 
 # Test function

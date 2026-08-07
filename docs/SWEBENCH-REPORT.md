@@ -54,30 +54,52 @@ with feedback edges — do NOT just swap in a bigger model.
 
 **What we built and measured (five arms, same 8 `psf/requests` instances, Docker-graded):**
 
-| Arm | Idea | Applies | Resolved |
-|---|---|---|---|
-| single-shot | 1 LLM call | ? | 4/8 (claimed) |
-| alphacode N=3 | best-of-N sampling | 6/8 | 1/8 |
-| loop | 1 agent self-repairs | 3/8 | 0/3 |
-| graph | separate Generator/Refiner agents | 4/8 | 1/5 |
-| **graphfull (repaired)** | +Reflexion+Debugger+Surgical, sequenced | **7/8** | **1/8** |
+| Arm | Idea | Applies | Resolved | infra fails |
+|---|---|---|---|---|
+| **agent (single-shot)** | 1 LLM call + validate + refine | **7/7 = 100%** | 4/8 (claimed) / 1/8 (graded) | 0 |
+| alphacode N=3 | best-of-N sampling | 6/8 = 75% | 1/8 | 2 |
+| loop | 1 agent self-repairs | 3/8 = 37.5% | 0/3 | — |
+| graph | separate Generator/Refiner agents | 4/8 = 50% | 1/5 | — |
+| graphfull (v1, broken dims) | +Reflexion+Debugger+Surgical (mis-wired) | 5/8 = 62.5% | 0/6 | **2** |
+| **graphfull (v2, repaired)** | +Reflexion+Debugger+Surgical, sequenced | **7/8 = 87.5%** | **1/8** | 0 |
 
-**Two decisive findings:**
-1. **Decomposition extracts latent power.** Applicability rose 37.5% → 87.5% as we split the
-   task into specialized agents. The same model, given the right *structure*, produces far
-   more usable patches. This validates Fares's thesis.
-2. **But the resolve ceiling (1/8) is the model, not the architecture.** Even with every
-   dimension correctly wired (Debugger firing on real tracebacks, SurgicalRefiner as a real
-   agent, dimensions sequenced to avoid "too many cooks"), `step-3.7-flash` cannot complete
-   the multi-step fixes for 6/8 instances. The framework is *correct and ready*; the payload
-   (generator) is the next swap.
+> **CORRECTION (2026-08-07 review).** An earlier revision of this report headlined
+> *"applicability rose 37.5% → 87.5%, decomposition extracts latent power"*. That
+> comparison used the **weakest** arm (`loop`, 37.5%) as the baseline. Re-reading the
+> committed result files, the correct baseline is the **plain `agent` arm at 100%
+> (7/7 apply, `swebench_agent_requests.json`)** — which is *higher* than the repaired
+> graph. Against the right comparator the graph shows **no applicability gain**
+> (−12.5pp, itself well inside noise at n=8).
+>
+> The v1→v2 improvement (62.5% → 87.5%) is also partly **infrastructure, not design**:
+> 2 of the 3 v1 failures were transport errors, not bad patches —
+> `psf__requests-2931: StepfunAPIError: read operation timed out` and
+> `psf__requests-5414: TimeoutExpired: pytest timed out after 120s`
+> (see `swebench_graphfull_requests.json`). Only `6028` was a genuine
+> apply failure. The repair run (v2) simply had a cleaner network window.
+>
+> What survives the correction: **the dimension repair was real and correct**
+> (Debugger now fires on real tracebacks, `1142` re-resolved, `debugger_used: true`
+> is recorded per-instance). What does **not** survive: the claim that decomposition
+> measurably lifted applicability over the best single-agent arm.
+
+**Two findings, restated honestly:**
+1. **The dimension repair worked as engineering.** `1142` went not-resolved → resolved
+   once the Debugger received a real traceback and SurgicalRefiner was actually invoked
+   rather than pasted as text. That is a verified fix of broken wiring.
+2. **No arm separates from any other on resolve rate.** All arms land at 1/8. At n=8 the
+   95% CI on 1/8 is **[2.2%, 47.1%]** and the power to detect even a 2× effect is
+   **0.095** — this sample cannot distinguish the arms at all. "The model is the ceiling"
+   is a *plausible reading*, not a measured result. Establishing it needs n≈46 (to see a
+   3× effect) or n≈150 (to see 2×). See §"What would make this decisive".
 
 **A regression that taught us the method:** graphfull v1 *regressed* (1142 went from resolved
 to not-resolved). Fares challenged this as a design bug, not model weakness — and was right.
 Three dimensions were silently dead (no traceback capture → dead Debugger; SurgicalRefiner
-never invoked; all context dumped at once). Repairing them lifted applicability 62.5%→87.5%
-and re-resolved 1142. **The methodology self-corrected** — a regression was traced to broken
-wiring, fixed with small strong steps, re-measured. That is the governed loop Fares requires.
+never invoked; all context dumped at once). Repairing them re-resolved 1142. **The
+methodology self-corrected** — a regression was traced to broken wiring, fixed with small
+strong steps, re-measured. That is the governed loop Fares requires. (The applicability
+number quoted alongside it was, as noted above, measured against the wrong baseline.)
 
 **Where this leaves us:** the graph framework is the right shape and is proven. The residual
 gap is generator capability. Dropping a stronger coding model into the *same* `--mode graphfull`

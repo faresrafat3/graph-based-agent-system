@@ -31,3 +31,11 @@ jobs:
     - name: Run Pytest Test Suite
       run: |
         pytest --cov=. --cov-report=term-missing --cov-fail-under=80
+
+    - name: Governance audit (Stepfun policy)
+      run: python scripts/audit_stepfun_policy.py
+
+    - name: Governance audit (distributed checks, strict)
+      # STRICT: tracked warnings fail the build. A known gap must be wired or
+      # deliberately de-tracked — it may not sit in the tree reporting "passed".
+      run: python scripts/audit_governance.py --strict

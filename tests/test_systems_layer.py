@@ -16,6 +16,43 @@ from agents.systems_layer import (
     build_systems_graph,
 )
 from langgraph.checkpoint.memory import MemorySaver
+import pytest
+
+
+def test_compare_node_fails_loudly_on_short_measurement_shape():
+    """REGRESSION GUARD (Law 3).
+
+    A short Measurement shape used to be swallowed into ``delta["error"]`` and the
+    cycle advanced as if a measurement had happened — 366 of 673 recorded cycles
+    (54%) were measurement-void this way. compare_node MUST now raise instead.
+    """
+    short = SystemsLayerState(
+        prior_measurement={"success_rate": 50.0, "breach_count": 1},
+        current_measurement={"success_rate": 60.0, "breach_count": 2},
+        delta=None, proposals=[], decisions=[], control_proposals=[],
+        counter_proposals=[], philosopher_strategy=None, reconciled_spec=None,
+        cycle_log=[],
+    )
+    with pytest.raises(TypeError):
+        compare_node(short)
+
+
+def test_compare_node_computes_real_delta_on_complete_shape():
+    """The complete shape must produce an actual signal, not an empty delta."""
+    complete = SystemsLayerState(
+        prior_measurement={"success_rate": 75.0, "defense_rate": 100.0,
+                           "quality": 0.75, "health": 77.7, "thrash_count": 0},
+        current_measurement={"success_rate": 75.0, "defense_rate": 100.0,
+                             "quality": 0.75, "health": 77.7, "thrash_count": 3},
+        delta=None, proposals=[], decisions=[], control_proposals=[],
+        counter_proposals=[], philosopher_strategy=None, reconciled_spec=None,
+        cycle_log=[],
+    )
+    out = compare_node(complete)
+    delta = out["delta"] or {}
+    assert "error" not in delta
+    assert delta["has_meaningful_delta"] is True
+    assert "thrash" in delta["signals"]
 
 
 def test_state_graph_compiles():

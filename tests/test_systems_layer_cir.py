@@ -12,10 +12,16 @@ from agents.systems_layer import SystemsLayerState, build_systems_graph
 
 
 def _base_state():
+    # COMPLETE Measurement shape (Law 3): every required field is present, so
+    # compare_node computes a real delta instead of swallowing a TypeError.
     return SystemsLayerState(
-        prior_measurement={"success_rate": 50.0, "breach_count": 1},
+        prior_measurement={"success_rate": 50.0, "defense_rate": 100.0,
+                            "quality": 0.70, "health": 70.0, "thrash_count": 1,
+                            "breach_count": 1},
         current_measurement={
-            "success_rate": 60.0, "breach_count": 2, "complexity_score": 5,
+            "success_rate": 60.0, "defense_rate": 100.0,
+            "quality": 0.75, "health": 74.0, "thrash_count": 0,
+            "breach_count": 2, "complexity_score": 5,
             "repeated_hypothesis_count": 0,
         },
         delta=None, proposals=[], decisions=[], control_proposals=[],

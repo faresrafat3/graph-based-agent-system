@@ -7,6 +7,8 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List, Any
 
+from system.bounded_probe import enforce_bounded_probe
+
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)
 SURGICAL_REFINER_PERMISSIONS = {
     "READ": ["validation_report", "breaches", "previous_output"],
@@ -158,7 +160,8 @@ surgical_refiner_graph = workflow.compile(checkpointer=checkpointer)
 def generate_refinement_feedback(
     breaches: List[str],
     previous_output: Any = None,
-    thread_id: str = "refiner_session"
+    thread_id: str = "refiner_session",
+    max_probe_attempts: int = 4,
 ) -> dict:
     """
     Generates pinpoint surgical feedback for targeted LLM self-correction.
@@ -167,10 +170,17 @@ def generate_refinement_feedback(
         breaches: List of breach strings from DeterministicValidator
         previous_output: Previous output object
         thread_id: Session thread ID for LangGraph checkpointer
+        max_probe_attempts: P4 bounded-probing budget over the breach set
     
     Returns:
-        Dict containing surgical_feedback, target_keys_to_fix, success
+        Dict containing surgical_feedback, target_keys_to_fix, success, probe
     """
+    # P4 (Bounded Probing): the refinement loop is where a system thrashes — it keeps
+    # re-proposing the same hypothesis against the same breaches. enforce_bounded_probe
+    # scores the breach set by HYPOTHESIS IDENTITY (not raw text) and escalates instead
+    # of looping forever. Deterministic and zero-LLM, so it cannot inflate its own budget.
+    probe = enforce_bounded_probe(list(breaches), max_attempts=max_probe_attempts)
+
     result = surgical_refiner_graph.invoke(
         {
             "breaches": breaches,
@@ -186,5 +196,6 @@ def generate_refinement_feedback(
     return {
         "surgical_feedback": result.get("surgical_feedback", ""),
         "target_keys_to_fix": result.get("target_keys_to_fix", []),
-        "success": result.get("success", False)
+        "success": result.get("success", False),
+        "probe": probe,
     }

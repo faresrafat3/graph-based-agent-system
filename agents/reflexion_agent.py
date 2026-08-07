@@ -33,6 +33,12 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from llm.llm_integration import call_llm
 from memory.custom_memory import memory as global_memory
+from agents.deterministic_validator import (
+    DeterministicValidatorEngine,
+    apply_verify_verdict,
+    record_effect,
+    verified_closure_enabled,
+)
 
 
 REFLEXION_PERMISSIONS = {
@@ -211,7 +217,6 @@ def commit(state: ReflexionState) -> dict:
     except Exception as exc:  # Memory failure should not break commit, but MUST be loud
         logger.warning("Reflexion commit to long-term memory failed: %s", exc)
     return {"committed": True}
-    return {"committed": True}
 
 
 def refine(state: ReflexionState) -> dict:
@@ -265,6 +270,11 @@ def generate_reflection(
     Returns:
         Dict with verbal_reflection, reflection_summary, success
     """
+    # P2 (Verified Closure): postcondition declared at PROPOSE time — before the
+    # reflection is generated or stored — so the assertion cannot be chosen to fit
+    # whatever the agent happens to produce.
+    postcondition = {"kind": "non_empty", "path": None}
+
     result = reflexion_graph.invoke(
         {
             "failed_code": failed_code,
@@ -280,12 +290,26 @@ def generate_reflection(
         config={"configurable": {"thread_id": thread_id}}
     )
 
-    return {
+    output = {
         "verbal_reflection": result.get("verbal_reflection", ""),
         "reflection_summary": result.get("reflection_summary", ""),
         "success": result.get("success", False),
         "breaches": result.get("breaches", [])
     }
+
+    # === VERIFY node (P2) === the reflection is written into long-term memory and
+    # then re-read by later attempts as guidance, so an unverified write here
+    # propagates. Recorded as a real effect and verified with zero LLM.
+    if verified_closure_enabled() and output["success"]:
+        postcondition["path"] = record_effect("reflexion_agent", {
+            "reflection_chars": len(output["verbal_reflection"]),
+            "summary_chars": len(output["reflection_summary"]),
+            "history_depth": len(execution_history or []),
+        })
+        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+        output = apply_verify_verdict(output, postcondition, verify_breaches)
+
+    return output
 
 
 def get_relevant_reflections(problem_spec: str, limit: int = 3) -> List[str]:
