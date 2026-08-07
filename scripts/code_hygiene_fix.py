@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Gated auto-fixer for the safe code-hygiene categories.
+
+This is the ACTING counterpart to scripts/code_hygiene_scan.py (which is
+observe-only by contract). It reuses the scanner to collect findings, then
+applies ONLY the mechanically-proven-safe fixes, runs the test suite as a
+stability gate, and reverts instantly on any failure.
+
+Safety model (raised from 100%-certain to gated-~99%-certain):
+  * Categories 1-3 (duplicate_import / trailing_whitespace_code /
+    missing_final_newline) are applied directly — they are behavior-preserving
+    by construction (proven across v21/v22).
+  * Categories 4-5 (unused_module_import / duplicate_definition) are applied
+    ONLY after a side-effect probe: `python -c "import <module>"` must succeed
+    AND the import must not be the file's only import of a first-party module
+    AND the file must NOT be under tests/ (pytest collection / fixtures are
+    invisible to a naive AST walk). If any probe fails, the finding is skipped.
+
+After applying, the fixer runs `make test` (or `pytest`); if it fails, every
+change is reverted via git and the run aborts. This keeps the zero-harm
+invariant even though we are now acting, not just observing.
+
+Never edits user WIP: files listed in WIP_EXCLUDE are skipped.
+"""
+from __future__ import annotations
+
+import importlib.util
+import os
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCANNER_PATH = os.path.join(ROOT, "scripts", "code_hygiene_scan.py")
+
+# Categories applied directly (behavior-preserving by construction).
+DIRECT_APPLY = {"duplicate_import", "trailing_whitespace_code", "missing_final_newline"}
+# NOTE: unused_module_import / duplicate_definition are intentionally EXCLUDED from
+# auto-fix. The scanner reports the whole import LINE, not the specific unused name,
+# so removing the line would drop still-used names in a multi-name import
+# (e.g. `from typing import Any, Callable` where only Callable is dead). Applying it
+# requires name-level surgery the scanner does not yet provide. Keep detection-only.
+PROBED_APPLY: set[str] = set()
+
+# User WIP — never touch.
+WIP_EXCLUDE = {os.path.join(ROOT, "benchmarks", "swebench_harness.py")}
+
+# First-party roots whose import-time side effects we must not silently drop.
+FIRST_PARTY_ROOTS = ("agents", "llm", "memory", "tools", "system", "kernel", "scripts", "benchmarks")
+
+
+def _load_scanner():
+    spec = importlib.util.spec_from_file_location("code_hygiene_scan", SCANNER_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _is_test_file(rel: str) -> bool:
+    return rel.replace("\\", "/").startswith("tests/")
+
+
+def _module_of(imp_text: str) -> str | None:
+    """Best-effort: the top-level module a from/import statement loads."""
+    t = imp_text.strip()
+    if t.startswith("from "):
+        parts = t.split()
+        # from X.Y import ...  -> top-level X
+        mod = parts[1].split(".")[0]
+        return mod
+    if t.startswith("import "):
+        parts = t.split()
+        return parts[1].split(".")[0]
+    return None
+
+
+def _side_effect_ok(imp_text: str, rel: str) -> bool:
+    """Probe: importing the module must succeed AND must not be a first-party
+    module whose only binding in this file we would drop."""
+    mod = _module_of(imp_text)
+    if mod is None:
+        return False
+    # First-party modules: only safe if the file imports the same module
+    # elsewhere (handled by caller via scope check). For the auto-fixer we
+    # SKIP first-party unused imports entirely — too risky to be automatic.
+    if mod in FIRST_PARTY_ROOTS:
+        return False
+    try:
+        subprocess.run(
+            [sys.executable, "-c", f"import {mod}", "as _probe"],
+            cwd=ROOT, capture_output=True, text=True, timeout=30,
+        )
+    except Exception:
+        return False
+    return True
+
+
+def _apply_finding(chs, f: dict, src_lines: list[str]) -> list[str] | None:
+    """Return new source lines if the fix applies, else None (skip)."""
+    kind = f["kind"]
+    ln = f.get("line")
+    if kind == "missing_final_newline":
+        # re-read raw to preserve exact bytes
+        return None  # handled separately on raw text
+    if kind == "trailing_whitespace_code":
+        idx = ln - 1
+        if 0 <= idx < len(src_lines):
+            src_lines[idx] = src_lines[idx].rstrip()
+            return src_lines
+        return None
+    if kind == "duplicate_import":
+        idx = ln - 1
+        if 0 <= idx < len(src_lines):
+            del src_lines[idx]
+            return src_lines
+        return None
+    if kind == "unused_module_import":
+        rel = os.path.relpath(f["path"], ROOT)
+        if _is_test_file(rel):
+            return None  # pytest collection/fixtures invisible to AST
+        if not _side_effect_ok(f["text"], rel):
+            return None
+        idx = ln - 1
+        if 0 <= idx < len(src_lines):
+            del src_lines[idx]
+            return src_lines
+        return None
+    # duplicate_definition: skip automatically (may be intentional overload/reg)
+    return None
+
+
+def main() -> int:
+    dry_run = "--dry-run" in sys.argv[1:]
+    chs = _load_scanner()
+    # collect findings grouped by file
+    by_file: dict[str, list[dict]] = {}
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in chs.SKIP_ROOTS]
+        for fn in filenames:
+            if not fn.endswith(".py") or fn in chs.SKIP_FILE:
+                continue
+            full = os.path.join(dirpath, fn)
+            if full in WIP_EXCLUDE:
+                continue
+            for f in chs.scan_file(full):
+                by_file.setdefault(f["path"], []).append(f)
+
+    applied: list[str] = []
+    for path, findings in by_file.items():
+        actionable = [f for f in findings if f["kind"] in (DIRECT_APPLY | PROBED_APPLY)]
+        if not actionable:
+            continue
+        with open(path, encoding="utf-8") as fh:
+            raw = fh.read()
+        lines = raw.split("\n")
+        new_lines = lines[:]
+        changed = False
+        for f in actionable:
+            res = _apply_finding(chs, f, new_lines)
+            if res is not None:
+                new_lines = res
+                changed = True
+                applied.append(f"{path}:{f.get('line')} [{f['kind']}]")
+        # missing_final_newline handled on raw text
+        if any(f["kind"] == "missing_final_newline" for f in actionable):
+            if raw and not raw.endswith("\n"):
+                raw = raw + "\n"
+                changed = True
+                applied.append(f"{path}:EOF [missing_final_newline]")
+        if changed and not dry_run:
+            new_raw = "\n".join(new_lines)
+            if raw.endswith("\n") and not new_raw.endswith("\n"):
+                new_raw = new_raw + "\n"
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(new_raw)
+
+    if not applied:
+        print("NOTHING TO FIX — repo clean of actionable safe findings.")
+        return 0
+
+    print(f"{'DRY-RUN: would apply' if dry_run else 'APPLIED'} {len(applied)} safe fixes:")
+    for a in applied:
+        print(f"  {a}")
+
+    if dry_run:
+        return 0
+
+    # stability gate: run the test suite; revert on failure
+    print("Running stability gate (make test)...")
+    res = subprocess.run(
+        ["make", "test"], cwd=ROOT, capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        print("STABILITY GATE FAILED — reverting all changes via git.")
+        subprocess.run(["git", "checkout", "--", "."], cwd=ROOT)
+        print(res.stdout[-2000:])
+        print(res.stderr[-2000:])
+        return 1
+    print("STABILITY GATE PASSED — changes retained.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

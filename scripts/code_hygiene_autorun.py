@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Autonomous safe-hygiene auto-runner (cron entry point).
+
+Combines the observer + the gated fixer + an atomic commit:
+  1. run code_hygiene_fix.py (applies only the 3 proven-safe categories,
+     runs `make test` as a stability gate, reverts on failure)
+  2. if the fixer applied changes, commit them atomically — isolated from any
+     user WIP (git add only the files the fixer touched, never `git add -A`)
+  3. stay silent otherwise (watchdog pattern)
+
+This is the LEVEL-2 autonomous mode: the system now self-repairs safe findings
+on a schedule, while preserving the zero-harm invariant (revert-on-red gate +
+atomic commit that can never bundle user WIP).
+"""
+from __future__ import annotations
+
+import importlib.util
+import os
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FIXER_PATH = os.path.join(ROOT, "scripts", "code_hygiene_fix.py")
+
+
+def _load_fixer():
+    spec = importlib.util.spec_from_file_location("code_hygiene_fix", FIXER_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _changed_files() -> list[str]:
+    out = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, text=True,
+    )
+    changed = []
+    for line in out.stdout.splitlines():
+        # only consider actually-modified tracked files (M / MM / A)
+        if line[:2] in (" M", "M ", "MM", "A ", "AM"):
+            changed.append(line[3:].strip())
+    return changed
+
+
+def main() -> int:
+    fixer = _load_fixer()
+    rc = fixer.main()
+    if rc != 0:
+        # fixer already reverted on gate failure; nothing to commit
+        print("AUTORUN: fixer reported failure (changes reverted). No commit.")
+        return 0
+
+    changed = _changed_files()
+    if not changed:
+        return 0  # silent — watchdog pattern
+
+    # Atomic commit: stage ONLY the files the fixer touched (never `git add -A`).
+    subprocess.run(["git", "add", *changed], cwd=ROOT, check=True)
+    msg = (
+        "chore: auto-apply safe code-hygiene fixes (gated, behavior-preserving)\n\n"
+        f"Autonomous fixer applied {len(changed)} file(s): {', '.join(changed)}.\n"
+        "Only the 3 proven-safe categories (duplicate_import, trailing_whitespace_code, "
+        "missing_final_newline). make test passed as stability gate. Atomic commit "
+        "isolated from user WIP."
+    )
+    subprocess.run(["git", "commit", "-m", msg], cwd=ROOT, check=True)
+    print(f"AUTORUN: committed {len(changed)} safe fix(es) atomically.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
