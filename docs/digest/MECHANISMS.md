@@ -259,6 +259,69 @@
 - **transfer note**: Split slow inference from fast mutation so self-improvement costs no turn
   latency while staying atomic where it must be.
 
+### M25 — Failure classification by cause, text before status
+- **source**: `packages/ai/src/utils/stream-failure.ts:66-88`
+- **what**: `classifyStreamFailure(providerErrorType, status)` returns one of nine
+  `StreamFailureKind` values. Branch ORDER is load-bearing: `refusal` (:68), then a
+  `/sensitive|safety|prohibited_content|blocklist|spii|recitation|content.?filter|guardrail|flagged/`
+  test (:69) — **before** any status check — then `overloaded`/529, `rate_limit`/429, `auth`,
+  `invalid_request`/400/404, `malformed_response`, and only last `server_error`/>=500 (:79-86).
+- **why it is strong**: A safety refusal often arrives wearing a 5xx status. Checking status
+  first classifies it as a transient server error, so the caller retries a request that can
+  never succeed. Text-before-status is what separates "will never work" from "try again".
+- **transfer note**: **CORRECTED OUR OWN RECORD.** Our five failed digest delegations returned
+  `HTTP 500: sensitive words detected` / `HTTP 400 content-blocked`, and we logged them as
+  transient infra. Under this taxonomy they are `safety` and `invalid_request` — **non-retryable**.
+  Landed as `system/failure_taxonomy.py`.
+
+### M26 — Provider-agnostic overflow detection with a negative-pattern guard
+- **source**: `packages/ai/src/utils/overflow.ts:31-52` (OVERFLOW_PATTERNS),
+  `:65-69` (NON_OVERFLOW_PATTERNS), `:117-149` (`isContextOverflow`)
+- **what**: 21 regexes for real overflow strings across 16 providers, plus a
+  NON_OVERFLOW list (`/^(Throttling error|Service unavailable):/i`, `/rate limit/i`,
+  `/too many requests/i`) subtracted FIRST. Then three positive cases: error-pattern match;
+  silent overflow (`stopReason==="stop"` but `input+cacheRead > contextWindow`); and
+  length-stop overflow (`stopReason==="length"`, `output===0`, `input >= contextWindow*0.99`).
+- **why it is strong**: 🟢 Their comment names the exact trap — Bedrock throttling reads
+  `"ThrottlingException: Too many tokens"` which matches the `/too many tokens/i` overflow
+  pattern. Without the negative guard, a rate-limit gets "fixed" by compacting context.
+  Cases 2 and 3 catch providers that never error at all.
+- **transfer note**: The three-case shape is the real lesson: an overflow is not always an
+  error. Any budget logic reading only exceptions misses silent truncation entirely.
+
+### M27 — Registry-based provider dispatch with an api-mismatch assertion
+- **source**: `packages/ai/src/api-registry.ts:41-63`, `:66-77`; `packages/ai/src/stream.ts:17-31`
+- **what**: `registerApiProvider` stores providers in a `Map` keyed by `api`, wrapping each in
+  `wrapStream`/`wrapStreamSimple` which throw `Mismatched api: ${model.api} expected ${api}`
+  when a model is routed to the wrong provider. `stream()` is a 31-line dispatcher.
+  `sourceId` enables `unregisterApiProviders(sourceId)` for clean plugin teardown.
+- **why it is strong**: The wrapper turns a silent mis-route into an immediate loud error, and
+  `sourceId` scoping means an extension can be unloaded without corrupting the registry.
+- **transfer note**: Matches our model-routing needs; the mismatch assertion is the part to
+  copy, since a mis-routed model otherwise fails deep inside a provider with a confusing error.
+
+### M28 — Unpaired-surrogate sanitisation
+- **source**: `packages/ai/src/utils/sanitize-unicode.ts:21-25`
+- **what**: Strips lone high/low surrogates via
+  `/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g`,
+  deliberately preserving correctly paired ones (emoji survive).
+- **why it is strong**: 🟢 "Unpaired surrogates ... cause JSON serialization errors in many API
+  providers." Truncating text at a character boundary can split a surrogate pair and poison the
+  next request — a bug that looks random and is very hard to trace.
+- **transfer note**: Any Python truncation of tool output must not split a surrogate pair.
+  Relevant wherever we slice model-bound strings by length.
+
+### M29 — Structured diagnostics persisted next to the message
+- **source**: `stream-failure.ts:196-227` (`recordStreamFailure`), `:31-39` (`StreamFailureError`)
+- **what**: On a terminal failure it appends a `provider_stream_failure` diagnostic
+  (timestamp, extracted error, full `info`) onto the message so it persists to session JSONL,
+  and emits one structured log line with `kind`/`providerErrorType`/`status`/`requestId`.
+  `truncateRawPayload` caps the raw body at 2000 chars. No-ops for user aborts.
+- **why it is strong**: The user-facing message stays short while the forensic detail survives
+  on disk, keyed by `requestId`. Post-mortems otherwise depend on logs that were never kept.
+- **transfer note**: Our ledger should carry the provider `requestId` for every failed agent
+  call — without it, a failure cannot be traced back to the provider's own record.
+
 ---
 
 ## Rejected on purpose
@@ -269,14 +332,21 @@
 | pi-mono / TUI stack | Product-shape specific; we are Python and have no terminal UI. |
 | Kernel-as-sandbox assumption | Explicitly disclaimed by the source; untrusted code needs real isolation. |
 
-## DELEGATION FAILURE — recorded, not hidden
+## DELEGATION FAILURE — recorded, and it taught us something
 
-Four of five delegated digest tasks died on provider-side errors, never on the work itself:
-`HTTP 400 content-blocked`, `HTTP 500 sensitive words detected` (twice, same target files),
-`HTTP 504 Gateway Time-out`. Two of these hit `packages/ai/src/providers/anthropic.ts`
-specifically — a reproducible pattern, not noise.
+Five delegated digest tasks died on provider-side errors, never on the work itself:
+`HTTP 400 content-blocked`, `HTTP 500 sensitive words detected` (three times, all targeting
+`packages/ai/src/providers/*`), `HTTP 504 Gateway Time-out`.
 
-Consequence, stated plainly: **the provider/streaming layer is NOT digested.** No mechanism
-from `packages/ai/src/providers/*` appears above, because inventing one from a filename would
-be exactly the fabrication this document exists to prevent. The remaining inventory verdicts
-(198 of 302 rows) are likewise unfilled, and the L1 gate correctly reports FAIL at 34.4%.
+We first recorded these as transient INFRA failures. **That classification was wrong**, and
+M25 — extracted from this very area — is what proved it: upstream checks error TEXT before
+status precisely because refusals arrive wearing 5xx. Under that taxonomy, four of the five
+were `safety`/`invalid_request` — **non-retryable**. Only the 504 was genuinely transient.
+The decision to stop retrying was right; the reason recorded for it was not. Corrected in
+`docs/reconciliation/distillation_ledger.jsonl`.
+
+The area was then digested directly with targeted greps rather than delegation, which is why
+M25–M29 exist. Nothing here was inferred from a filename.
+
+The remaining inventory verdicts (198 of 302 rows) are still unfilled and the L1 gate
+correctly reports FAIL at 34.4%.

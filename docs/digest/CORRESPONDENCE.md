@@ -36,6 +36,11 @@
 | M22 | Closure-returning subscribe | none (no observer registry) | — | **N/A (with a correction)** | If we build an observer registry, adopt the closure-return shape BUT log swallowed listener exceptions — the upstream discards them silently, which would violate our Law 3. |
 | M23 | Pause upstream without disturbing observers | none | no safe mid-run graph mutation path | **GAP** | Hold the upstream subscription in one handle so ingestion can pause/resume without tearing down client-facing streams. |
 | M24 | Single-claimant plan consumption | `propose → gate → apply` (human-applied, Ruling C1) | no claim; two simultaneous cycles could double-apply | **GAP** | Install a claim promise; a concurrent caller awaits the holder's FULL processing, not merely the underlying future. |
+| M25 | Failure classification, text before status | `system/failure_taxonomy.py` | none | **LANDED** | Done — 29 tests. Corrected our own record: 4 of 5 delegation failures were non-retryable refusals we had logged as transient infra. |
+| M26 | Overflow detection with negative-pattern guard | none | no context-budget logic; a rate-limit could be "fixed" by compacting | **GAP** | Port the three-case shape (error-pattern / silent / length-stop) plus the NON_OVERFLOW subtraction when budget logic lands. |
+| M27 | Registry dispatch + api-mismatch assertion | model routing config | no assertion that a model reached the right provider | **GAP** | Add the mismatch check; a mis-routed model otherwise fails deep inside a provider with a confusing error. |
+| M28 | Unpaired-surrogate sanitisation | none | truncating tool output can split a surrogate pair and corrupt the next request | **GAP** | Sanitise wherever we slice model-bound strings by length. |
+| M29 | Structured diagnostics with requestId | `distillation_ledger.jsonl` | failures are recorded without the provider's own request id | **GAP** | Carry `request_id` on every failed agent call so a failure can be traced to the provider's record. `FailureInfo` already has the field. |
 
 ## Rejected mechanisms (recorded so the decision is auditable)
 
@@ -47,10 +52,12 @@
 
 ## Honest coverage statement
 
-24 mechanisms mapped: **4 LANDED**, **4 PARTIAL**, **13 GAP**, **3 N/A**.
+29 mechanisms mapped: **5 LANDED**, **4 PARTIAL**, **17 GAP**, **3 N/A**.
 
-This matrix covers the mechanisms we could verify directly (53 line-citations checked against
-the real clone; every cited line exists and was spot-checked for accuracy). It does NOT cover
-`packages/ai/src/providers/*` — delegated extraction of that area failed four times on
-provider-side content filters, and inventing mechanisms from filenames would defeat the
-purpose of this document. That area remains undigested and is recorded as such.
+Every mechanism is backed by a line-citation verified against the real clone. The
+provider/streaming area (`packages/ai/src/*`) was digested directly after delegation to it
+failed five consecutive times — the failures themselves turned out to be the source of M25,
+which then corrected a wrong classification in our own ledger.
+
+The inventory gate (L1) remains at 34.4% and is deliberately left failing rather than having
+its target lowered.
