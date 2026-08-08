@@ -148,8 +148,6 @@ def propose_node(state: SystemsLayerState) -> SystemsLayerState:
     human applies these by hand, so propose-time and apply-time can be days apart;
     the stamp is what makes `is_proposal_stale` able to answer honestly.
     """
-    from system.self_improvement import Measurement
-
     delta = state.get("delta") or {"has_meaningful_delta": False}
     current = state.get("current_measurement", {})
     measured = None

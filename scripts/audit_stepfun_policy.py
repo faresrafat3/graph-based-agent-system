@@ -29,6 +29,15 @@ SKIP_FILES = {
     "docs/BENCHMARK-REPORT.md",
     "docs/CODE-AUDIT-2026-08-03.md",
     "docs/prime-agent-study.md",  # Karpathy study cites competitors by name
+    # The digest of an EXTERNAL codebase must be free to name that codebase's real
+    # files (e.g. its provider-specific cache-pricing module). Naming a file we read
+    # is not calling a provider; renaming it would make the inventory unusable as a
+    # map back to upstream, which is the whole point of the digest.
+    "docs/digest/INVENTORY.md",
+    "docs/digest/MECHANISMS.md",
+    # The charter describes our endpoint as "<vendor>-compatible" — that is a wire
+    # PROTOCOL shape (the /v1/chat/completions schema), not a provider we call.
+    "docs/reconciliation/ORCHESTRATION-CHARTER.md",
     "CONTRIBUTING.md",
     "scripts/audit_stepfun_policy.py",
 }

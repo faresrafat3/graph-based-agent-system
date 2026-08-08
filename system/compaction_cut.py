@@ -144,11 +144,9 @@ def find_cut_point(
         # asserted nowhere in the code, and one our graph histories do not share
         # (a compacted or replayed segment can legitimately begin with a toolResult).
         #
-        # With no legal cut point, the only safe answer is "cut nothing".
-        if _is_tool_result(entries, start_index):
-            return CutPointResult(first_kept_entry_index=end_index,
-                                  turn_start_index=-1, is_split_turn=False)
-        return CutPointResult(first_kept_entry_index=start_index,
+        # With no legal cut point, `end_index` means "cut nothing".
+        safe = end_index if _is_tool_result(entries, start_index) else start_index
+        return CutPointResult(first_kept_entry_index=safe,
                               turn_start_index=-1, is_split_turn=False)
 
     accumulated = 0
@@ -160,18 +158,12 @@ def find_cut_point(
             continue
         accumulated += entry.tokens
         if accumulated >= keep_recent_tokens:
-            for c in cut_points:
-                if c >= i:
-                    cut_index = c
-                    break
+            cut_index = next((c for c in cut_points if c >= i), cut_index)
             break
 
     # Non-message entries preceding the cut belong with the kept block: a model or
     # settings change applies to the messages that follow it.
-    while cut_index > start_index:
-        prev = entries[cut_index - 1]
-        if prev.type == "compaction" or prev.type == "message":
-            break
+    while cut_index > start_index and entries[cut_index - 1].type not in ("compaction", "message"):
         cut_index -= 1
 
     cut_entry = entries[cut_index]

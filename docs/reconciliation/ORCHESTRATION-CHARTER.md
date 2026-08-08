@@ -155,11 +155,56 @@ code — `grep` finds no provider assertion, only empty-value checks
 (`llm_integration.py:252,254`). A run could therefore be done by env var **without any
 code edit**, which would be a silent breach. That must NOT be done quietly.
 
-**Resolution path (must be explicit, not sneaked):** treat it as a constitutional
-amendment — a bounded, declared exemption for *measurement* runs, written into
-CONSTITUTION.md, with the generator identity recorded in the result artifact. The
-experiment is only meaningful if it is honest about what generated the patches.
-Requires Fares's approval as architect: it changes a MUST clause.
+### 4a-CORRECTION (2026-08-08) — TWO SYSTEMS, TWO SCOPES. Do not conflate them.
+
+An earlier version of this charter made a scope error serious enough to record:
+it applied the stepfun constraint to the *orchestrator*. That is wrong.
+
+| | **Hermes** (the durable system) | **graph-based-agent-system** (the object of study) |
+|---|---|---|
+| What it is | The strong, stable layer that improves itself and does the work | The research project being measured |
+| Provider rule | **No constraint.** Any provider, any model, any number, negotiated freely | stepfun is the *prototype measurement model*, pending Fares's decision |
+| Improvement target | **YES — this is the standing mission** | Only as the subject of measurement |
+
+Fares's words: stepfun is "النموذج الأولي" for measurement *inside the project*, "لحد اما
+اقرر انا" — a provisional instrument, not a boundary on the orchestrator. The self-improvement
+mandate is on **Hermes**. If a limit appears to be in the way, lift it rather than obey it
+reflexively.
+
+### 4b. On the strong-generator run inside the project (scoped narrowly)
+
+Fares ruled directly: he does not want to spend on a strong generator. **Stepfun is the
+honest limit for all experiments**, and his position is that the model is not the problem.
+
+Consequences, recorded so no future session re-litigates this:
+
+1. **No constitutional amendment is requested.** Article III §2 (Stepfun-Only) stands
+   unchanged and unchallenged. The env-var route (`STEPFUN_MODEL` / `STEPFUN_BASE_URL`)
+   must NOT be used to point at another provider — that would be a silent violation of a
+   MUST clause. Closed, not deferred.
+2. ~~World (a) becomes untestable~~ **RETRACTED — the dichotomy itself was wrong.**
+   Framing the question as "architecture was never the bottleneck" *vs* "the generator is
+   the ceiling" is a false dilemma: it silently accepts 1/8 as the verdict and reduces the
+   whole project to picking one of two excuses. Fares rejected it outright.
+
+   The real diagnosis: **we are not yet capturing good reasoning, connecting it, carrying
+   it forward, and growing it.** When a strong signal appears somewhere in the graph, it is
+   not picked up whole, not linked to what follows, not propagated, not amplified. That is a
+   *transport-and-accumulation* defect, and it is orthogonal to generator strength — a
+   stronger model would produce better reasoning that gets dropped just the same.
+
+   Corollary: much of the existing mess in this repo was produced *by* the previous AI system
+   working on it. The mandate is not to defend those artifacts but to correct them from a
+   stronger, stabler layer (Hermes).
+3. **The lever moves to world (c): the apparatus.** This is free, requires no API spend,
+   and is the highest-information work still available. It is also exactly the standing
+   discipline: measure the apparatus before the system.
+4. **Correctability stays measurable on stepfun.** The `loop` arm already measured it
+   (feedback returned, output unchanged, 4 rounds, 0 resolves). Making that a first-class
+   instrument costs nothing extra and is the genuinely novel contribution.
+
+Under his own rule — *a metric drop is a design defect, not "the model is weak"* — the
+apparatus is the correct place to look next anyway. The ruling and the rule agree.
 
 ---
 
@@ -208,7 +253,16 @@ the kanban wipe were the first application of this principle.
 |---|---|---|
 | 2026-08-08 | Stopped the 976-loop engine; disabled `fares-patrol.service`; wiped kanban (2,649 tasks, 31.9MB→0.12MB) | Loop produced volume, not results; blind unobserved work |
 | 2026-08-08 | Growth rule amended: every new dimension must declare its falsifier in advance | §8 regression + unfalsifiability of "metric drop = design bug" |
-| 2026-08-08 | Strong-generator run on unchanged `graphfull` is the next experiment, before any new architecture | It discriminates 3 worlds; never run despite being the stated design goal |
+| 2026-08-08 | ~~Strong-generator run on unchanged `graphfull` is the next experiment~~ **SUPERSEDED — see next row** | It discriminated 3 worlds; never run despite being the stated design goal |
+| 2026-08-08 | **Architect's ruling: no strong-generator spend. Stepfun is the limit for all experiments.** Article III §2 stands; env-var provider switching is forbidden, not deferred | Fares's direct decision; his position is that the model is not the problem |
+| 2026-08-08 | Primary lever is now the **apparatus audit** (free), plus **correctability** as a first-class instrument on stepfun | World (a) is untestable without spend; world (c) is untested and free. Matches "measure the apparatus before the system" |
+| 2026-08-08 | Declared evidence limit: this project cannot empirically separate "architecture was never the bottleneck" from "generator is the ceiling". Must be stated in writeups, not hidden | Direct consequence of the no-spend ruling |
+| 2026-08-08 | **RETRACTED the above dichotomy.** Real diagnosis (Fares): good reasoning IS produced, then not captured / linked / carried / grown. Transport-and-accumulation defect, orthogonal to generator strength | Architect rejected the framing as accepting a bad number as the verdict |
+| 2026-08-08 | **VERIFIED: 11 of 28 registered agents (39%) never execute on the main pipeline** — 8 directly inert, 3 via dead chains. Includes ALL 3 memory agents. Registry stores metadata strings; `governance_checks.py:88,143` importlib only confirms symbols exist | AST + chain analysis + runtime counters (`wrapped_count=28`, `failed_to_wrap={}`); repro script in `INERT-REGISTRY-FINDING.md` §4, executed |
+| 2026-08-08 | Runtime counters: **28/28 fire under tests, 3/28 on a real run.** The real run is NOT evidence — it died on its first LLM call (3 Stepfun timeouts). Infra failure, not capability failure; must not be counted as one | `/tmp/real_run.log` is 5 lines; `INERT-REGISTRY-FINDING.md` §3c |
+| 2026-08-08 | `reflexion_agent` removed from the inert set — reachable via an ALIASED import (`swebench_harness.py:834`, `as _gr`) that name-based AST matching cannot see. My count corrected 12 → 11 | Third defect found in my own instruments; caught by an independent instrument, never by re-reading my own output |
+| 2026-08-08 | Remedy for inert ≠ remedy for unreachable: **inert ⇒ CONNECT**, unreachable ⇒ delete. A subagent's "10 removal candidates" list was NOT actioned — it would have deleted the memory tier | Independent re-measurement contradicted the subagent report |
+| 2026-08-08 | My own first pass (grep) was defective in both directions; corrected by AST + runtime counters. Recorded in `INERT-REGISTRY-FINDING.md` §3b | Two independent instruments disagreeing is what caught it |
 
 ---
 

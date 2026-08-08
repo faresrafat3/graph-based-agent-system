@@ -359,5 +359,39 @@ The decision to stop retrying was right; the reason recorded for it was not. Cor
 The area was then digested directly with targeted greps rather than delegation, which is why
 M25–M29 exist. Nothing here was inferred from a filename.
 
-The remaining inventory verdicts (198 of 302 rows) are still unfilled and the L1 gate
-correctly reports FAIL at 34.4%.
+The inventory is now complete: 302/302 rows carry a description and a verdict, and the L1
+gate reports PASS at 100%. Distribution: 75 adopt, 104 adapt, 109 reject, 14 n/a.
+
+Grounding audit of that 100% (because a gate turning green is when to distrust it):
+every one of the 302 rows resolves to a real file on disk with an exact line-count match,
+zero rows kept an `Exports:` placeholder, and the 7 rows still marked UNREAD are all
+`n/a` CHANGELOGs and package READMEs that state their own reason. No `adopt`/`adapt`
+verdict rests on an unread file.
+
+## M30 — Lease as compare-and-swap, not as a flag
+
+`packages/coding-agent/src/core/session-lease.ts`
+
+Single-writer admission is won by `mkdirSync` of a candidate directory then `renameSync`
+onto the real lease path (`:258-263`) — an atomic compare-and-swap, so two racing openers
+cannot both believe they hold it. Reclamation is the same primitive in reverse: a stale
+lease is `renameSync`d aside to `${directory}.stale-${pid}-${uuid}` and only then removed
+(`:219-228`), so a crash mid-reclaim leaves an orphan directory rather than a half-deleted
+lease. Cleanup is explicitly best-effort with the next process reclaiming (`:58`).
+
+Why it transfers: this is filesystem semantics, not TypeScript. Our shared result files
+already use lock + atomic write; this extends the same discipline to *ownership* rather
+than just content.
+
+## M31 — Exactly-once commands via a three-state journal
+
+`packages/coding-agent/src/modes/daemon/command-recovery-journal.ts`
+
+`begin()` returns one of three states — `new`, `pending`, or `complete` carrying the
+stored `response` (`:37-40`, `:73-88`). A replayed command therefore *replays its recorded
+response* instead of re-executing, and recording a result before receipt is a hard error
+rather than a silent insert (`:95`).
+
+Why it matters here: the same shape as the silent-collision bug this cycle found in our own
+`continual_harness.py`, where a duplicate id became a silent update. This mechanism is the
+general fix — make the duplicate case an explicit, named state instead of an overwrite.
