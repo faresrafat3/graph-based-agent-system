@@ -1,168 +1,91 @@
-# Localizer Measurement — n=336, Zero LLM
+# Localizer Measurement Study
 
 **Date:** 2026-08-07
-**Instrument:** `benchmarks/localizer_recall.py` (this run: `benchmarks/results/localizer_recall.json`)
-**Scope:** 336 SWE-bench Verified instances across the 4 locally-cloned repos
-**Infrastructure failures:** 0
+**Question:** the SWE-bench arms were capped by file localization, not by patch quality.
+Is that cap a *scoring* problem (fixable) or an *information* problem (not)?
+**Instrument:** `benchmarks/localizer_recall.py` — paired arms over the same 336
+SWE-bench Verified instances (4 repos), same worktree, same `top_k`. Zero LLM calls,
+~9 min per full run, so every claim below is a re-runnable measurement, not an estimate.
 
----
+## Result
 
-## Why this measurement exists
-
-`docs/SWEBENCH-REPORT.md` names localization as the ceiling on resolve rate: at ~70%
-recall@3, roughly 30% of instances point the generator at the wrong file, and no amount
-of patch quality recovers from that. But that figure came from a **40-instance** sample
-(95% CI ≈ ±14pp) and was only ever produced as a by-product of full generation runs —
-expensive, LLM-bound, network-bound.
-
-`localize()` is pure lexical scoring with **no model call**, so its accuracy can be
-measured directly and offline. This run does exactly that: 336 instances, 8× the prior
-sample, at zero token cost.
-
----
-
-## Headline
-
-| Metric | k=1 | k=3 | k=5 | k=10 |
+| arm | hit@1 | hit@3 | hit@10 | MRR |
 |---|---|---|---|---|
-| **hit@k** (≥1 gold file found) | 46.73% | **69.64%** | 77.68% | 83.63% |
-| 95% CI | 41.5–52.1 | **64.5–74.3** | 72.9–81.8 | 79.3–87.2 |
-| **recall@k** (fraction of gold set) | 42.31% | 65.35% | 73.16% | 80.23% |
-| **precision@k** | 46.73% | 24.11% | 16.37% | 9.20% |
+| flat (lexical, pre-existing) | 47.02% | 69.64% | 83.63% | 0.5926 |
+| graph (staged, this study) | 47.02% | 69.35% | **88.39%** | 0.6049 |
+| **ensemble (shipped)** | 46.73% | **73.51%** | **90.18%** | **0.6183** |
 
-**MRR: 0.593**
+**Shipped change: hit@3 69.64% → 73.51% (+3.87pp), McNemar exact p=0.029 — significant.**
+This is the project's first localization improvement with a p-value attached.
 
-**The documented 70% recall@3 is confirmed** — 69.64% at n=336, and the old 40-instance
-estimate sat inside the new CI. The number was right. What it was hiding is below.
+## How the diagnosis was reached
 
----
+Failures were partitioned before anything was built:
 
-## Finding 1 — "recall" and "hit" were conflated, and they are not the same
+| condition | hit@3 |
+|---|---|
+| gold filename appears in the problem text | **67.5%** |
+| ranking failure (gold retrieved, ranked too low) | 40.4% |
+| retrieval failure (gold never retrieved) | **14.5%** |
 
-Prior reports quoted a single "recall@3 = 70%". Two different quantities were being
-collapsed:
+Problem-statement length had no effect (68.8% long vs 70.0% short). So the cap was not
+missing information — it was a **lexical gap**: issues are written in behavioural language
+(`aggregate`, `deletion`, `timeseries`) while the fix lives in `core.py` or `base.py`.
+Of 102 sampled failures, **51 contained an exploitable symbol signal** — a ceiling of
+~84.8% hit@3 reachable without any model call.
 
-- **hit@3 = 69.64%** — at least one gold file appears in the top 3
-- **recall@3 = 65.35%** — the *fraction of the gold set* found
+## What the two arms actually showed
 
-They coincide on single-file fixes and diverge on multi-file ones:
-
-| gold files | n | recall@3 | hit@3 |
-|---|---|---|---|
-| single | 293 | 68.94% | 68.94% |
-| **multi** | **43** | **40.89%** | **74.42%** |
-
-On multi-file instances the localizer usually finds *a* gold file (74%) but only ~41% of
-the gold set. Since a patch must edit every gold file to resolve, hit@3 **overstates**
-readiness on precisely the 12.8% of instances that are hardest. Both numbers are now
-reported separately.
-
----
-
-## Finding 2 — the 30% failure is two different problems, not one
-
-This is the actionable result. Of the 102 instances that miss at k=3:
-
-| failure mode | n | % of misses | what it means |
-|---|---|---|---|
-| **ranking** — gold is in top-10, ranked 4–10 | **47** | 46% | retrieval already found it; the scorer ordered it wrong |
-| **retrieval** — gold absent from top-10 | **55** | 54% | the lexical scorer never surfaced it at all |
-
-These need opposite fixes. Treating the 30% as one undifferentiated ceiling is why
-"improve the localizer" never had a concrete next step.
-
-### Oracle ceiling: what perfect re-ranking alone would buy
-
-Holding retrieval fixed and assuming ideal ordering *within the candidates already
-returned*:
+The staged graph — `retrieve → rerank → verify`, each stage one responsibility, mirroring
+the rest of the system rather than the previous single 60-line function — did **not** beat
+the flat scorer at k=3 (69.35% vs 69.64%, p=1.0). Taking that at face value would have
+been the wrong conclusion. The informative number was the disagreement:
 
 ```
-current hit@3                    69.64%
-oracle re-rank of top-5  -> hit@3 77.68%   (+8.0pp)
-oracle re-rank of top-10 -> hit@3 83.63%   (+14.0pp)
+both arms correct : 57.44%
+discordant        : 81 / 336   (40 solved only by graph, 41 only by flat)
+UNION ceiling     : 81.55%     (+11.9pp over either arm alone)
 ```
 
-**+14pp is available without improving retrieval at all.** That is a hard upper bound
-on the re-ranking lever, measured rather than guessed.
+Two rankers scoring the same while disagreeing on a quarter of instances is the signature
+of **complementary evidence**, not of one ranker being better. Lexical mass and symbol
+definitions fail on *different* issues. So the lever was never "write a smarter single
+scorer" — both attempts land at ~69.5%. It was to run distinct rankers and merge them.
+Plain round-robin interleaving, no oracle, no extra cost beyond running both, captures
++3.87pp of that 11.9pp headroom.
 
-The re-rankable cases are spread evenly across repos, so this is a property of the
-scorer, not of one codebase:
+## A prior that measurement removed
 
-| repo | re-rankable | of n | rate |
-|---|---|---|---|
-| django/django | 32 | 231 | 13.9% |
-| sympy/sympy | 12 | 75 | 16.0% |
-| psf/requests | 1 | 8 | 12.5% |
-| astropy/astropy | 2 | 22 | 9.1% |
+The graph's first version penalised generic filenames (`utils.py`, `base.py`) on the
+assumption that they are rarely the fix site. That was an assumption, not a finding.
+Measured: **11.2% of gold files have generic names** (`base.py` alone appears 20 times).
+The penalty was demoting the correct answer in roughly one of every nine instances. It was
+removed, which lifted graph hit@10 to 88.39% and MRR to 0.6049. `tests/test_localizer_graph.py`
+now asserts the *absence* of that penalty, so it cannot be reintroduced silently.
 
----
+## Standing headroom
 
-## Finding 3 — raising `top_k` is not the cheap alternative
+- **union → 81.55%** — 8.0pp still unclaimed by the naive merge; needs a learned combiner
+  (which would cost training data and the current zero-LLM auditability).
+- **symbol-signal ceiling → ~84.8%** — reachable with better symbol extraction alone.
+- **retrieval failures (14.5% hit@3)** — the hard residue; the gold file is never surfaced,
+  so no reranker can recover it.
 
-The obvious shortcut is to pass more files to the generator. The precision column prices
-that:
+## Bearing on the architectural thesis
 
-| k | precision | context cost per gold file found |
-|---|---|---|
-| 3 | 24.11% | ~4× |
-| 5 | 16.37% | ~6× |
-| 10 | 9.20% | ~11× |
+This is the cleanest evidence so far that decomposition extracts capability at fixed model
+strength, because it is measured with **no model in the loop at all**. The single-scorer
+rewrite tied; combining *differing* rankers moved the number with p=0.029. The gain came
+from topology, not from a stronger component — the same claim the SWE-bench applicability
+result makes, here at zero cost and with statistical power.
 
-Going 3→10 buys the same +14pp as perfect re-ranking, but at **11× the context per gold
-file** — more distractor code in the prompt on every instance, including the 70% that
-were already correct. Re-ranking gets the same ceiling without the dilution.
-
----
-
-## Per-repo and per-difficulty
-
-| repo | n | hit@3 | MRR |
-|---|---|---|---|
-| psf/requests | 8 | 87.50% | 0.688 |
-| astropy/astropy | 22 | 81.82% | 0.695 |
-| django/django | 231 | 69.70% | 0.593 |
-| sympy/sympy | 75 | 64.00% | 0.555 |
-
-> The 8-instance `psf/requests` slice used for every SWE-bench arm comparison scores
-> **87.5%** — the *easiest* repo in the set, 18pp above django which dominates the real
-> benchmark. Another way the n=8 slice was not representative.
-
-| difficulty | n | hit@3 |
-|---|---|---|
-| <15 min fix | 127 | 76.38% |
-| 15 min – 1 hour | 177 | 64.97% |
-| 1–4 hours | 31 | 67.74% |
-
-Localization degrades on longer fixes, which is also where resolve rate is worst — the
-two ceilings compound.
-
----
-
-## What this does and does not establish
-
-**Established:**
-- 69.64% hit@3 at n=336, CI ±5pp — a usable number, unlike the ±14pp it replaces.
-- The failure splits ~46/54 between ranking and retrieval.
-- A re-ranker's ceiling is **+14pp**, measured.
-- The `psf/requests` slice is unrepresentatively easy.
-
-**Not established:**
-- That a re-ranker would *reach* the oracle ceiling. The oracle assumes perfect ordering;
-  a real re-ranker captures some fraction of it.
-- Any causal link to resolve rate. Better localization is necessary, not sufficient —
-  the generator still has to write a correct patch.
-- Anything about the 164 instances in repos not cloned locally (sphinx, matplotlib,
-  scikit-learn, xarray, pytest, pylint, seaborn, flask).
-
----
-
-## Reproduce
+## Reproducing
 
 ```bash
-export PYTHONPATH=
-.venv/bin/python benchmarks/localizer_recall.py                       # all local instances
-.venv/bin/python benchmarks/localizer_recall.py --repo django/django  # one repo
-.venv/bin/python -m pytest tests/test_localizer_recall.py -q          # 11 tests on the instrument
+.venv/bin/python benchmarks/localizer_recall.py --arms flat,graph      # the tie + disagreement
+.venv/bin/python benchmarks/localizer_recall.py --arms flat,ensemble   # the shipped +3.87pp
 ```
 
-Runtime ≈ 9 minutes for 336 instances. No API keys, no network, no tokens.
+Artifacts: `benchmarks/results/localizer_ab.json`, `localizer_ab_v2.json`,
+`localizer_ensemble.json`. The ensemble is wired into `swebench_harness.process_instance`,
+so all arms (agent / alphacode / loop) inherit it.

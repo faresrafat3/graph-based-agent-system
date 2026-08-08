@@ -97,6 +97,37 @@ def check_entrypoints(registry: list[dict] | None = None) -> GovernanceCheckResu
     return GovernanceCheckResult("entrypoints", not breaches, breaches)
 
 
+# Constitutional NEVER floor — the forbidden capability each standard agent was
+# REGISTERED with. It is a ratchet: entries may be added to an agent's NEVER list, never
+# silently removed. Widening the forbidden set is a constitutional amendment and must
+# change this table in the same commit, which makes the widening reviewable instead of
+# invisible. Captured from the registered tree; enforced by check_permission_matrices.
+STANDARD_NEVER_FLOOR: dict[str, tuple[str, ...]] = {
+    "agents.context_curator": ("credentials_access", "execute_deployment", "source_code_edit"),
+    "agents.task_decomposer": ("architecture_design", "code", "credentials", "deployment"),
+    "agents.deterministic_validator": ("bypass_schema", "grant_exceptions", "modify_target_output"),
+    "agents.surgical_refiner": ("override_validation_report", "regenerate_entire_system"),
+    "agents.agent_assigner": ("credentials", "database_access", "deployment", "source_code"),
+    "agents.domain_dispatcher": ("credentials", "deployment", "production_environment"),
+    "agents.graph_execution_orchestrator": ("credentials", "deployment", "production_environment", "provider_override"),
+    "agents.progress_monitor": ("force_success", "modify_code", "override_permissions"),
+    "agents.quality_reviewer": ("bypass_tests", "force_commit_failed_code", "modify_artifacts"),
+    "agents.integration_agent": ("deploy_untested_bundle", "override_security_blocks"),
+    "agents.decision_conflict_agent": ("breach_constitution", "grant_unauthorized_permissions"),
+    "agents.resource_priority_agent": ("disable_rate_limiters", "exceed_hard_budget"),
+    "agents.human_escalation": ("auto_approve_checkpoints", "bypass_human_response"),
+    "agents.code_executor": ("credentials", "database_migrations", "deployment", "production_config"),
+    "agents.test_runner_agent": ("credentials_file", "external_network_call", "production_environment"),
+    "agents.debugger_agent": ("credentials", "database_migration", "deployment", "production_config"),
+    "agents.sampling_agent": ("credentials", "deployment", "production_config"),
+    "agents.reflexion_agent": ("code", "credentials", "deployment", "direct_code_fix"),
+    "agents.episodic_memory_agent": ("credentials", "deployment", "direct_code_execution", "production_secrets"),
+    "agents.semantic_memory_agent": ("credentials", "deployment", "raw_code_execution"),
+    "agents.working_memory_agent": ("credentials", "deployment", "raw_code_deletion"),
+    "agents.filtering_clustering_agent": ("credentials", "deployment", "production_config"),
+}
+
+
 def check_permission_matrices(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify standard permission matrices have expected shape."""
     registry = AGENT_REGISTRY if registry is None else registry
@@ -127,6 +158,43 @@ def check_permission_matrices(registry: list[dict] | None = None) -> GovernanceC
             non_lists = [key for key in REQUIRED_PERMISSION_KEYS if key in matrix and not isinstance(matrix.get(key), list)]
             if non_lists:
                 breaches.append(f"{name} permission matrix keys must contain lists: {non_lists}.")
+
+            # Shape validation alone cannot see privilege escalation: emptying NEVER, or
+            # moving one of its entries into READ/WRITE, leaves a perfectly well-formed
+            # dict of lists. NEVER is where the constraint actually lives — it is the
+            # architectural boundary, not documentation — so its CONTENT is checked here.
+            # Both gaps were found by benchmarks/governance_adversarial.py (scenarios
+            # never-list-emptied, never-entry-promoted-to-write), which the shape-only
+            # check scored as clean.
+            never = matrix.get("NEVER")
+            if isinstance(never, list):
+                if not never:
+                    breaches.append(
+                        f"{name} declares an empty NEVER list — an agent with no forbidden "
+                        f"capability has no architectural boundary (CONSTITUTION: constraints "
+                        f"are structural, not advisory)."
+                    )
+                granted = {
+                    item for key in ("READ", "WRITE")
+                    for item in (matrix.get(key) or [])
+                    if isinstance(matrix.get(key), list)
+                }
+                escalated = sorted(set(never) & granted)
+                if escalated:
+                    breaches.append(
+                        f"{name} permission matrix escalates privilege: {escalated} appears in "
+                        f"both NEVER and READ/WRITE. A forbidden capability may not also be a "
+                        f"granted one."
+                    )
+                baseline = STANDARD_NEVER_FLOOR.get(entry.get("module", ""))
+                if baseline:
+                    removed = sorted(set(baseline) - set(never))
+                    if removed:
+                        breaches.append(
+                            f"{name} removed {removed} from its NEVER list. The forbidden set "
+                            f"may be widened by an explicit constitutional amendment, not by "
+                            f"editing the matrix."
+                        )
     return GovernanceCheckResult("permission_matrices", not breaches, breaches)
 
 
@@ -665,6 +733,24 @@ def _module_writes_state(tree: ast.AST) -> bool:
     return False
 
 
+def _is_vacuous_postcondition(value: ast.expr) -> bool:
+    """True when a postcondition assignment asserts nothing.
+
+    P2 requires a FALSIFIABLE postcondition declared at propose time. ``postcondition =
+    None`` (or ``{}`` / ``[]`` / ``""``) satisfies a name-only check while leaving VERIFY
+    nothing to test, which turns the verified closure into a formality. Anything dynamic
+    (a call, a name, an f-string, a dict with entries) is accepted: its content cannot be
+    judged statically, and the check must not punish legitimate indirection.
+    """
+    if isinstance(value, ast.Constant):
+        return value.value in (None, "", 0, False)
+    if isinstance(value, (ast.Dict,)):
+        return not value.keys
+    if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        return not value.elts
+    return False
+
+
 def _find_function(tree: ast.AST, name: str):
     """Return the top-level-or-nested FunctionDef with the given name, if any."""
     for node in ast.walk(tree):
@@ -739,16 +825,34 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
                     f"final return — the write edge does not terminate in a VERIFY node."
                 )
                 continue
-            declared = [
-                child.lineno for child in ast.walk(function)
+            # A postcondition must be SUBSTANTIVE, not merely present. Checking only that
+            # the name is assigned lets `postcondition = None` (or {} / "") satisfy P2
+            # while asserting nothing — the audit would be measuring the declaration's
+            # existence instead of its content. Found by benchmarks/governance_adversarial.py
+            # (scenario: postcondition-removed), which the name-only check scored as clean.
+            postcondition_assigns = [
+                child for child in ast.walk(function)
                 if isinstance(child, ast.Assign)
                 and any(isinstance(t, ast.Name) and t.id == POSTCONDITION_NAME for t in child.targets)
+            ]
+            declared = [c.lineno for c in postcondition_assigns]
+            empty_declarations = [
+                c.lineno for c in postcondition_assigns if _is_vacuous_postcondition(c.value)
             ]
             if not declared or min(declared) > min(verify_lines):
                 breaches.append(
                     f"P2 breach: {name} ({module_name}.{entrypoint}) does not declare a "
                     f"'{POSTCONDITION_NAME}' before verifying it — the postcondition must be "
                     f"declared at propose time, not chosen after the write."
+                )
+                continue
+            if empty_declarations and len(empty_declarations) == len(postcondition_assigns):
+                breaches.append(
+                    f"P2 breach: {name} ({module_name}.{entrypoint}) declares "
+                    f"'{POSTCONDITION_NAME}' as an empty/None value at line "
+                    f"{min(empty_declarations)} — an assertion that asserts nothing is not a "
+                    f"postcondition. VERIFY must have something falsifiable to check "
+                    f"(CONSTITUTION Article VI, P2)."
                 )
                 continue
             verified.append(f"{name} ({module_name}.{entrypoint})")

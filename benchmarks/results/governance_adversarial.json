@@ -1,0 +1,113 @@
+{
+ "baseline_rc": 0,
+ "strict": true,
+ "working_tree_dirty_at_start": true,
+ "counts": {
+  "total": 6,
+  "detected": 6,
+  "undetected": 0,
+  "inconclusive": 0
+ },
+ "detection_rate_conclusive": 100.0,
+ "scenarios": [
+  {
+   "id": "silent-except-reintroduced",
+   "rule": "Law 3 \u2014 no silent failure",
+   "severity": "high",
+   "target": "agents/task_decomposer.py",
+   "tags": [
+    "silent-except",
+    "regression-of-known-bug"
+   ],
+   "why": "This is the exact defect that killed 54% of meta-loop cycles: a bare except with pass, so a TypeError vanishes and the loop reports success. If the audit cannot see this shape re-enter a registered module, that failure can recur.",
+   "verdict": "detected",
+   "detail": "audit failed on the mutated tree",
+   "audit_rc": 1,
+   "syntax_ok": true,
+   "audit_tail": "Distributed governance checks failed:\n[no_silent_except]\n- agents/task_decomposer.py:315: 'except Exception:' without 'as' binding swallows failures silently.\n",
+   "seconds": 1.1
+  },
+  {
+   "id": "llm-call-inside-evaluate",
+   "rule": "P2 \u2014 evaluation must not be judged by the thing being evaluated",
+   "severity": "high",
+   "target": "agents/task_decomposer.py",
+   "tags": [
+    "self-grading"
+   ],
+   "why": "LLM-as-judge inside evaluate() lets an agent grade its own homework. The repo bans it and grades SWE-bench programmatically; the audit must enforce the same standard in code, not only in the report.",
+   "verdict": "detected",
+   "detail": "audit failed on the mutated tree",
+   "audit_rc": 1,
+   "syntax_ok": true,
+   "audit_tail": "Distributed governance checks failed:\n[no_llm_in_evaluate]\n- agents/task_decomposer.py: evaluate() must not call call_llm.\n",
+   "seconds": 1.1
+  },
+  {
+   "id": "entrypoint-deleted",
+   "rule": "Registry integrity \u2014 declared entrypoints must exist",
+   "severity": "high",
+   "target": "agents/task_decomposer.py",
+   "tags": [
+    "registry-drift"
+   ],
+   "why": "A registered entrypoint that no longer exists means the registry describes a system that is not there. This is the drift the audit exists to catch.",
+   "verdict": "detected",
+   "detail": "audit failed on the mutated tree",
+   "audit_rc": 1,
+   "syntax_ok": true,
+   "audit_tail": "Distributed governance checks failed:\n[entrypoints]\n- Task Decomposer missing entrypoint: decompose_requirements.\n- Karpathy Pipeline module import failed: cannot import name 'decompose_requirements' from 'agents.task_decomposer' (/tmp/gov_adv__ms2hw_a/repo/agents/task_decomposer.py).\n[verified_closure]\n- Task Decomposer: write-agent entrypoint 'decompose_requirements' not found in agents/task_decomposer.py.\n",
+   "seconds": 1.0
+  },
+  {
+   "id": "postcondition-removed",
+   "rule": "P2 \u2014 Verified Closure declared before execution",
+   "severity": "high",
+   "target": "agents/task_decomposer.py",
+   "tags": [
+    "verified-closure"
+   ],
+   "why": "The postcondition is declared BEFORE the graph runs precisely so the agent cannot pick a convenient assertion after seeing its own output. Removing it restores the ability to self-flatter.",
+   "verdict": "detected",
+   "detail": "audit failed on the mutated tree",
+   "audit_rc": 1,
+   "syntax_ok": true,
+   "audit_tail": "Distributed governance checks failed:\n[verified_closure]\n- P2 breach: Task Decomposer (agents.task_decomposer.decompose_requirements) declares 'postcondition' as an empty/None value at line 472 \u2014 an assertion that asserts nothing is not a postcondition. VERIFY must have something falsifiable to check (CONSTITUTION Article VI, P2).\n",
+   "seconds": 1.1
+  },
+  {
+   "id": "never-list-emptied",
+   "rule": "Least privilege \u2014 NEVER is the architectural boundary",
+   "severity": "high",
+   "target": "agents/context_curator.py",
+   "tags": [
+    "privilege-escalation",
+    "never-boundary"
+   ],
+   "why": "NEVER is where the constraint actually lives: it is the list of things the agent cannot do by construction. Quietly commenting an entry out widens capability while leaving the matrix well-formed, so a shape-only check still passes. This is privilege escalation that looks like a formatting change.",
+   "verdict": "detected",
+   "detail": "audit failed on the mutated tree",
+   "audit_rc": 1,
+   "syntax_ok": true,
+   "audit_tail": "Distributed governance checks failed:\n[permission_matrices]\n- Context Curator removed ['source_code_edit'] from its NEVER list. The forbidden set may be widened by an explicit constitutional amendment, not by editing the matrix.\n",
+   "seconds": 1.1
+  },
+  {
+   "id": "never-entry-promoted-to-write",
+   "rule": "Least privilege \u2014 a forbidden capability must not become a granted one",
+   "severity": "high",
+   "target": "agents/context_curator.py",
+   "tags": [
+    "privilege-escalation",
+    "never-boundary"
+   ],
+   "why": "Moving a capability from NEVER into WRITE is the exact inversion the permission matrix exists to prevent. The matrix stays a dict of lists, so shape validation cannot see it \u2014 only a check that reads NEVER against the other keys can.",
+   "verdict": "detected",
+   "detail": "audit failed on the mutated tree",
+   "audit_rc": 1,
+   "syntax_ok": true,
+   "audit_tail": "Distributed governance checks failed:\n[permission_matrices]\n- Context Curator permission matrix escalates privilege: ['source_code_edit'] appears in both NEVER and READ/WRITE. A forbidden capability may not also be a granted one.\n",
+   "seconds": 1.1
+  }
+ ]
+}
