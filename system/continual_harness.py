@@ -56,6 +56,74 @@ def _slug(raw: str, fallback: str) -> str:
     return (normalized or fallback)[:80]
 
 
+def _coerce_version(raw: Any) -> int:
+    """A version stored as a string must survive the round-trip.
+
+    PORTED-FROM: harness.py:237-245 — `"3"` becomes `3`; anything unparseable
+    degrades to 1 rather than raising. The earlier port checked `isinstance(int)`
+    only, so every string version silently reset to 1 and lost refinement history.
+    """
+    if isinstance(raw, bool):  # bool is an int subclass; not a version
+        return 1
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return int(raw)
+        except ValueError:
+            return 1
+    return 1
+
+
+def _coerce_scope(raw: Any, default: str = "local") -> str:
+    """Scope must remain a member of VALID_SCOPES.
+
+    PORTED-FROM: harness.py:233-234 — an absent/invalid scope falls back to the
+    store's own scope. The earlier port fell back to `state_path.parent.name`, so an
+    entry under a directory named `sub/` loaded with scope='sub', a value no other
+    code path can interpret.
+    """
+    return raw if isinstance(raw, str) and raw in VALID_SCOPES else default
+
+
+def _strip_scope_prefix(entry_id: str | None) -> str | None:
+    """Accept the `local:`/`global:` ids that an overview rendering emits.
+
+    PORTED-FROM: harness.py:59-67. We keep the id-normalisation half; the upstream
+    scope-routing half is intentionally dropped (see class docstring: this port is
+    single-store, scope is a label, not a second backing file).
+    """
+    if isinstance(entry_id, str):
+        scope, sep, rest = entry_id.partition(":")
+        if sep and rest and scope in VALID_SCOPES:
+            return rest
+    return entry_id
+
+
+def _validate_python_skill_reference(reference: dict[str, Any] | None) -> dict[str, Any]:
+    """A skill entry's reference must name a real, importable Python callable.
+
+    PORTED-FROM: harness.py:128-138. Without this, a `skill` entry can be created
+    pointing at nothing and only fails at call time, far from the write that caused it.
+    """
+    if not isinstance(reference, dict):
+        raise HarnessError("skill entries require a Python reference")
+    normalized = dict(reference)
+    if normalized.get("type") != "python":
+        raise HarnessError("skill reference.type must be 'python'")
+    if not any(
+        isinstance(normalized.get(key), str) and normalized[key]
+        for key in ("import", "python_import")
+    ):
+        raise HarnessError("skill reference requires a Python import")
+    if not any(
+        isinstance(normalized.get(key), str) and normalized[key]
+        for key in ("callable", "call_pattern")
+    ):
+        raise HarnessError("skill reference requires a callable or call_pattern")
+    return normalized
+
+
 @dataclass
 class HarnessEntry:
     """A reusable prompt, memory, skill, or subagent record."""
@@ -164,14 +232,14 @@ class ContinualHarness:
                         title=raw.get("title", ""),
                         content=raw.get("content", ""),
                         path=raw.get("path", "general") if isinstance(raw.get("path"), str) else "general",
-                        scope=raw.get("scope", self.state_path.parent.name or "local"),
+                        scope=_coerce_scope(raw.get("scope")),
                         reference=cast(dict[str, Any], raw.get("reference") if isinstance(raw.get("reference"), dict) else {}),
                         arguments=cast(dict[str, Any], raw.get("arguments") if isinstance(raw.get("arguments"), dict) else {}),
                         metadata=cast(dict[str, Any], raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}),
                         source=raw.get("source") if isinstance(raw.get("source"), str) else "agent",
                         created_at=raw.get("created_at", _now()),
                         updated_at=raw.get("updated_at", _now()),
-                        version=int(raw.get("version", 1)) if isinstance(raw.get("version"), int) else 1,
+                        version=_coerce_version(raw.get("version", 1)),
                     )
                     entries[kind][str(eid)] = entry
         self.entries = entries
@@ -212,8 +280,14 @@ class ContinualHarness:
                 path: str | None = None, reference: dict | None = None,
                 arguments: dict | None = None, metadata: dict | None = None,
                 source: str = "agent") -> HarnessEntry:
+        # Caller is responsible for syncing from disk first. create()/update() sync
+        # once and then call this directly, so their existence check and the write are
+        # not separated by a second reload — otherwise create-or-fail degrades into a
+        # silent update. (PORTED-FROM: harness.py:357-360)
         if kind not in self.entries:
             raise HarnessError(f"unknown harness kind {kind!r}; expected one of {VALID_KINDS}")
+        if kind == "skill" and reference is not None:
+            reference = _validate_python_skill_reference(reference)
         eid = id or _slug(title, kind)
         existing = self.entries[kind].get(eid)
         if existing:
@@ -242,6 +316,46 @@ class ContinualHarness:
         self.save()
         return entry
 
+    def create(self, kind: str, title: str, content: str, *, id: str | None = None,
+               path: str = "general", reference: dict | None = None,
+               arguments: dict | None = None, metadata: dict | None = None,
+               source: str = "agent") -> HarnessEntry:
+        """Create a NEW entry; raise if the id already exists.
+
+        PORTED-FROM: harness.py:437-482. `upsert` is the lenient path; `create` is
+        the one that refuses to clobber. Collapsing the two (as the first port did)
+        turns an accidental id collision into silent data loss.
+        """
+        entry_id = _strip_scope_prefix(id)
+        self._sync_from_disk()
+        if kind not in self.entries:
+            raise HarnessError(f"unknown harness kind {kind!r}; expected one of {VALID_KINDS}")
+        entry_id = entry_id or _slug(title, kind)
+        if entry_id in self.entries[kind]:
+            raise HarnessError(f"{kind} entry {entry_id!r} already exists")
+        return self._upsert(kind, title, content, id=entry_id, path=path,
+                            reference=reference, arguments=arguments,
+                            metadata=metadata, source=source)
+
+    def update(self, kind: str, id: str, title: str, content: str, *,
+               path: str | None = None, reference: dict | None = None,
+               arguments: dict | None = None, metadata: dict | None = None,
+               source: str = "agent") -> HarnessEntry:
+        """Update an EXISTING entry; raise if it is absent.
+
+        Omitted (None) fields are preserved; an explicit value — including {} —
+        overrides. PORTED-FROM: harness.py:484-... plus the field semantics at :369-380.
+        """
+        entry_id = _strip_scope_prefix(id)
+        self._sync_from_disk()
+        if kind not in self.entries:
+            raise HarnessError(f"unknown harness kind {kind!r}; expected one of {VALID_KINDS}")
+        if entry_id not in self.entries[kind]:
+            raise HarnessError(f"{kind} entry {entry_id!r} does not exist")
+        return self._upsert(kind, title, content, id=entry_id, path=path,
+                            reference=reference, arguments=arguments,
+                            metadata=metadata, source=source)
+
     def upsert(self, kind: str, title: str, content: str, *, id: str | None = None,
                path: str | None = None, reference: dict | None = None,
                arguments: dict | None = None, metadata: dict | None = None,
@@ -251,12 +365,16 @@ class ContinualHarness:
             if not require_evidence.strip():
                 raise HarnessError("refinement requires non-empty evidence")
         self._sync_from_disk()
-        return self._upsert(kind, title, content, id=id, path=path, reference=reference,
-                            arguments=arguments, metadata=metadata, source=source)
+        return self._upsert(kind, title, content, id=_strip_scope_prefix(id), path=path,
+                            reference=reference, arguments=arguments,
+                            metadata=metadata, source=source)
 
     def get(self, kind: str, id: str) -> HarnessEntry | None:
         self._sync_from_disk()
-        return self.entries.get(kind, {}).get(id)
+        entry_id = _strip_scope_prefix(id)
+        if entry_id is None:
+            return None
+        return self.entries.get(kind, {}).get(entry_id)
 
     def list(self, kind: str | None = None) -> list[HarnessEntry]:
         self._sync_from_disk()
@@ -270,8 +388,9 @@ class ContinualHarness:
         self._sync_from_disk()
         if kind not in self.entries:
             raise HarnessError(f"unknown harness kind {kind!r}")
-        if id in self.entries[kind]:
-            del self.entries[kind][id]
+        entry_id = _strip_scope_prefix(id)
+        if entry_id in self.entries[kind]:
+            del self.entries[kind][entry_id]
             self.save()
             return True
         return False
