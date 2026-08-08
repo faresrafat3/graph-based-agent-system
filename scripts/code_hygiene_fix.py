@@ -44,9 +44,6 @@ PROBED_APPLY: set[str] = set()
 # User WIP — never touch.
 WIP_EXCLUDE = {os.path.join(ROOT, "benchmarks", "swebench_harness.py")}
 
-# First-party roots whose import-time side effects we must not silently drop.
-FIRST_PARTY_ROOTS = ("agents", "llm", "memory", "tools", "system", "kernel", "scripts", "benchmarks")
-
 
 def _load_scanner():
     spec = importlib.util.spec_from_file_location("code_hygiene_scan", SCANNER_PATH)
@@ -55,38 +52,7 @@ def _load_scanner():
     return mod
 
 
-def _is_test_file(rel: str) -> bool:
-    return rel.replace("\\", "/").startswith("tests/")
-
-
-def _module_of(imp_text: str) -> str | None:
-    t = imp_text.strip()
-    if t.startswith("from "):
-        parts = t.split()
-        return parts[1].split(".")[0]
-    if t.startswith("import "):
-        parts = t.split()
-        return parts[1].split(".")[0]
-    return None
-
-
-def _side_effect_ok(imp_text: str, rel: str) -> bool:
-    mod = _module_of(imp_text)
-    if mod is None:
-        return False
-    if mod in FIRST_PARTY_ROOTS:
-        return False
-    try:
-        subprocess.run(
-            [sys.executable, "-c", f"import {mod}"],
-            cwd=ROOT, capture_output=True, text=True, timeout=30,
-        )
-    except Exception:
-        return False
-    return True
-
-
-def _apply_finding(chs, f: dict, src_lines: list[str]) -> list[str] | None:
+def _apply_finding(f: dict, src_lines: list[str]) -> list[str] | None:
     kind = f["kind"]
     ln = f.get("line")
     if kind == "trailing_whitespace_code":
@@ -148,7 +114,7 @@ def main() -> int:
         new_lines = lines[:]
         changed = False
         for f in actionable:
-            res = _apply_finding(chs, f, new_lines)
+            res = _apply_finding(f, new_lines)
             if res is not None:
                 new_lines = res
                 changed = True

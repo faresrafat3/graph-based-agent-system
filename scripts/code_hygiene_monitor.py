@@ -22,7 +22,6 @@ from __future__ import annotations
 import importlib.util
 import os
 import subprocess
-import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCANNER_PATH = os.path.join(ROOT, "scripts", "code_hygiene_scan.py")

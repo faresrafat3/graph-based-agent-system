@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """Autonomous safe-hygiene auto-runner (cron entry point).
 
-Combines the observer + the gated fixer + an atomic commit:
+Combines the observer + the gated fixer + isolated staging:
   1. run code_hygiene_fix.py (applies only the 3 proven-safe categories,
      runs `make test` as a stability gate, reverts on failure)
-  2. if the fixer applied changes, commit them atomically — isolated from any
-     user WIP (git add only the files the fixer touched, never `git add -A`)
+  2. if the fixer applied changes, stage ONLY the fixer-touched files
+     (never `git add -A`, which would sweep in user WIP). Committing is
+     owned by the existing auto_sync cron (Conventional Commits hook + WIP
+     isolation), so we never commit ourselves.
   3. stay silent otherwise (watchdog pattern)
 
 This is the LEVEL-2 autonomous mode: the system now self-repairs safe findings
 on a schedule, while preserving the zero-harm invariant (revert-on-red gate +
-atomic commit that can never bundle user WIP).
+staging that can never bundle user WIP).
 """
 from __future__ import annotations
 
 import importlib.util
 import os
 import subprocess
-import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXER_PATH = os.path.join(ROOT, "scripts", "code_hygiene_fix.py")
