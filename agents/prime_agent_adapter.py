@@ -171,6 +171,13 @@ class SidecarResult:
     signal: AgentSignal
     messages: list[dict]
     session_jsonl: str | None = None
+    # Observability of the sidecar's own health. These are INFRA facts, not
+    # capability facts: a run that needed 3 retries and 2 compactions is not
+    # comparable to a clean one, and conflating them corrupts any measurement
+    # built on these runs (rpc.md:957-1018).
+    errors: list[str] = field(default_factory=list)
+    retries: int = 0
+    compactions: int = 0
 
 
 class PrimeAgentAdapter:
@@ -210,32 +217,75 @@ class PrimeAgentAdapter:
 
     # --- inbound: run until terminal signal ---
     def run(self, task_spec: str, *, timeout_events: int | None = None) -> SidecarResult:
+        """Drive one sidecar run to a terminal signal.
+
+        Handles the documented RPC event surface (rpc.md:789-1031). Events we do
+        not route on are still OBSERVED where they carry health information —
+        silently dropping them is how an infra failure gets misread as a clean run.
+        """
         self.prompt(task_spec)
         seen = 0
+        errors: list[str] = []
+        retries = 0
+        compactions = 0
+
+        def _result(signal: AgentSignal) -> SidecarResult:
+            return SidecarResult(
+                signal=signal,
+                messages=list(self._buffer),
+                errors=errors,
+                retries=retries,
+                compactions=compactions,
+            )
+
         for frame in self._transport.events():
             seen += 1
-            # Buffer completed messages only; `message_update` deltas are
-            # skipped so each message is stored once, fully formed.
-            if frame.type in ("message", "message_end"):
-                body = frame.data.get("message", frame.data) if isinstance(frame.data, dict) else frame.data
+            data = frame.data if isinstance(frame.data, dict) else {}
+
+            # A rejected command never produces agent_end. Without this branch the
+            # loop blocks forever on a stream that has already given its answer
+            # (rpc.md:1225-1247).
+            if frame.type == "response" and data.get("success") is False:
+                return _result(AgentSignal(
+                    signal_type="HUMAN_CHECKPOINT",
+                    source_agent="prime_agent_sidecar",
+                    data={
+                        "reason": "sidecar rejected a command",
+                        "command": data.get("command"),
+                        "error": data.get("error"),
+                    },
+                ))
+
+            if frame.type == "extension_error":
+                errors.append(
+                    f"{data.get('extensionPath', '?')}: {data.get('error', 'unknown error')}"
+                )
+            elif frame.type == "auto_retry_start":
+                retries += 1
+            elif frame.type == "compaction_start":
+                compactions += 1
+
+            # Buffer completed messages only; `message_update` deltas are skipped so
+            # each message is stored once, fully formed (rpc.md:845-895).
+            if frame.type == "message_end":
+                body = data.get("message", data)
                 self._buffer.append(body)
+
             sig = translate_event(frame, source="prime_agent_sidecar")
             if sig is not None:
                 # translate_event() emits only on agent_end (lifecycle frames
                 # return None), so any signal here ends the run. Do NOT gate on
                 # AgentSignal.is_terminal: that means TERMINAL_SIGNALS, which
                 # CODE_GENERATED is not.
-                return SidecarResult(signal=sig, messages=list(self._buffer))
+                return _result(sig)
             if timeout_events is not None and seen >= timeout_events:
                 break
-        return SidecarResult(
-            signal=AgentSignal(
-                signal_type="HUMAN_CHECKPOINT",
-                source_agent="prime_agent_sidecar",
-                data={"reason": "sidecar stream ended without terminal signal"},
-            ),
-            messages=list(self._buffer),
-        )
+
+        return _result(AgentSignal(
+            signal_type="HUMAN_CHECKPOINT",
+            source_agent="prime_agent_sidecar",
+            data={"reason": "sidecar stream ended without terminal signal"},
+        ))
 
 
 def prime_agent_node(state: dict) -> dict:
@@ -267,4 +317,11 @@ def prime_agent_node(state: dict) -> dict:
     return {
         "prime_agent_signal": result.signal.to_dict(),
         "prime_agent_messages": result.messages,
+        # Sidecar health travels with the result so a downstream measurement node
+        # can separate INFRA failures (retries/errors) from CAPABILITY failures.
+        "prime_agent_health": {
+            "errors": result.errors,
+            "retries": result.retries,
+            "compactions": result.compactions,
+        },
     }

@@ -134,9 +134,22 @@ def compare_node(state: SystemsLayerState) -> SystemsLayerState:
 
 
 def propose_node(state: SystemsLayerState) -> SystemsLayerState:
-    """Emit exactly one control change per meaningful signal (L3 / one variable per probe)."""
+    """Emit exactly one control change per meaningful signal (L3 / one variable per probe).
+
+    Each proposal is stamped with the version of the measurement it was computed
+    against (TRANSPLANT-1, prime-agent agent-session.ts:2556). Under Ruling C1 a
+    human applies these by hand, so propose-time and apply-time can be days apart;
+    the stamp is what makes `is_proposal_stale` able to answer honestly.
+    """
+    from system.self_improvement import Measurement
+
     delta = state.get("delta") or {"has_meaningful_delta": False}
-    proposals = propose(delta)
+    current = state.get("current_measurement", {})
+    measured = None
+    if current:
+        measured = Measurement(**{k: v for k, v in current.items()
+                                  if k in Measurement.__dataclass_fields__})
+    proposals = propose(delta, measured=measured)
     log = list(state.get("cycle_log", [])) + [
         f"propose: {len(proposals)} control(s) for signals"
     ]

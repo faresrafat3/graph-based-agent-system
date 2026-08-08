@@ -18,6 +18,7 @@ Hard rules (enforced):
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -108,14 +109,63 @@ def compare(before: Measurement, after: Measurement) -> dict[str, Any]:
     }
 
 
-def propose(delta: dict[str, Any]) -> list[dict[str, Any]]:
+def measurement_version(m: Measurement) -> str:
+    """A stable fingerprint of the evidence a proposal was computed against.
+
+    TRANSPLANT-1 (prime-agent `agent-session.ts:2556`, branch-version invalidation):
+    a plan computed against one state must never be silently applied to a mutated
+    one. prime-agent re-checks a monotonically-increasing `branchVersion`; our
+    evidence is a value object rather than an append-only history, so the honest
+    analogue is a content hash of the evidence itself.
+
+    Only the SIGNAL fields participate. `timestamp` and `notes` are provenance,
+    not evidence: including them would make every re-measurement look like a
+    change and turn the staleness check into permanent noise.
+    """
+    signal_fields = (
+        m.success_rate, m.defense_rate, m.quality, m.health,
+        m.thrash_count, m.postcond_pass, m.governance_score,
+    )
+    payload = json.dumps(signal_fields, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def is_proposal_stale(proposal: dict[str, Any], current: Measurement) -> bool:
+    """True when a proposal's evidence no longer matches the current measurement.
+
+    Fails SAFE: a proposal with no recorded version reads as STALE, never as
+    fresh. Unknown provenance is not a clean bill of health (Law 3) — and under
+    Ruling C1 a human applies these by hand, so the propose->apply gap is
+    minutes-to-days. A stale proposal is indistinguishable from a fresh one
+    on sight; this makes the difference checkable.
+    """
+    stamped = proposal.get("measurement_version")
+    if not stamped:
+        return True
+    return stamped != measurement_version(current)
+
+
+def propose(delta: dict[str, Any], measured: Measurement | None = None) -> list[dict[str, Any]]:
     """Emit exactly ONE control change per meaningful signal (L3).
 
     The loop isolates a single variable per probe: one signal -> one proposal.
     Multiple signals would mean multiple simultaneous changes, which violates the
     one-variable rule, so we propose for the highest-priority signal only and leave
     the rest for the next cycle.
+
+    `measured` is the measurement the delta was computed FROM. When supplied, each
+    proposal is stamped with its version so a later reader can tell whether the
+    evidence still holds (see is_proposal_stale). It is optional so existing
+    callers keep working; an unstamped proposal reads as stale rather than fresh.
     """
+    proposals = _propose_unstamped(delta)
+    version = measurement_version(measured) if measured is not None else None
+    for p in proposals:
+        p["measurement_version"] = version
+    return proposals
+
+
+def _propose_unstamped(delta: dict[str, Any]) -> list[dict[str, Any]]:
     if not delta.get("has_meaningful_delta"):
         return []
 
