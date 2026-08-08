@@ -38,15 +38,26 @@
   Adopting `skip`/`invalidated`/`failure` as first-class outcomes would let a human reading
   the board tell "nothing to do" from "was valid, no longer" from "broke".
 
-### M3 — Turn-boundary-aware compaction cut point
-- **source**: `packages/coding-agent/src/core/compaction/compaction.ts:355`, `:636`
-- **what**: `findTurnStartIndex` rewinds the candidate cut to the nearest `user` /
-  `bashExecution` / `branch_summary` / `custom_message` entry, so compaction never splits an
-  assistant turn from its tool results.
-- **why it is strong**: Cutting mid-turn orphans tool calls from their results, and most
-  providers hard-error on that history. "Drop the oldest N messages" is the standard bug.
-- **transfer note**: Any Python compaction we write must respect tool-call/result atomicity.
-  This is a pure, unit-testable index function — port it before writing any compactor.
+### M3 — Tool-result-safe cut point with explicit split-turn handling
+- **source**: `packages/coding-agent/src/core/compaction/compaction.ts:310-347`
+  (`findValidCutPoints`), `:354-369` (`findTurnStartIndex`), `:402-458` (`findCutPoint`)
+- **what**: `findValidCutPoints` collects indices of `user`/`assistant`/`bashExecution`/
+  `custom`/`branchSummary`/`compactionSummary` messages and **explicitly excludes
+  `toolResult`** (:326-327) — 🟢 "Never cut at tool results (they must follow their tool call)."
+  `findCutPoint` walks backwards accumulating `estimateTokens` until `keepRecentTokens` is
+  exceeded, then snaps to the closest valid cut point **at or after** that entry (:422-429).
+  It then rewinds over non-message entries (settings/model changes) so they travel with the
+  kept block, stopping at any message or compaction (:433-446). Finally, if the cut landed on
+  a non-user message it sets `isSplitTurn` and records `turnStartIndex` (:448-457).
+- **why it is strong**: Two distinct correctness properties. (1) Cutting at a `toolResult`
+  orphans it from its tool call and most providers hard-error on that history. (2) Cutting at
+  an *assistant* message is allowed precisely because its tool results follow and are kept —
+  so the naive "only cut at user messages" rule is too strict and wastes budget.
+- **transfer note**: **CORRECTED.** An earlier draft of this entry described the mechanism as
+  "rewind the cut to the nearest turn start". That is wrong: it does NOT rewind the cut. It
+  keeps the cut and *flags* the split, so `prepareCompaction` (:636-690) can summarise the
+  split turn's prefix separately (`turnPrefixMessages`) from the older history
+  (`messagesToSummarize`). Landed as `system/compaction_cut.py`.
 
 ### M4 — Compaction as a pure predicate
 - **source**: `compaction.ts:229`
@@ -348,5 +359,39 @@ The decision to stop retrying was right; the reason recorded for it was not. Cor
 The area was then digested directly with targeted greps rather than delegation, which is why
 M25–M29 exist. Nothing here was inferred from a filename.
 
-The remaining inventory verdicts (198 of 302 rows) are still unfilled and the L1 gate
-correctly reports FAIL at 34.4%.
+The inventory is now complete: 302/302 rows carry a description and a verdict, and the L1
+gate reports PASS at 100%. Distribution: 75 adopt, 104 adapt, 109 reject, 14 n/a.
+
+Grounding audit of that 100% (because a gate turning green is when to distrust it):
+every one of the 302 rows resolves to a real file on disk with an exact line-count match,
+zero rows kept an `Exports:` placeholder, and the 7 rows still marked UNREAD are all
+`n/a` CHANGELOGs and package READMEs that state their own reason. No `adopt`/`adapt`
+verdict rests on an unread file.
+
+## M30 — Lease as compare-and-swap, not as a flag
+
+`packages/coding-agent/src/core/session-lease.ts`
+
+Single-writer admission is won by `mkdirSync` of a candidate directory then `renameSync`
+onto the real lease path (`:258-263`) — an atomic compare-and-swap, so two racing openers
+cannot both believe they hold it. Reclamation is the same primitive in reverse: a stale
+lease is `renameSync`d aside to `${directory}.stale-${pid}-${uuid}` and only then removed
+(`:219-228`), so a crash mid-reclaim leaves an orphan directory rather than a half-deleted
+lease. Cleanup is explicitly best-effort with the next process reclaiming (`:58`).
+
+Why it transfers: this is filesystem semantics, not TypeScript. Our shared result files
+already use lock + atomic write; this extends the same discipline to *ownership* rather
+than just content.
+
+## M31 — Exactly-once commands via a three-state journal
+
+`packages/coding-agent/src/modes/daemon/command-recovery-journal.ts`
+
+`begin()` returns one of three states — `new`, `pending`, or `complete` carrying the
+stored `response` (`:37-40`, `:73-88`). A replayed command therefore *replays its recorded
+response* instead of re-executing, and recording a result before receipt is a hard error
+rather than a silent insert (`:95`).
+
+Why it matters here: the same shape as the silent-collision bug this cycle found in our own
+`continual_harness.py`, where a duplicate id became a silent update. This mechanism is the
+general fix — make the duplicate case an explicit, named state instead of an overwrite.
