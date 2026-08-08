@@ -101,7 +101,7 @@ def validate_python_syntax(code: str) -> dict:
             metrics["function_count"] += 1
             
             # Check docstring
-            if (node.body and isinstance(node.body[0], ast.Expr) and 
+            if (node.body and isinstance(node.body[0], ast.Expr) and
                 isinstance(node.body[0].value, ast.Constant)):
                 metrics["has_docstrings"] = True
             
@@ -113,7 +113,7 @@ def validate_python_syntax(code: str) -> dict:
             metrics["class_count"] += 1
             
             # Check class docstring
-            if (node.body and isinstance(node.body[0], ast.Expr) and 
+            if (node.body and isinstance(node.body[0], ast.Expr) and
                 isinstance(node.body[0].value, ast.Constant)):
                 metrics["has_docstrings"] = True
                 

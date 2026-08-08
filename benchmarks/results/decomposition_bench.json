@@ -1,0 +1,423 @@
+{
+ "records": [
+  {
+   "fixture": "auth-service",
+   "tier": 2,
+   "n_units": 18,
+   "expected_units": 6,
+   "coverage": 1.0,
+   "order_accuracy": 0.6667,
+   "separation": 0.0,
+   "granularity": 0.0,
+   "composite": 0.4167,
+   "missing": [],
+   "order_violations": [
+    "authenticate->jwt (inverted)"
+   ],
+   "merged": [
+    "register+login",
+    "bcrypt+forgot"
+   ],
+   "arm": "flat",
+   "rep": 0,
+   "ok": true,
+   "seconds": 23.4,
+   "units": [
+    "Initialize the project, install required dependencies (web framework, bcrypt, jsonwebtoken, nodemailer, database client, validation library, testing framework) and set up base project structure",
+    "Configure environment variables for JWT secret, database connection, email service credentials, and other sensitive configuration",
+    "Set up database connection and define the user schema with fields for unique email, hashed password, password reset token, reset token expiry, and timestamps",
+    "Implement password hashing utility functions to hash plaintext passwords and compare plaintext inputs to stored hashes",
+    "Build the user registration endpoint with input validation, duplicate email check, password hashing, and user record creation",
+    "Build the user login endpoint that verifies email/password, generates a signed JWT with user ID and expiry, and returns it on successful authentication",
+    "Implement JWT authentication middleware to validate tokens on protected routes and attach the authenticated user to the request context",
+    "Build the forgot password endpoint that verifies the user's email, generates a secure random reset token with expiry, saves it to the user record, and sends a password reset link via email",
+    "Build the reset password endpoint that validates the reset token and expiry, hashes the new password, updates the user record, and clears the reset token fields",
+    "Add input validation for all public endpoints to enforce required fields, valid email format, minimum password length, and valid token formats",
+    "Implement global error handling middleware to return consistent, secure error responses without leaking sensitive system details",
+    "Write unit tests for password hashing utilities to verify correct hashing and password comparison behavior"
+   ]
+  },
+  {
+   "fixture": "csv-etl",
+   "tier": 1,
+   "n_units": 13,
+   "expected_units": 4,
+   "coverage": 1.0,
+   "order_accuracy": 0.3333,
+   "separation": 1.0,
+   "granularity": 0.0,
+   "composite": 0.5833,
+   "missing": [],
+   "order_violations": [
+    "load->validate (inverted)",
+    "aggregate->export (inverted)"
+   ],
+   "merged": [],
+   "arm": "flat",
+   "rep": 0,
+   "ok": true,
+   "seconds": 14.0,
+   "units": [
+    "Import required Python standard library modules (csv, json, datetime, sys)",
+    "Define constants for input CSV file path, output JSON file path, and required CSV column names (amount, date, region)",
+    "Implement helper function to validate that a string matches the ISO 8601 (YYYY-MM-DD) date format",
+    "Implement helper function to validate that a value is a positive numeric amount (convertible to float and greater than 0)",
+    "Initialize an empty dictionary to store aggregated cumulative sales totals per region",
+    "Open the input CSV file using a context manager for read access",
+    "Parse the input CSV with csv.DictReader, skip rows missing any required columns",
+    "Iterate over valid rows, validate the amount field using the positive amount helper, skip and log invalid rows",
+    "For rows with valid amounts, validate the date field using the ISO date helper, skip and log invalid rows",
+    "Add valid row amounts to the corresponding region's cumulative total in the aggregation dictionary, initializing region entries as needed",
+    "Open the output JSON file using a context manager for write access",
+    "Serialize the aggregated region totals dictionary to formatted JSON and write it to the output file"
+   ]
+  },
+  {
+   "fixture": "rate-limited-api",
+   "tier": 3,
+   "n_units": 12,
+   "expected_units": 7,
+   "coverage": 1.0,
+   "order_accuracy": 0.5,
+   "separation": 0.3333,
+   "granularity": 0.2857,
+   "composite": 0.5298,
+   "missing": [],
+   "order_violations": [
+    "backend->algorithm (inverted)",
+    "429->header (inverted)"
+   ],
+   "merged": [
+    "degrade+config",
+    "429+header"
+   ],
+   "arm": "flat",
+   "rep": 0,
+   "ok": true,
+   "seconds": 15.3,
+   "units": [
+    "Define the configuration schema for per-endpoint rate limits, including default window duration, max allowed requests, and per-endpoint override fields",
+    "Implement a Redis client wrapper with connection pooling, error handling, and health check functionality to support graceful degradation",
+    "Add configuration loading logic to pull per-endpoint rate limit settings from the application's existing configuration system",
+    "Implement the sliding window rate limit algorithm using Redis sorted sets, with logic to track request timestamps per API key and endpoint",
+    "Add per-API-key isolation to the rate limiter logic, ensuring limits are applied individually for each valid API key",
+    "Integrate the rate limiter as middleware in the existing REST API request processing pipeline",
+    "Implement logic to return HTTP 429 status code with a correctly calculated Retry-After header when a request exceeds the configured rate limit",
+    "Add graceful degradation fallback logic that allows requests to pass through unblocked if the Redis client is unavailable or returns an error",
+    "Implement metrics emission for rate limit events (allowed requests, blocked requests, Redis errors, fallback activations) using the existing metrics system",
+    "Write unit tests for the sliding window algorithm to validate boundary conditions (e.g., requests at window start/end, overlapping window transitions)",
+    "Write integration tests for the full rate limiting flow, including per-endpoint config enforcement, 429 response validation, Redis unavailability fallback, and per-API-key limit isolation",
+    "Document the rate limiting configuration options, expected behavior, and metrics for operators and API consumers"
+   ]
+  },
+  {
+   "fixture": "migration-zero-downtime",
+   "tier": 4,
+   "n_units": 9,
+   "expected_units": 8,
+   "coverage": 0.875,
+   "order_accuracy": 0.6,
+   "separation": 1.0,
+   "granularity": 0.875,
+   "composite": 0.8375,
+   "missing": [
+    "reversible"
+   ],
+   "order_violations": [
+    "dual write->backfill (absent)",
+    "cutover->cleanup (absent)"
+   ],
+   "merged": [],
+   "arm": "flat",
+   "rep": 0,
+   "ok": true,
+   "seconds": 40.8,
+   "units": [
+    "Add nullable `first_name` and `last_name` columns to the users table via a non-blocking schema migration (no default value) to avoid table locks.",
+    "Deploy backward-compatible application code that writes new/updated user data to both the legacy `name` column and new `first_name`/`last_name` columns, while reading exclusively from the legacy `name` column.",
+    "Implement a batched backfill process for 40 million existing rows, using small transactions with periodic commits, and only updating rows where new columns are unpopulated or the original `name` value is unmodified, to avoid locks and overwriting new data.",
+    "Execute the batched backfill in the background, pausing for performance issues if needed, until all existing rows have `first_name` and `last_name` populated from the original `name` column using consistent splitting logic.",
+    "Deploy updated application code that reads from the new `first_name`/`last_name` columns first, with a fallback to the legacy `name` column only for rows with null new values, keeping both schemas readable during rollout.",
+    "Run comprehensive data integrity checks to confirm all `first_name`/`last_name` values are valid and match the original `name` column data, resolving any discrepancies before proceeding.",
+    "Add `NOT NULL` constraints to the `first_name` and `last_name` columns via a non-blocking schema migration, as all rows are now populated with valid data.",
+    "Deploy final application code that stops writing to the legacy `name` column entirely and removes all fallback logic to the legacy column for reads.",
+    "Once all application instances run the updated code that no longer references the legacy `name` column, drop the legacy `name` column via a non-blocking schema migration to complete the migration."
+   ]
+  },
+  {
+   "fixture": "flaky-test-triage",
+   "tier": 2,
+   "n_units": 7,
+   "expected_units": 5,
+   "coverage": 1.0,
+   "order_accuracy": 0.5,
+   "separation": 0.5,
+   "granularity": 0.6,
+   "composite": 0.65,
+   "missing": [],
+   "order_violations": [
+    "measure->analyse (inverted)",
+    "fix->gate (inverted)"
+   ],
+   "merged": [
+    "diagnose+fix"
+   ],
+   "arm": "flat",
+   "rep": 0,
+   "ok": true,
+   "seconds": 11.7,
+   "units": [
+    "Aggregate historical CI run logs and test result data to identify tests with inconsistent pass/fail outcomes across identical runs.",
+    "Isolate each candidate flaky test and run it repeatedly in a clean isolated environment to confirm non-deterministic behavior and rule out cross-test interference.",
+    "For each confirmed flaky test, analyze its code, test setup/teardown logic, dependencies, and execution context to pinpoint the specific root cause of flakiness.",
+    "Implement targeted fixes for each identified root cause (e.g., add synchronization for race conditions, mock external dependencies, reset shared state, adjust timing assertions).",
+    "Re-run each previously flaky test multiple times in CI-mirroring environments to validate the fix eliminates non-deterministic behavior.",
+    "Integrate a CI guard that runs the full test suite (or high-risk test subsets) multiple times on every pull request to detect newly introduced flaky tests pre-merge.",
+    "Establish a triage and ownership process for flaky tests flagged by the guard, including backlog tracking and required resolution before related PRs are merged."
+   ]
+  },
+  {
+   "fixture": "single-unit-control",
+   "tier": 1,
+   "n_units": 5,
+   "expected_units": 1,
+   "coverage": 1.0,
+   "order_accuracy": 1.0,
+   "separation": 1.0,
+   "granularity": 0.0,
+   "composite": 0.75,
+   "missing": [],
+   "order_violations": [],
+   "merged": [],
+   "arm": "flat",
+   "rep": 0,
+   "ok": true,
+   "seconds": 5.4,
+   "units": [
+    "Locate the pagination offset calculation logic within views.py",
+    "Analyze the existing offset formula to identify the specific off-by-one discrepancy",
+    "Correct the offset calculation to use the proper (current_page - 1) * page_size formula",
+    "Validate that the corrected offset pairs correctly with the pagination limit/items per page value",
+    "Test pagination behavior across edge cases (first page, last page, single-item pages) to confirm the error is fixed"
+   ]
+  },
+  {
+   "fixture": "auth-service",
+   "tier": 2,
+   "n_units": 5,
+   "expected_units": 6,
+   "coverage": 1.0,
+   "order_accuracy": 0.6667,
+   "separation": 0.5,
+   "granularity": 0.8333,
+   "composite": 0.75,
+   "missing": [],
+   "order_violations": [
+    "authenticate->jwt (inverted)"
+   ],
+   "merged": [
+    "bcrypt+forgot"
+   ],
+   "arm": "graph",
+   "rep": 0,
+   "ok": true,
+   "seconds": 78.5,
+   "units": [
+    "Define the overall architecture for the user authentication service including API endpoints, database schema, JWT strategy, password hashing approach, and password reset flow.",
+    "Build the user registration endpoint with email/password validation and secure password hashing.",
+    "Build the login endpoint that authenticates users and returns JWT tokens.",
+    "Build the forgot password and reset password endpoints with email delivery and secure token validation.",
+    "Create unit and integration tests for all authentication features including registration, login, JWT handling, and password reset."
+   ]
+  },
+  {
+   "fixture": "csv-etl",
+   "tier": 1,
+   "n_units": 4,
+   "expected_units": 4,
+   "coverage": 1.0,
+   "order_accuracy": 0.3333,
+   "separation": 0.0,
+   "granularity": 1.0,
+   "composite": 0.5833,
+   "missing": [],
+   "order_violations": [
+    "load->validate (inverted)",
+    "aggregate->export (inverted)"
+   ],
+   "merged": [
+    "validate+aggregate"
+   ],
+   "arm": "graph",
+   "rep": 0,
+   "ok": true,
+   "seconds": 98.7,
+   "units": [
+    "Define the exact CSV column names for amount, date, and region fields. Determine error handling strategy for invalid rows (skip with logging vs fail). Define output JSON structure.",
+    "Design the data processing flow: CSV reading -> validation -> aggregation -> JSON output. Define data structures for intermediate processing and error handling approach.",
+    "Implement a script that reads CSV sales records, validates each row has positive amount and valid ISO date, aggregates totals per region, and writes results to JSON.",
+    "Create and execute test cases to verify the script works correctly with valid and invalid data."
+   ]
+  },
+  {
+   "fixture": "rate-limited-api",
+   "tier": 3,
+   "n_units": 9,
+   "expected_units": 7,
+   "coverage": 1.0,
+   "order_accuracy": 0.5,
+   "separation": 0.6667,
+   "granularity": 0.7143,
+   "composite": 0.7202,
+   "missing": [],
+   "order_violations": [
+    "backend->algorithm (inverted)",
+    "429->header (inverted)"
+   ],
+   "merged": [
+    "429+header"
+   ],
+   "arm": "graph",
+   "rep": 0,
+   "ok": true,
+   "seconds": 17.6,
+   "units": [
+    "Create architecture design document for the rate limiting system including sliding window algorithm details, Redis data structure strategy, per-API-key tracking approach, graceful degradation flow, and configuration schema for per-endpoint limits.",
+    "Implement the core rate limiting module using Redis-backed sliding window algorithm. Include per-API-key tracking, HTTP 429 response with Retry-After header, and graceful degradation logic that allows traffic when Redis is unavailable.",
+    "Implement configuration system allowing different rate limits per API endpoint. Support specifying limits (requests per time window) for individual endpoints or endpoint groups.",
+    "Add metrics emission for rate limiting events including requests allowed, requests rejected (429), and Redis connection status. Emit metrics in a format compatible with the existing monitoring system.",
+    "Integrate the rate limiting middleware into the existing REST API. Ensure it runs before route handlers and applies to all configured endpoints.",
+    "Create tests specifically for sliding window boundary conditions including requests at window start, window end, and across window transitions. Verify rate limiting behavior is correct at boundaries.",
+    "Create tests verifying that rate limits are applied per-API-key (not shared across keys) and that per-endpoint configuration works correctly with different limits for different endpoints.",
+    "Create tests simulating Redis unavailability to verify the system gracefully degrades and allows traffic when Redis is down.",
+    "Create tests verifying that metrics are correctly emitted for rate limiting events including allowed requests, rejected requests, and Redis status changes."
+   ]
+  },
+  {
+   "fixture": "migration-zero-downtime",
+   "tier": 4,
+   "n_units": 12,
+   "expected_units": 8,
+   "coverage": 1.0,
+   "order_accuracy": 0.2,
+   "separation": 1.0,
+   "granularity": 0.5,
+   "composite": 0.675,
+   "missing": [],
+   "order_violations": [
+    "dual write->backfill (inverted)",
+    "backfill->integrity (absent)",
+    "integrity->cleanup (absent)",
+    "cutover->cleanup (absent)"
+   ],
+   "merged": [],
+   "arm": "graph",
+   "rep": 0,
+   "ok": true,
+   "seconds": 173.1,
+   "units": [
+    "Examine the existing users table structure, name column data distribution, nullability, and any naming conventions to inform migration strategy.",
+    "Create a detailed migration plan using the expand-contract pattern with specific rollback procedures for each phase.",
+    "Add the new columns to the users table while preserving the existing name column.",
+    "Create a backfill process that updates existing rows in small batches to avoid table locks and allow progress tracking.",
+    "Update application to write to both the old name column and new first_name/last_name columns during the transition period.",
+    "Roll out the dual-write changes across all application instances with zero downtime.",
+    "Run the batch backfill process to populate first_name and last_name for all existing users.",
+    "Update application to read from first_name/last_name columns with fallback to name column for any rows not yet backfilled.",
+    "Roll out the read-from-new-schema changes across all application instances.",
+    "Validate that first_name and last_name correctly reconstruct the original name column for all rows.",
+    "Remove the old name column after successful verification.",
+    "Remove old column references, dual-write logic, and fallback code from the application."
+   ]
+  },
+  {
+   "fixture": "flaky-test-triage",
+   "tier": 2,
+   "n_units": 4,
+   "expected_units": 5,
+   "coverage": 1.0,
+   "order_accuracy": 0.25,
+   "separation": 0.5,
+   "granularity": 0.8,
+   "composite": 0.6375,
+   "missing": [],
+   "order_violations": [
+    "collect->measure (absent)",
+    "measure->analyse (absent)",
+    "fix->gate (inverted)"
+   ],
+   "merged": [
+    "diagnose+fix"
+   ],
+   "arm": "graph",
+   "rep": 0,
+   "ok": true,
+   "seconds": 78.7,
+   "units": [
+    "Analyze CI logs, test history, and run the test suite multiple times to identify tests that fail intermittently. Document failure patterns and frequency.",
+    "For each identified flaky test, investigate and document the underlying root cause (e.g., timing issues, shared state, external dependencies, race conditions, test data pollution, environment differences).",
+    "Implement fixes for all identified root causes to make tests deterministic and reliable. This may include adding proper waits, isolating test state, mocking external dependencies, or refactoring test logic.",
+    "Add automated CI check or tooling to detect flaky tests before merge. This could include running tests multiple times, integrating flakiness detection tools, or adding heuristics to flag potentially flaky tests."
+   ]
+  },
+  {
+   "fixture": "single-unit-control",
+   "tier": 1,
+   "n_units": 3,
+   "expected_units": 1,
+   "coverage": 1.0,
+   "order_accuracy": 1.0,
+   "separation": 1.0,
+   "granularity": 0.0,
+   "composite": 0.75,
+   "missing": [],
+   "order_violations": [],
+   "merged": [],
+   "arm": "graph",
+   "rep": 0,
+   "ok": true,
+   "seconds": 13.1,
+   "units": [
+    "Locate and confirm the off-by-one error in the pagination offset calculation logic within views.py",
+    "Correct the off-by-one error in the pagination offset calculation in views.py",
+    "Verify that the pagination offset fix works correctly across all page numbers"
+   ]
+  }
+ ],
+ "summary": {
+  "flat": {
+   "runs_ok": 6,
+   "runs_failed": 0,
+   "coverage": 0.9792,
+   "order_accuracy": 0.6,
+   "separation": 0.6389,
+   "granularity": 0.2934,
+   "composite": 0.6279,
+   "per_tier": {
+    "tier1": 0.6666,
+    "tier2": 0.5333,
+    "tier3": 0.5298,
+    "tier4": 0.8375
+   },
+   "mean_seconds": 18.4
+  },
+  "graph": {
+   "runs_ok": 6,
+   "runs_failed": 0,
+   "coverage": 1.0,
+   "order_accuracy": 0.4917,
+   "separation": 0.6111,
+   "granularity": 0.6413,
+   "composite": 0.686,
+   "per_tier": {
+    "tier1": 0.6666,
+    "tier2": 0.6937,
+    "tier3": 0.7202,
+    "tier4": 0.675
+   },
+   "mean_seconds": 76.6
+  }
+ },
+ "n_fixtures": 6,
+ "repeats": 1
+}

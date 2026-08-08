@@ -1130,13 +1130,21 @@ def solve_alphacode_swebench(instance: dict, root: str, files: list, n_samples: 
 
 def process_instance(instance: dict, mode: str, top_k: int, n_samples: int = 4) -> dict:
     """Produce one prediction. Never raises — infrastructure faults are recorded."""
+    # Imported here, not at module scope: localizer_graph imports `localize` from this
+    # module for its ensemble arm, so a top-level import would be circular.
+    from benchmarks.localizer_graph import localize_ensemble
+
     iid = instance["instance_id"]
     started = time.time()
     worktree = tempfile.mkdtemp(prefix=f"swb_{iid}_")
 
     try:
         checkout_worktree(instance["repo"], instance["base_commit"], worktree)
-        files = localize(instance["problem_statement"], worktree, top_k=top_k)
+        # Ensemble localization (measured 2026-08-07, n=336, McNemar exact p=0.029):
+        # hit@3 73.51% vs the flat scorer's 69.64% (+3.87pp). The flat and graph rankers
+        # tie individually (69.6 vs 69.4) but disagree on 81/336 instances, so merging
+        # them recovers part of an 11.9pp union headroom. See docs/LOCALIZER-MEASUREMENT.md.
+        files = localize_ensemble(instance["problem_statement"], worktree, top_k=top_k)
 
         if mode == "agent":
             out = solve_agent(instance, worktree, files)

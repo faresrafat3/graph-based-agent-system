@@ -7,7 +7,6 @@ system/distillation_ledger.jsonl with type=model_review.
 """
 
 import json
-from pathlib import Path
 
 from system.distillation_ledger import DistillationLedger
 

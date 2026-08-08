@@ -1,0 +1,66 @@
+{
+ "summaries": [
+  {
+   "arm": "baseline",
+   "total": 74,
+   "infra_excluded": 17,
+   "scored": 57,
+   "resolved": 26,
+   "resolve_rate_raw": 35.14,
+   "resolve_rate_adjusted": 45.61,
+   "apply_rate": 78.95,
+   "llm_calls": 57,
+   "wall_seconds": 15938,
+   "outcomes": {
+    "resolved": 26,
+    "no_apply": 12,
+    "not_resolved": 19,
+    "infra": 17
+   }
+  },
+  {
+   "arm": "agent",
+   "total": 74,
+   "infra_excluded": 18,
+   "scored": 56,
+   "resolved": 29,
+   "resolve_rate_raw": 39.19,
+   "resolve_rate_adjusted": 51.79,
+   "apply_rate": 85.71,
+   "llm_calls": 74,
+   "wall_seconds": 19948,
+   "outcomes": {
+    "resolved": 29,
+    "not_resolved": 19,
+    "no_apply": 8,
+    "infra": 18
+   }
+  }
+ ],
+ "paired": [
+  {
+   "pair": "baseline vs agent",
+   "n_paired": 50,
+   "both": 21,
+   "neither": 20,
+   "only_baseline": 4,
+   "only_agent": 5,
+   "discordant": 9,
+   "mcnemar_exact_p": 1.0,
+   "delta_pp": 2.0,
+   "agent_gained": [
+    "django__django-15503",
+    "django__django-15863",
+    "django__django-16145",
+    "django__django-16877",
+    "django__django-17084"
+   ],
+   "agent_lost": [
+    "django__django-16082",
+    "django__django-16263",
+    "django__django-16569",
+    "django__django-16938"
+   ]
+  }
+ ]
+}

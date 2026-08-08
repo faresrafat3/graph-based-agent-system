@@ -342,9 +342,9 @@ def evaluate(state: TaskDecomposerState) -> dict:
     
     # Determine success
     success = (
-        not has_circular and 
-        coverage >= 0.6 and 
-        valid_assignments and 
+        not has_circular and
+        coverage >= 0.6 and
+        valid_assignments and
         not needs_clarification and
         len(tasks) > 0
     )

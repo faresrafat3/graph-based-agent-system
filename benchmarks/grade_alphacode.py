@@ -43,7 +43,6 @@ def main():
     test_specs = [make_test_spec(i) for i in instances]
 
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("grade_alphacode")
 
     results = []
     resolved = 0

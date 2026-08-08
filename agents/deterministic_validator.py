@@ -233,7 +233,7 @@ class DeterministicValidatorEngine:
         Returns a list of breaches (empty == passed). This is the ground-truth
         channel that closes the 'silent partial completion' gap (Task 1).
         """
-        import os
+
         import subprocess
 
         if not isinstance(postcondition, dict):

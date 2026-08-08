@@ -12,7 +12,6 @@ Run: export PYTHONPATH= && source .env && python scripts/measure_thrashing.py
 """
 import os
 import sys
-import json
 
 # Load project .env if present (does not print keys)
 env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")

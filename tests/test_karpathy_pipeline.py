@@ -114,7 +114,7 @@ def test_pipeline_domain_squad_code_is_execution_grounded(monkeypatch):
     """
     import importlib
 
-    from agents.karpathy_pipeline import run_karpathy_pipeline
+
     import llm.llm_integration as llm_mod
 
     kp_module = importlib.import_module("agents.karpathy_pipeline")

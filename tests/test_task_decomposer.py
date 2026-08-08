@@ -100,7 +100,7 @@ def test_task_decomposition_cache(monkeypatch):
     
     # Mock find_similar to return cached tasks directly
     monkeypatch.setattr(
-        memory, 
+        memory,
         "find_similar", 
         lambda *a, **k: [{"entry": {"data": {"tasks": cached_tasks, "metadata": cached_metadata}}, "similarity": 1.0}]
     )
@@ -117,8 +117,7 @@ def test_task_decomposition_cache(monkeypatch):
 
 def test_task_decomposition_normalizations(monkeypatch):
     """Verify JSON extraction and assignment role normalization on successful validations"""
-    import json
-    
+
     # Return JSON with no circular dependencies wrapped in markdown fences to cover line 248-249
     # Descriptions contain "test normalizations" to satisfy semantic coverage check
     raw_response = """
@@ -211,8 +210,7 @@ def test_task_decomposition_normalizations(monkeypatch):
 
 def test_task_decomposition_circular_dependencies(monkeypatch):
     """Verify that circular dependencies are successfully analyzed and flagged"""
-    import json
-    
+
     # Return JSON with circular dependencies and NO clarifications_needed key to cover line 287
     raw_response = """
     {
