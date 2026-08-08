@@ -481,7 +481,6 @@ def test_review_rejects_non_candidate_input():
 
 
 def test_verdict_to_dict_is_json_serializable_and_explains_itself():
-    import json
 
     verdict = review(good_candidate(), resolved_trajectory("t", "AssertionError: x"), [])
     payload = json.loads(json.dumps(verdict.to_dict()))
