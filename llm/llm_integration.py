@@ -286,9 +286,10 @@ def call_stepfun_native(
     system_prompt: str = "",
     model: Optional[str] = None,
     temperature: float = 0.0,
-    timeout: int = 30,
+    timeout: int = 300,
     max_retries: int = 2,
     backoff_seconds: float = 0.5,
+    max_tokens: int = 16384,
 ) -> str:
     """
     Call Stepfun's chat completions endpoint using stdlib HTTP.
@@ -332,6 +333,12 @@ def call_stepfun_native(
         "model": config["model"],
         "messages": messages,
         "temperature": temperature,
+        # Bound generation explicitly. Without max_tokens the model generates until it
+        # decides to stop -- measured at 16,122 completion tokens / 135.5s on a routine
+        # analysis prompt, against a 30s client timeout. Every such call died mid-flight
+        # and was recorded as an "infrastructure" failure, biased toward the hardest
+        # cases (long reasoning) and therefore flattering the system.
+        "max_tokens": max_tokens,
     }
 
     last_error = None
@@ -398,11 +405,36 @@ def call_stepfun_native(
 
         try:
             data = json.loads(body)
-            return data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            message = choice["message"]
+            content = message.get("content") or ""
+            finish_reason = choice.get("finish_reason")
         except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
             raise StepfunAPIError(
                 f"Stepfun API returned an invalid chat-completions payload: {body[:500]}"
             ) from exc
+
+        if content.strip():
+            return content
+
+        # Empty content is NOT success. `step-3.7-flash` is a reasoning model: when the
+        # token budget is consumed by internal reasoning it returns finish_reason="length"
+        # with content="" and the whole answer sitting in `reasoning` / `reasoning_content`.
+        # Measured: prompt_tokens=45, completion_tokens=4096, content len=0,
+        # reasoning len=20,022. Returning "" here silently discarded the model's entire
+        # output and every downstream agent saw "the model produced nothing" -- the literal
+        # shape of "good reasoning produced, then dropped".
+        reasoning = message.get("reasoning") or message.get("reasoning_content") or ""
+        if reasoning.strip():
+            raise StepfunAPIError(
+                "Stepfun returned reasoning but no final content "
+                f"(finish_reason={finish_reason!r}, reasoning_chars={len(reasoning)}). "
+                "The token budget was consumed by reasoning before an answer was emitted. "
+                "Raise max_tokens or shorten the prompt. Not retried: it would fail again."
+            )
+        raise StepfunAPIError(
+            f"Stepfun returned empty content (finish_reason={finish_reason!r})."
+        )
 
     raise last_error or StepfunAPIError("Stepfun API request failed without a captured error.")
 
@@ -412,9 +444,10 @@ def call_llm(
     system_prompt: str = "",
     model: Optional[str] = None,
     temperature: float = 0.0,
-    timeout: int = 30,
+    timeout: int = 300,
     max_retries: int = 2,
     backoff_seconds: float = 0.5,
+    max_tokens: int = 16384,
 ) -> str:
     """
     Call the configured Stepfun model.
@@ -431,6 +464,7 @@ def call_llm(
         timeout=timeout,
         max_retries=max_retries,
         backoff_seconds=backoff_seconds,
+        max_tokens=max_tokens,
     )
 
 
