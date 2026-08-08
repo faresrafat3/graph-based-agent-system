@@ -24,7 +24,14 @@ from typing import Any, TypedDict
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
-from system.self_improvement import compare, propose, gate, distill_opus5
+from system.self_improvement import (
+    Measurement,
+    compare,
+    distill_opus5,
+    gate,
+    measurement_version,
+    propose,
+)
 
 
 class SystemsLayerState(TypedDict):
@@ -169,10 +176,34 @@ def distill_node(state: SystemsLayerState) -> SystemsLayerState:
 
 def gate_node(state: SystemsLayerState) -> SystemsLayerState:
     """Gate each proposal: observable + reversible + falsifiable (P7). Accepted proposals
-    become control_proposals. Per C1 this graph NEVER applies them — it only proposes."""
+    become control_proposals. Per C1 this graph NEVER applies them — it only proposes.
+
+    STALENESS IS CHECKED HERE, at the point of use (M1). `propose_node` stamps each
+    proposal with the measurement version it was computed from; this node re-derives the
+    version from the CURRENT measurement and compares. A proposal whose evidence has
+    since moved is flagged `stale=True` rather than dropped: under C1 a human decides,
+    and deleting the row would hide the signal instead of qualifying it.
+
+    Fails safe (Law 3): a proposal with no stamp, or a state with no current
+    measurement, reads as stale. "Not verified fresh" is never reported as fresh.
+    """
+    current_raw = state.get("current_measurement") or {}
+    current_version = ""
+    if current_raw:
+        try:
+            current_version = measurement_version(Measurement(**current_raw))
+        except (TypeError, ValueError):
+            current_version = ""
+
     control_proposals = []
+    stale_count = 0
     for d in state.get("decisions", []):
         decision = gate(d["proposal"])
+        stamped = d["proposal"].get("measurement_version")
+        # No stamp, or no comparable current evidence -> not verified fresh.
+        stale = (not stamped) or (not current_version) or (stamped != current_version)
+        if stale:
+            stale_count += 1
         # C1: even if accepted, we record it as a PROPOSAL, not an applied change.
         control_proposals.append({
             "kind": d["proposal"]["kind"],
@@ -180,11 +211,18 @@ def gate_node(state: SystemsLayerState) -> SystemsLayerState:
             "principle_ref": d["distilled"]["references"],
             "gated_accepted": decision["accepted"],
             "gated_reason": decision["reason"],
+            "measurement_version": stamped or "",
+            "stale": stale,
             "status": "proposed",  # never "applied" by this graph
         })
     log = list(state.get("cycle_log", [])) + [
         f"gate: {len(control_proposals)} control proposal(s) emitted (propose-only, C1)"
     ]
+    if stale_count:
+        log.append(
+            f"gate: {stale_count} proposal(s) flagged STALE — evidence moved since "
+            f"propose-time; re-measure before applying (M1)"
+        )
     return {**state, "control_proposals": control_proposals, "cycle_log": log}
 
 

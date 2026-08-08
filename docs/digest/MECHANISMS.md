@@ -38,15 +38,26 @@
   Adopting `skip`/`invalidated`/`failure` as first-class outcomes would let a human reading
   the board tell "nothing to do" from "was valid, no longer" from "broke".
 
-### M3 — Turn-boundary-aware compaction cut point
-- **source**: `packages/coding-agent/src/core/compaction/compaction.ts:355`, `:636`
-- **what**: `findTurnStartIndex` rewinds the candidate cut to the nearest `user` /
-  `bashExecution` / `branch_summary` / `custom_message` entry, so compaction never splits an
-  assistant turn from its tool results.
-- **why it is strong**: Cutting mid-turn orphans tool calls from their results, and most
-  providers hard-error on that history. "Drop the oldest N messages" is the standard bug.
-- **transfer note**: Any Python compaction we write must respect tool-call/result atomicity.
-  This is a pure, unit-testable index function — port it before writing any compactor.
+### M3 — Tool-result-safe cut point with explicit split-turn handling
+- **source**: `packages/coding-agent/src/core/compaction/compaction.ts:310-347`
+  (`findValidCutPoints`), `:354-369` (`findTurnStartIndex`), `:402-458` (`findCutPoint`)
+- **what**: `findValidCutPoints` collects indices of `user`/`assistant`/`bashExecution`/
+  `custom`/`branchSummary`/`compactionSummary` messages and **explicitly excludes
+  `toolResult`** (:326-327) — 🟢 "Never cut at tool results (they must follow their tool call)."
+  `findCutPoint` walks backwards accumulating `estimateTokens` until `keepRecentTokens` is
+  exceeded, then snaps to the closest valid cut point **at or after** that entry (:422-429).
+  It then rewinds over non-message entries (settings/model changes) so they travel with the
+  kept block, stopping at any message or compaction (:433-446). Finally, if the cut landed on
+  a non-user message it sets `isSplitTurn` and records `turnStartIndex` (:448-457).
+- **why it is strong**: Two distinct correctness properties. (1) Cutting at a `toolResult`
+  orphans it from its tool call and most providers hard-error on that history. (2) Cutting at
+  an *assistant* message is allowed precisely because its tool results follow and are kept —
+  so the naive "only cut at user messages" rule is too strict and wastes budget.
+- **transfer note**: **CORRECTED.** An earlier draft of this entry described the mechanism as
+  "rewind the cut to the nearest turn start". That is wrong: it does NOT rewind the cut. It
+  keeps the cut and *flags* the split, so `prepareCompaction` (:636-690) can summarise the
+  split turn's prefix separately (`turnPrefixMessages`) from the older history
+  (`messagesToSummarize`). Landed as `system/compaction_cut.py`.
 
 ### M4 — Compaction as a pure predicate
 - **source**: `compaction.ts:229`
