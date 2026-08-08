@@ -1047,12 +1047,41 @@ def run_tests_in_worktree(root: str, patch: str, instance: dict, timeout: int = 
                 fail_log_parts.append(out.decode("utf-8", "ignore")[-1200:])
         return passed, total, "\n----\n".join(fail_log_parts)
 
-    ftp_cmds = instance.get("FAIL_TO_PASS", [])
-    ptp_cmds = instance.get("PASS_TO_PASS", [])
-    if ftp_cmds and isinstance(ftp_cmds[0], list):
-        ftp_cmds = [c for sub in ftp_cmds for c in sub]
-    if ptp_cmds and isinstance(ptp_cmds[0], list):
-        ptp_cmds = [c for sub in ptp_cmds for c in sub]
+    def _normalize_test_commands(raw) -> list:
+        """Coerce a SWE-bench FAIL_TO_PASS / PASS_TO_PASS field into a list of commands.
+
+        SWE-bench Verified ships these fields as a JSON-ENCODED STRING (e.g.
+        '["test_x.py::TestCase::test_a", ...]'), not as a list. The previous guard only
+        flattened a nested *list*, so a string fell through and was iterated CHARACTER BY
+        CHARACTER: every character became its own pytest invocation
+        (``python -m pytest [ -x -q``). Verified on 8/8 psf/requests instances. For the
+        instances whose string contains '/', this ran ``python -m pytest /`` — walking the
+        whole filesystem until the timeout, which was then recorded as an
+        "infrastructure" failure and silently dropped from the denominator.
+
+        Accepts: JSON string, plain string, nested lists, or a flat list.
+        """
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text:
+                return []
+            try:
+                parsed = json.loads(text)
+            except (ValueError, TypeError):
+                # Not JSON: treat as a single command.
+                return [text]
+            return _normalize_test_commands(parsed)
+        if isinstance(raw, (list, tuple)):
+            out = []
+            for item in raw:
+                out.extend(_normalize_test_commands(item))
+            return out
+        return [str(raw)]
+
+    ftp_cmds = _normalize_test_commands(instance.get("FAIL_TO_PASS", []))
+    ptp_cmds = _normalize_test_commands(instance.get("PASS_TO_PASS", []))
 
     ftp_pass, ftp_total, ftp_fail_log = run_commands(ftp_cmds)
     ptp_pass, ptp_total, _ = (0, 0, "") if skip_ptp else run_commands(ptp_cmds)
