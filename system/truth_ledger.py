@@ -50,6 +50,27 @@ class Claim:
 class TruthLedger:
     """Append-only store of measured claims, one JSON object per line."""
 
+    #: Words that narrow a count to a different claim. "8 inert agents" does not
+    #: contradict "7 agents call a model" -- they measure different sets.
+    QUALIFIERS = (
+        "inert",
+        "registered",
+        "dead",
+        "orphan",
+        "test-only",
+        "transitively",
+        "directly",
+        "live",
+        "reachable",
+        "unreachable",
+        "flag-gated",
+        "false negative",
+        "false positive",
+        "karpathy",
+        "software",
+        "domain",
+    )
+
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
 
@@ -114,7 +135,19 @@ class TruthLedger:
             return []
 
         subject = subject or key.replace("_count", "").replace("_", " ")
-        # \s+ only -- an intervening word means it is a qualified, different claim.
         pattern = rf"(\d+)\s+{re.escape(subject)}s?\b"
-        found = [int(m.group(1)) for m in re.finditer(pattern, text, re.IGNORECASE)]
-        return [n for n in found if n != truth]
+        # A count is only a contradiction when the sentence is making the SAME claim.
+        # Qualifiers can sit after the number ("8 inert agents") or before it
+        # ("DIRECTLY INERT - 8 agents"), so both sides of the match are inspected.
+        # Verified against this repo's own docs: assuming qualifiers only appear
+        # between the number and the noun missed every real case.
+        out: list[int] = []
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            n = int(m.group(1))
+            if n == truth:
+                continue
+            window = text[max(0, m.start() - 60) : m.start()].lower()
+            if any(q in window for q in self.QUALIFIERS):
+                continue  # a different, narrower claim
+            out.append(n)
+        return out
