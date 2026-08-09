@@ -48,19 +48,27 @@ def _entries(registry: list[dict] | None) -> list[dict]:
     return [entry for entry in registry if isinstance(entry, dict)]
 
 
-def _parse_source(source_path: Path) -> ast.AST | None:
-    """Parse a source file, returning None when it is missing or unparseable.
+#: ``_parse_source`` failure kinds. MISSING means the file is absent; BROKEN means it
+#: exists but Python rejects it. Callers must keep these apart: a broken file reported
+#: as an absent one misdiagnoses the cause, which is a silent failure (Law 3).
+MISSING, BROKEN = "missing", "broken"
 
-    Callers that must report a missing/unparseable file raise their own breach; this
-    helper only removes the duplicated read+parse boilerplate, it does not decide
-    severity (severity differs per check and stays at the call site).
+
+def _parse_source(source_path: Path) -> tuple[ast.AST | None, str, str]:
+    """Parse a source file, returning ``(tree, kind, reason)``.
+
+    On success ``kind`` and ``reason`` are empty. On failure ``tree`` is None and
+    ``kind`` is MISSING or BROKEN, so a caller can branch on the cause without
+    re-stat-ing the path. Severity still belongs to the call site.
     """
     if not source_path.exists():
-        return None
+        return None, MISSING, f"source path does not exist: {source_path}"
     try:
-        return ast.parse(source_path.read_text(encoding="utf-8"))
-    except (SyntaxError, OSError):
-        return None
+        return ast.parse(source_path.read_text(encoding="utf-8")), "", ""
+    except SyntaxError as exc:
+        return None, BROKEN, f"{source_path}: could not parse ({exc})"
+    except OSError as exc:
+        return None, BROKEN, f"{source_path}: could not be read ({exc})"
 
 
 def check_registry_shape(registry: list[dict] | None = None) -> GovernanceCheckResult:
@@ -425,10 +433,15 @@ def check_requisite_variety(registry: list[dict] | None = None) -> GovernanceChe
         ep = e.get("entrypoint")
         if not mod or not ep:
             continue
-        tree = _parse_source(module_path(mod))
+        tree, kind, reason = _parse_source(module_path(mod))
         if tree is None:
-            # a registered agent module that does not exist is a variety gap (missing outcome)
-            unreachable_modules.add(mod)
+            if kind == MISSING:
+                # a registered agent module that does not exist is a variety gap (missing outcome)
+                unreachable_modules.add(mod)
+            else:
+                # Unparseable source is a broken file, NOT a variety gap: reporting it as
+                # "no reachable entrypoint" would misdiagnose the cause (Law 3).
+                breaches.append(f"P1 cannot be evaluated for {mod}: {reason}.")
             continue
         reachable_funcs = {n.name for n in ast.walk(tree)
                            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
