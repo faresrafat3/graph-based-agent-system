@@ -36,6 +36,33 @@ def module_path(module_name: str) -> Path:
     return Path(*module_name.split(".")).with_suffix(".py")
 
 
+def _entries(registry: list[dict] | None) -> list[dict]:
+    """Normalise a check's registry argument to the dict entries it should inspect.
+
+    Every check accepts an optional registry and falls back to AGENT_REGISTRY, then
+    skips non-dict entries. That prologue was repeated in each check, which made the
+    malformed-entry contract implicit and easy to omit in a new check. Callers that
+    must *see* malformed entries (check_registry_shape) still iterate the raw list.
+    """
+    registry = AGENT_REGISTRY if registry is None else registry
+    return [entry for entry in registry if isinstance(entry, dict)]
+
+
+def _parse_source(source_path: Path) -> ast.AST | None:
+    """Parse a source file, returning None when it is missing or unparseable.
+
+    Callers that must report a missing/unparseable file raise their own breach; this
+    helper only removes the duplicated read+parse boilerplate, it does not decide
+    severity (severity differs per check and stays at the call site).
+    """
+    if not source_path.exists():
+        return None
+    try:
+        return ast.parse(source_path.read_text(encoding="utf-8"))
+    except (SyntaxError, OSError):
+        return None
+
+
 def check_registry_shape(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify that registry entries expose required catalog fields."""
     registry = AGENT_REGISTRY if registry is None else registry
@@ -61,11 +88,8 @@ def check_registry_shape(registry: list[dict] | None = None) -> GovernanceCheckR
 
 def check_lifecycle_artifacts(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify lifecycle docs and test files exist for registered items."""
-    registry = AGENT_REGISTRY if registry is None else registry
     breaches = []
-    for entry in registry:
-        if not isinstance(entry, dict):
-            continue
+    for entry in _entries(registry):
         name = entry.get("name", "<unknown>")
         lifecycle_doc = Path(entry.get("lifecycle_doc", ""))
         test_file = Path(entry.get("test_file", ""))
@@ -78,11 +102,8 @@ def check_lifecycle_artifacts(registry: list[dict] | None = None) -> GovernanceC
 
 def check_entrypoints(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify modules import and public entrypoints exist."""
-    registry = AGENT_REGISTRY if registry is None else registry
     breaches = []
-    for entry in registry:
-        if not isinstance(entry, dict):
-            continue
+    for entry in _entries(registry):
         name = entry.get("name", "<unknown>")
         try:
             module = importlib.import_module(entry.get("module", ""))
@@ -130,11 +151,8 @@ STANDARD_NEVER_FLOOR: dict[str, tuple[str, ...]] = {
 
 def check_permission_matrices(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify standard permission matrices have expected shape."""
-    registry = AGENT_REGISTRY if registry is None else registry
     breaches = []
-    for entry in registry:
-        if not isinstance(entry, dict):
-            continue
+    for entry in _entries(registry):
         symbol = entry.get("permission_symbol")
         if not symbol:
             continue
@@ -200,12 +218,9 @@ def check_permission_matrices(registry: list[dict] | None = None) -> GovernanceC
 
 def check_no_llm_in_evaluate(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify functions named evaluate do not call call_llm."""
-    registry = AGENT_REGISTRY if registry is None else registry
     breaches = []
     checked_paths = set()
-    for entry in registry:
-        if not isinstance(entry, dict):
-            continue
+    for entry in _entries(registry):
         source_path = module_path(entry.get("module", ""))
         if source_path in checked_paths:
             continue
@@ -230,7 +245,7 @@ def check_no_llm_in_evaluate(registry: list[dict] | None = None) -> GovernanceCh
     return GovernanceCheckResult("no_llm_in_evaluate", not breaches, breaches)
 
 
-def check_no_silent_except(main_registry: list[dict] | None = None) -> GovernanceCheckResult:
+def check_no_silent_except(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Verify agent modules do not swallow errors with bare 'except Exception:'.
 
     A bare ``except Exception:`` with no binding and no logging silently discards
@@ -239,12 +254,9 @@ def check_no_silent_except(main_registry: list[dict] | None = None) -> Governanc
     catches ``Exception`` (or a broader builtin) without binding the exception to a
     name via ``as``.
     """
-    registry = AGENT_REGISTRY if main_registry is None else main_registry
     breaches = []
     checked_paths = set()
-    for entry in registry:
-        if not isinstance(entry, dict):
-            continue
+    for entry in _entries(registry):
         source_path = module_path(entry.get("module", ""))
         if source_path in checked_paths:
             continue
@@ -350,7 +362,7 @@ def _transitive_reachable(entrypoint: str, entry_names: set[str]) -> set[str]:
     return seen
 
 
-def check_entrypoints_reachable(main_registry: list[dict] | None = None) -> GovernanceCheckResult:
+def check_entrypoints_reachable(registry: list[dict] | None = None) -> GovernanceCheckResult:
     """Every registered agent must be reachable from the live path OR declared external.
 
     The registry advertises N production agents, but the live call graph
@@ -359,12 +371,12 @@ def check_entrypoints_reachable(main_registry: list[dict] | None = None) -> Gove
     silent dead registration (this is what hid the dead DispatchKernel path and the
     misprioritized live-task-drop). This check makes the gap a hard, reviewed invariant.
     """
-    registry = AGENT_REGISTRY if main_registry is None else main_registry
-    entry_names = {e["entrypoint"] for e in registry}
+    entries = _entries(registry)
+    entry_names = {e["entrypoint"] for e in entries}
     reachable = _transitive_reachable(LIVE_ENTRYPOINT, entry_names)
     breaches = []
     unreachable_but_allowed = []
-    for e in registry:
+    for e in entries:
         ep = e["entrypoint"]
         if ep in reachable or ep == LIVE_ENTRYPOINT:
             continue
@@ -379,7 +391,7 @@ def check_entrypoints_reachable(main_registry: list[dict] | None = None) -> Gove
     detail = {
         "live_entrypoint": LIVE_ENTRYPOINT,
         "reachable_count": len(reachable & entry_names),
-        "total_registered": len(registry),
+        "total_registered": len(entries),
         "externally_allowed": unreachable_but_allowed,
     }
     return GovernanceCheckResult(
@@ -400,12 +412,10 @@ def check_requisite_variety(registry: list[dict] | None = None) -> GovernanceChe
 
     Architectural (not a prompt): it inspects the real call graph, not LLM behavior.
     """
-    registry = AGENT_REGISTRY if registry is None else registry
     breaches = []
-    entries = [e for e in registry if isinstance(e, dict)]
-    entry_names = {e.get("entrypoint") for e in entries
-                   if isinstance(e.get("entrypoint"), str)}
-    entry_names = {n for n in entry_names if isinstance(n, str)}  # narrow to set[str]
+    entries = _entries(registry)
+    entry_names: set[str] = {ep for e in entries
+                             if isinstance(ep := e.get("entrypoint"), str)}
     reachable = (_transitive_reachable(LIVE_ENTRYPOINT, entry_names)
                  if LIVE_ENTRYPOINT in entry_names else set())
 
@@ -415,12 +425,11 @@ def check_requisite_variety(registry: list[dict] | None = None) -> GovernanceChe
         ep = e.get("entrypoint")
         if not mod or not ep:
             continue
-        path = module_path(mod)
-        if not path.exists():
+        tree = _parse_source(module_path(mod))
+        if tree is None:
             # a registered agent module that does not exist is a variety gap (missing outcome)
             unreachable_modules.add(mod)
             continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
         reachable_funcs = {n.name for n in ast.walk(tree)
                            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
         if ep in reachable or ep in EXTERNAL_ALLOWED:
@@ -542,9 +551,6 @@ def check_forge_wired(registry: list[dict] | None = None) -> GovernanceCheckResu
     from the LIVE production path OR registered in AGENT_REGISTRY, so governance can see them.
     If they are reachable ONLY from a test/demo, that is a hard breach (structural blind spot).
     """
-    registry = AGENT_REGISTRY if registry is None else registry
-    breaches = []
-    live = "run_karpathy_pipeline"
     live_src = module_path("agents.karpathy_pipeline")
     forge_modules = [
         "agents.agent_forge",
@@ -616,9 +622,12 @@ def check_counter_proposals_operational(registry: list[dict] | None = None) -> G
     # The systems layer must call the real API, not read an empty placeholder.
     sl_path = module_path("agents.systems_layer")
     if sl_path.exists():
+        sl_src = sl_path.read_text(encoding="utf-8")
         try:
-            sl_src = sl_path.read_text(encoding="utf-8")
-            sl_tree = ast.parse(sl_src)
+            # Parsed for validation only: an unparseable systems layer cannot be
+            # trusted to wire the channel, and the source scan below would be
+            # reading text that Python itself rejects.
+            ast.parse(sl_src)
         except SyntaxError as exc:
             breaches.append(f"cannot parse agents/systems_layer.py: {exc}")
         else:
@@ -774,12 +783,11 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
        write agent nor explicitly exempt/pending is an undeclared write path -> breach.
        This is what stops the write set from silently shrinking.
     """
-    registry = AGENT_REGISTRY if registry is None else registry
     breaches: list[str] = []
     warnings: list[str] = []
     verified: list[str] = []
 
-    entries = [e for e in registry if isinstance(e, dict)]
+    entries = _entries(registry)
     declared_seen: set[str] = set()
 
     for entry in entries:
@@ -893,7 +901,6 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
 
 
 def run_governance_checks(registry: list[dict] | None = None) -> dict[str, Any]:
-
     """Run independent governance checks and aggregate their factual reports."""
     registry = AGENT_REGISTRY if registry is None else registry
     checks: list[Callable[[list[dict]], GovernanceCheckResult]] = [
