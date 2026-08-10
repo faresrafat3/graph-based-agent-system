@@ -235,13 +235,12 @@ def check_no_llm_in_evaluate(registry: list[dict] | None = None) -> GovernanceCh
         checked_paths.add(source_path)
         tree, kind, reason = _parse_source(source_path)
         if tree is None:
-            # A missing source keeps its original wording; an unparseable one is
-            # reported rather than raised, so a single malformed module cannot abort
-            # the whole sweep and hide every other check's findings (Law 3).
-            breaches.append(
-                f"Source path does not exist: {source_path}." if kind == MISSING
-                else f"{reason}."
-            )
+            # An unparseable module is reported rather than raised, so one malformed
+            # file cannot abort the sweep and hide every other check's findings (Law 3).
+            if kind == MISSING:
+                breaches.append(f"Source path does not exist: {source_path}.")
+            else:
+                breaches.append(f"{reason}.")
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name != "evaluate":
