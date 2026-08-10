@@ -233,10 +233,16 @@ def check_no_llm_in_evaluate(registry: list[dict] | None = None) -> GovernanceCh
         if source_path in checked_paths:
             continue
         checked_paths.add(source_path)
-        if not source_path.exists():
-            breaches.append(f"Source path does not exist: {source_path}.")
+        tree, kind, reason = _parse_source(source_path)
+        if tree is None:
+            # A missing source keeps its original wording; an unparseable one is
+            # reported rather than raised, so a single malformed module cannot abort
+            # the whole sweep and hide every other check's findings (Law 3).
+            breaches.append(
+                f"Source path does not exist: {source_path}." if kind == MISSING
+                else f"{reason}."
+            )
             continue
-        tree = ast.parse(source_path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name != "evaluate":
                 continue
@@ -269,12 +275,10 @@ def check_no_silent_except(registry: list[dict] | None = None) -> GovernanceChec
         if source_path in checked_paths:
             continue
         checked_paths.add(source_path)
-        if not source_path.exists():
-            continue
-        try:
-            tree = ast.parse(source_path.read_text(encoding="utf-8"))
-        except SyntaxError as exc:
-            breaches.append(f"{source_path}: could not parse ({exc}).")
+        tree, kind, reason = _parse_source(source_path)
+        if tree is None:
+            if kind == BROKEN:
+                breaches.append(f"{reason}.")
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler):
@@ -810,14 +814,12 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
         is_write_agent = bool(entry.get("write_path")) or entrypoint in WRITE_PATH_ENTRYPOINTS
         source_path = module_path(module_name)
 
-        if not source_path.exists():
-            if is_write_agent:
+        tree, kind, reason = _parse_source(source_path)
+        if tree is None:
+            if kind == BROKEN:
+                breaches.append(f"{reason}.")
+            elif is_write_agent:
                 breaches.append(f"{name}: write-agent source not found: {source_path}.")
-            continue
-        try:
-            tree = ast.parse(source_path.read_text(encoding="utf-8"))
-        except SyntaxError as exc:
-            breaches.append(f"{source_path}: could not parse ({exc}).")
             continue
 
         if is_write_agent:
