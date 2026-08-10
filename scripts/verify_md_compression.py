@@ -123,6 +123,16 @@ def cmd_check() -> int:
     after = build()
     losses: list[str] = []
 
+    # Anchors are only load-bearing when something actually links to them.
+    # Collapsing a "#### Foo" heading into a table row is legitimate compression,
+    # but ONLY if no inbound link targets #foo and the heading's text survives as
+    # text somewhere in the file. Referenced anchors stay strictly protected.
+    referenced: set[str] = set()
+    for p in md_files():
+        for tgt in LINK_RE.findall(prose_only(p.read_text(encoding="utf-8", errors="replace"))):
+            if "#" in tgt:
+                referenced.add(tgt.split("#", 1)[1].strip().lower())
+
     for rel, old in sorted(before.items()):
         new = after.get(rel)
         if new is None:
@@ -141,6 +151,38 @@ def cmd_check() -> int:
             old_c, new_c = Counter(old.get(kind, {})), Counter(new.get(kind, {}))
             missing = old_c - new_c
             for fact, n in missing.items():
+                if kind == "anchors":
+                    # Demoting a heading to a table row / bold lead-in is allowed,
+                    # provided nobody links to it AND every significant word of the
+                    # heading still appears in the file. Reordering and dropping the
+                    # "Principle 3:" style numbering is fine; losing the words is not.
+                    body = squash(
+                        (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+                    ).lower()
+                    tokens = [
+                        w
+                        for tok in fact.split("-")
+                        # slugging strips underscores (HUMAN_CHECKPOINT ->
+                        # humancheckpoint), so compare on word pieces instead.
+                        for w in re.findall(r"[a-z]+|\d+", tok)
+                        if len(w) > 2
+                    ]
+                    # Compare against several de-punctuated views: slugging both
+                    # splits on and swallows separators, so "HUMAN_CHECKPOINT"
+                    # can arrive as humancheckpoint OR human checkpoint.
+                    views = (body, body.replace("_", " "), body.replace("_", ""))
+
+                    def survives(w: str, _v: tuple[str, ...] = views) -> bool:
+                        return any(w in v for v in _v)
+
+                    if fact not in referenced and all(survives(w) for w in tokens):
+                        continue
+                    if fact in referenced:
+                        losses.append(f"{rel}: lost LINKED anchor #{fact} (inbound links would break)")
+                    else:
+                        gone = [w for w in tokens if not survives(w)]
+                        losses.append(f"{rel}: heading content vanished: {fact!r} (missing words: {gone})")
+                    continue
                 losses.append(f"{rel}: lost {kind} x{n}: {fact[:110]!r}")
 
     # Relative links must still resolve.

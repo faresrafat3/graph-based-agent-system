@@ -2,17 +2,9 @@
 
 ## Purpose
 
-This document describes the full lifecycle of the Graph-Based Agent System as one coordinated product: how requirements enter, how context is prepared, how tasks are generated, validated, assigned, optionally executed, reviewed, observed, and improved.
+Full lifecycle of the Graph-Based Agent System as one coordinated product: how requirements enter, context is prepared, tasks generated, validated, assigned, optionally executed, reviewed, observed, and improved.
 
-Use this document for:
-
-- Architecture planning
-- Operational runbooks
-- Future feature development
-- Debugging failed pipeline runs
-- Quality reviews
-- Agent integration planning
-- Onboarding new contributors
+Covers: architecture planning, operational runbooks, feature development, debugging failed pipeline runs, quality reviews, agent integration planning, contributor onboarding.
 
 ## System Identity
 
@@ -107,7 +99,7 @@ Memory / Snapshot / Future Improvement
 
 ### Purpose
 
-Prepare raw requirements for downstream agents by removing obvious noise and measuring context signal quality.
+Prepare raw requirements for downstream agents: remove obvious noise, measure context signal quality.
 
 ### Inputs
 
@@ -165,7 +157,7 @@ success: bool
 
 ### Quality Gate
 
-Task Decomposer local checks must pass enough for initial success, then strict validation happens in Stage 3.
+Local checks must pass enough for initial success; strict validation happens in Stage 3.
 
 ### Failure Behavior
 
@@ -353,7 +345,7 @@ The current harness is defensive, not a full kernel/container sandbox. Broad unt
 
 ### Current State
 
-Domain squads are implemented as specialized agents and boundaries are enforced. The main pipeline can optionally dispatch execution-plan items to implemented domain squads with `dispatch_domains=True`.
+Domain squads are implemented as specialized agents with enforced boundaries. The main pipeline can optionally dispatch execution-plan items to implemented domain squads with `dispatch_domains=True`.
 
 ### Dispatch Flow
 
@@ -400,8 +392,6 @@ Add immediate code-package validation and Quality Reviewer gating after domain d
 ## Stage 11 — Observability and CI
 
 ### Current CI
-
-The workflow now runs:
 
 ```bash
 python -m compileall llm agents memory tools benchmarks tests scripts main.py
@@ -498,4 +488,3 @@ A system-level feature is complete only when:
 - It has tests for success and failure.
 - It does not introduce unsupported provider routing.
 - It does not add a production response fallback path.
-- It passes compile, audit, tests, and coverage threshold.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Software Agents** are the specialized agents that perform the actual software development work. They work under the supervision of the **Karpathy Agents** (meta-agents) that manage the system.
+The **Software Agents** perform the actual software development work, supervised by the **Karpathy Agents** (meta-agents) that manage the system.
 
 ## Architecture
 ```
@@ -20,17 +20,13 @@ The **Software Agents** are the specialized agents that perform the actual softw
 
 ## The 7 Software Agents
 
+Every agent implements the same Karpathy Loop (`propose` → `execute` → `evaluate` → `commit` → `refine`), carries an explicit `PERMISSIONS` dict, and reaches quality gate `>= 0.8` before commit. Per-agent detail follows.
+
 ### 1. Product Manager Agent
 
 **Role:** Manages product requirements and priorities
 
-**Responsibilities:**
-- Gather and analyze requirements from stakeholders
-- Create and maintain product backlog
-- Prioritize features based on business value
-- Write user stories with acceptance criteria
-- Communicate with stakeholders
-- Make product decisions
+**Responsibilities:** gather/analyze stakeholder requirements; create and maintain the product backlog; prioritize features by business value; write user stories with acceptance criteria; communicate with stakeholders; make product decisions.
 
 **Karpathy Loop Implementation:**
 
@@ -97,27 +93,15 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- Requirements parser
-- Stakeholder communication tools
-- Market research tools
-- Backlog management tools
+**Tools:** requirements parser, stakeholder communication, market research, backlog management.
 
-**Integration with Karpathy Agents:**
-- Receives tasks from Task Decomposer
-- Outputs go to Architect and Agent Assigner
+**Integration with Karpathy Agents:** receives tasks from Task Decomposer; outputs go to Architect and Agent Assigner.
 
 ### 2. Architect Agent
 
 **Role:** Designs system architecture
 
-**Responsibilities:**
-- Design system architecture based on requirements
-- Choose technology stack
-- Define component interactions
-- Create architecture diagrams
-- Make architectural decisions
-- Document architecture decisions
+**Responsibilities:** design architecture from requirements; choose the technology stack; define component interactions; create architecture diagrams; make and document architectural decisions.
 
 **Karpathy Loop Implementation:**
 
@@ -181,27 +165,15 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- Architecture design tools
-- Diagram creation tools
-- Technology research tools
-- Architecture evaluation tools
+**Tools:** architecture design, diagram creation, technology research, architecture evaluation.
 
-**Integration with Karpathy Agents:**
-- Receives user stories from Product Manager
-- Outputs go to Developer and Agent Assigner
+**Integration with Karpathy Agents:** receives user stories from Product Manager; outputs go to Developer and Agent Assigner.
 
 ### 3. Developer Agent
 
 **Role:** Writes code
 
-**Responsibilities:**
-- Write code based on architecture
-- Implement features
-- Write unit tests
-- Fix bugs
-- Refactor code
-- Document code
+**Responsibilities:** write code from the architecture; implement features; write unit tests; fix bugs; refactor; document code.
 
 **Karpathy Loop Implementation:**
 
@@ -273,27 +245,15 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- Code generation tools
-- Testing tools
-- Code quality tools
-- Documentation tools
+**Tools:** code generation, testing, code quality, documentation.
 
-**Integration with Karpathy Agents:**
-- Receives architecture from Architect
-- Outputs go to Reviewer, Tester, and Agent Assigner
+**Integration with Karpathy Agents:** receives architecture from Architect; outputs go to Reviewer, Tester, and Agent Assigner.
 
 ### 4. Reviewer Agent
 
 **Role:** Reviews code
 
-**Responsibilities:**
-- Review code for quality
-- Check for bugs
-- Check for security issues
-- Check for best practices
-- Provide feedback
-- Approve or reject code
+**Responsibilities:** review code for quality, bugs, security issues, and best practices; provide feedback; approve or reject code.
 
 **Karpathy Loop Implementation:**
 
@@ -357,27 +317,15 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- Code review tools
-- Static analysis tools
-- Security scanning tools
-- Best practices checkers
+**Tools:** code review, static analysis, security scanning, best-practices checkers.
 
-**Integration with Karpathy Agents:**
-- Receives code from Developer
-- Outputs go to Developer (for fixes) or Quality Reviewer
+**Integration with Karpathy Agents:** receives code from Developer; outputs go to Developer (for fixes) or Quality Reviewer.
 
 ### 5. Tester Agent
 
 **Role:** Tests code
 
-**Responsibilities:**
-- Write integration tests
-- Write end-to-end tests
-- Run tests
-- Report bugs
-- Verify fixes
-- Ensure test coverage
+**Responsibilities:** write integration and end-to-end tests; run tests; report bugs; verify fixes; ensure test coverage.
 
 **Karpathy Loop Implementation:**
 
@@ -452,27 +400,15 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- Test generation tools
-- Test execution tools
-- Coverage analysis tools
-- Bug reporting tools
+**Tools:** test generation, test execution, coverage analysis, bug reporting.
 
-**Integration with Karpathy Agents:**
-- Receives code from Developer
-- Outputs go to Developer (for fixes) or Quality Reviewer
+**Integration with Karpathy Agents:** receives code from Developer; outputs go to Developer (for fixes) or Quality Reviewer.
 
 ### 6. DevOps Agent
 
 **Role:** Manages deployment
 
-**Responsibilities:**
-- Set up CI/CD pipelines
-- Manage deployment
-- Monitor systems
-- Handle infrastructure
-- Ensure availability
-- Manage scaling
+**Responsibilities:** set up CI/CD pipelines; manage deployment; monitor systems; handle infrastructure; ensure availability; manage scaling.
 
 **Karpathy Loop Implementation:**
 
@@ -540,27 +476,15 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- CI/CD tools
-- Deployment tools
-- Monitoring tools
-- Infrastructure management tools
+**Tools:** CI/CD, deployment, monitoring, infrastructure management.
 
-**Integration with Karpathy Agents:**
-- Receives approved code from Reviewer
-- Outputs go to Progress Monitor
+**Integration with Karpathy Agents:** receives approved code from Reviewer; outputs go to Progress Monitor.
 
 ### 7. Security Agent
 
 **Role:** Ensures system security
 
-**Responsibilities:**
-- Perform security audits
-- Identify vulnerabilities
-- Implement security measures
-- Monitor for security issues
-- Respond to security incidents
-- Ensure compliance
+**Responsibilities:** perform security audits; identify vulnerabilities; implement security measures; monitor for security issues; respond to incidents; ensure compliance.
 
 **Karpathy Loop Implementation:**
 
@@ -628,15 +552,9 @@ PERMISSIONS = {
 }
 ```
 
-**Tools:**
-- Security scanning tools
-- Vulnerability assessment tools
-- Security implementation tools
-- Monitoring tools
+**Tools:** security scanning, vulnerability assessment, security implementation, monitoring.
 
-**Integration with Karpathy Agents:**
-- Receives code from Developer and Reviewer
-- Outputs go to Developer (for fixes) or DevOps (for deployment)
+**Integration with Karpathy Agents:** receives code from Developer and Reviewer; outputs go to Developer (for fixes) or DevOps (for deployment).
 
 ## Integration with Karpathy Agents
 
@@ -696,7 +614,7 @@ workflow.add_conditional_edges(
 
 ### Testing
 
-Each Software Agent has comprehensive tests:
+Each Software Agent has tests covering propose/execute/evaluate:
 
 ```python
 def test_product_manager():
@@ -736,7 +654,7 @@ def test_architect():
 
 ## Summary
 
-The 7 Software Agents work together to perform the actual software development:
+The 7 Software Agents perform the actual development, under supervision of the 8 Karpathy Agents that manage the system:
 
 - **Product Manager** - Manages requirements
 - **Architect** - Designs architecture
@@ -745,7 +663,5 @@ The 7 Software Agents work together to perform the actual software development:
 - **Tester** - Tests code
 - **DevOps** - Deploys code
 - **Security** - Ensures security
-
-They work under the supervision of the 8 Karpathy Agents that manage the system.
 
 **Last Updated**: July 31, 2025
