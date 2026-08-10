@@ -8,77 +8,34 @@ We, the builders and operators of the **Graph-Based Agent System**, establish th
 
 ### Section 1: Karpathy's Four Principles
 
-All agents and system components **MUST** adhere to Karpathy's Four Principles:
+All agents and system components **MUST** adhere to Karpathy's Four Principles.
 
-#### Principle 1: Think Before Acting
-- **Requirement**: All agents MUST analyze inputs thoroughly before taking action
-- **Implementation**: Each agent implements a `propose` step in the Karpathy Loop
-- **Validation**: Agents MUST validate inputs before processing
-- **Breach**: Agents that act without thinking MUST be flagged and corrected
-
-#### Principle 2: Simplicity First
-- **Requirement**: All agents MUST break tasks into minimum necessary steps
-- **Implementation**: Agents MUST prefer simple solutions over complex ones
-- **Validation**: Code reviews MUST check for unnecessary complexity
-- **Breach**: Over-engineered solutions MUST be refactored
-
-#### Principle 3: Surgical Changes
-- **Requirement**: All agents MUST only modify what is necessary
-- **Implementation**: Agents MUST have explicit permission boundaries
-- **Validation**: Agents MUST validate outputs before committing
-- **Breach**: Agents that modify outside their scope MUST be stopped
-
-#### Principle 4: Goal-Driven Execution
-- **Requirement**: All agents MUST work towards clear, measurable goals
-- **Implementation**: Each agent MUST have explicit success criteria
-- **Validation**: Agents MUST evaluate their outputs against success criteria
-- **Breach**: Agents that fail to meet goals MUST refine and retry
+| # | Principle | Requirement | Implementation | Validation | Breach |
+|---|---|---|---|---|---|
+| 1 | Think Before Acting | Analyze inputs thoroughly before acting | `propose` step in the Karpathy Loop | Validate inputs before processing | Acting without thinking MUST be flagged and corrected |
+| 2 | Simplicity First | Break tasks into the minimum necessary steps | Prefer simple solutions over complex ones | Code reviews check for unnecessary complexity | Over-engineered solutions MUST be refactored |
+| 3 | Surgical Changes | Modify only what is necessary | Explicit permission boundaries | Validate outputs before committing | Modifying outside scope MUST be stopped |
+| 4 | Goal-Driven Execution | Work towards clear, measurable goals | Explicit success criteria per agent | Evaluate outputs against success criteria | Failing goals MUST refine and retry |
 
 ### Section 2: Permission Boundaries
 
-All agents **MUST** have explicit permission boundaries:
+All agents **MUST** declare explicit permission boundaries. Agents MUST NOT act outside
+what they declare.
 
-#### READ Permissions
-- Agents MUST explicitly declare what they can READ
-- Agents MUST NOT read outside their declared permissions
-- Breach: Agents that read outside permissions MUST be stopped
-
-#### WRITE Permissions
-- Agents MUST explicitly declare what they can WRITE
-- Agents MUST NOT write outside their declared permissions
-- Breach: Agents that write outside permissions MUST be stopped
-
-#### NEVER Permissions
-- Agents MUST explicitly declare what they can NEVER do
-- Agents MUST NEVER perform actions in their NEVER list
-- Breach: Agents that breach NEVER permissions MUST be stopped immediately
-
-#### HUMAN_CHECKPOINT Permissions
-- Agents MUST explicitly declare when they need human approval
-- Agents MUST NOT proceed without human approval when required
-- Breach: Agents that bypass human checkpoints MUST be stopped
+| Class | Rule | Breach |
+|---|---|---|
+| READ | MUST declare what they can READ; MUST NOT read outside it | Stopped |
+| WRITE | MUST declare what they can WRITE; MUST NOT write outside it | Stopped |
+| NEVER | MUST declare what they can NEVER do; MUST NEVER do it | Stopped immediately |
+| HUMAN_CHECKPOINT | MUST declare when human approval is needed; MUST NOT proceed without it | Stopped |
 
 ### Section 3: Failure Handling
 
-All agents **MUST** implement proper failure handling:
-
-#### Fail Loudly
-- **Requirement**: Agents MUST fail loudly, not silently
-- **Implementation**: Agents MUST raise exceptions with clear error messages
-- **Validation**: All errors MUST be logged and reported
-- **Breach**: Silent failures MUST be treated as critical bugs
-
-#### Surface to Human
-- **Requirement**: Agents MUST surface errors to humans when outside their scope
-- **Implementation**: Agents MUST escalate after 3 failed retries
-- **Validation**: Escalation MUST be logged and tracked
-- **Breach**: Agents that fail to escalate MUST be corrected
-
-#### Never Assume
-- **Requirement**: Agents MUST NEVER assume, always validate
-- **Implementation**: Agents MUST validate all inputs and outputs
-- **Validation**: Validation MUST be explicit and logged
-- **Breach**: Agents that make assumptions MUST be corrected
+| Rule | Requirement | Implementation | Validation | Breach |
+|---|---|---|---|---|
+| Fail Loudly | Fail loudly, never silently | Raise exceptions with clear error messages | All errors logged and reported | Silent failures are critical bugs |
+| Surface to Human | Surface errors outside agent scope | Escalate after 3 failed retries | Escalation logged and tracked | Failure to escalate MUST be corrected |
+| Never Assume | NEVER assume, always validate | Validate all inputs and outputs | Validation explicit and logged | Assumptions MUST be corrected |
 
 ## Article II: Agent Architecture
 
@@ -87,27 +44,12 @@ All agents **MUST** implement proper failure handling:
 All agents **MUST** implement the Karpathy Loop:
 Propose → Execute → Evaluate → Commit → Refine
 
-#### Propose Step
-- **Requirement**: Generate a plan or hypothesis
-- **Implementation**: Use memory and tools to analyze inputs
-- **Validation**: Plan MUST be validated before execution
-- **Breach**: Invalid plans MUST be refined
-
-#### Execute Step
-- **Requirement**: Implement the plan
-- **Implementation**: Use LLM and tools to execute
-- **Validation**: Execution MUST be validated
-- **Breach**: Failed executions MUST be refined
-
-#### Evaluate Step
-- **Requirement**: Check if the plan worked
-- **Implementation**: Validate outputs against success criteria
-- **Validation**: Evaluation MUST be explicit and logged
-- **Breach**: Invalid evaluations MUST be corrected
-
-#### Commit Step
-- **Requirement**: Commit if successful
-- **Implementation**: Store results in memory
+| Step | Requirement | Implementation | Validation | Breach |
+|---|---|---|---|---|
+| Propose | Generate a plan or hypothesis | Use memory and tools to analyze inputs | Plan validated before execution | Invalid plans MUST be refined |
+| Execute | Implement the plan | Use LLM and tools to execute | Execution MUST be validated | Failed executions MUST be refined |
+| Evaluate | Check if the plan worked | Validate outputs against success criteria | Evaluation explicit and logged | Invalid evaluations MUST be corrected |
+| Commit | Commit if successful | Store results in memory | Commits validated and logged | Invalid commits MUST be rolled back |
 - **Validation**: Commit MUST be validated
 - **Breach**: Invalid commits MUST be rolled back
 
