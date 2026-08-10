@@ -4,8 +4,6 @@
 
 The **Karpathy Meta-Agents** are the 8 orchestration and governance agents that oversee the multi-agent system. Each meta-agent is specialized, bound by explicit permission boundaries, and operates strictly through the **Karpathy Loop** (`Propose` → `Execute` → `Evaluate` → `Commit` → `Refine`).
 
----
-
 ## System Architecture & Interaction
 
 ```
@@ -24,8 +22,6 @@ The **Karpathy Meta-Agents** are the 8 orchestration and governance agents that 
 │   Product Manager, Architect, Developer, Reviewer, Tester, DevOps, Security │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## Detailed Specifications of the 8 Karpathy Meta-Agents
 
@@ -47,8 +43,6 @@ PERMISSIONS = {
     "HUMAN_CHECKPOINT": ["vague_requirements", "ambiguous_scope"]
 }
 ```
-
----
 
 ### 2. Agent Assigner Agent (✅ Active & Implemented)
 
@@ -101,8 +95,6 @@ PERMISSIONS = {
 }
 ```
 
----
-
 ### 3. Progress Monitor Agent (✅ Active & Implemented)
 
 **Role:** Tracks task execution, monitors system health, and detects bottlenecks or deadlocks.
@@ -121,8 +113,6 @@ PERMISSIONS = {
     "HUMAN_CHECKPOINT": ["unresponsive_agent_execution", "system_timeout"]
 }
 ```
-
----
 
 ### 4. Quality Reviewer Agent (✅ Active & Implemented)
 
@@ -143,8 +133,6 @@ PERMISSIONS = {
 }
 ```
 
----
-
 ### 5. Integration Agent (✅ Active & Implemented)
 
 **Role:** Aggregates outputs from multiple Software Agents into a coherent unified system.
@@ -163,8 +151,6 @@ PERMISSIONS = {
     "HUMAN_CHECKPOINT": ["major_version_release"]
 }
 ```
-
----
 
 ### 6. Decision & Conflict Agent (✅ Active & Implemented)
 
@@ -185,8 +171,6 @@ PERMISSIONS = {
 }
 ```
 
----
-
 ### 7. Resource & Priority Agent (✅ Active & Implemented)
 
 **Role:** Manages token limits, API rate limits, and task execution priorities.
@@ -206,8 +190,6 @@ PERMISSIONS = {
 }
 ```
 
----
-
 ### 8. Human Escalation Agent (✅ Active & Implemented)
 
 **Role:** Handles explicit human interventions, escalation loops, and `HUMAN_CHECKPOINT` triggers.
@@ -226,8 +208,6 @@ PERMISSIONS = {
     "HUMAN_CHECKPOINT": ["always_active"]
 }
 ```
-
----
 
 ## Karpathy Meta-Agents Summary Table
 

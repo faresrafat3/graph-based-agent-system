@@ -8,8 +8,6 @@ Agents do the heavy lifting; this file is what the orchestrator re-reads to stay
 
 > Read this file FIRST when resuming any deep work on `graph-based-agent-system`.
 
----
-
 ## 0. Operating model (how this work is run)
 
 - **Hermes = orchestrator.** Holds the argument, decides what is worth measuring,
@@ -21,8 +19,6 @@ Agents do the heavy lifting; this file is what the orchestrator re-reads to stay
 - **Verification rule:** an agent's summary is a SELF-REPORT, not evidence.
   Every claim that matters gets re-checked by the orchestrator against a real
   artifact on disk (file, JSONL row, docker grade) before it enters a decision.
-
----
 
 ## 1. The founding observation (2026-08-08)
 
@@ -39,8 +35,6 @@ human ends up optimized by the model instead of the reverse.
 
 This is not a metaphor. It describes a real optimization loop, and this repository
 is an instance of it.
-
----
 
 ## 2. The mirror — what the repo's own numbers say
 
@@ -74,8 +68,6 @@ Governance+docs to code ≈ **1:1**.
 context dilution*. The system measured that addition hurt, and the response was
 to add more.
 
----
-
 ## 3. The rule that must become falsifiable
 
 Fares's standing heuristic:
@@ -105,8 +97,6 @@ refuses to move.
 
 **Amendment (adopted):** any new dimension/agent/control must declare, IN ADVANCE,
 the measurement that would falsify it. No falsifier ⇒ not built.
-
----
 
 ## 4. The experiment that was never run
 
@@ -206,8 +196,6 @@ Consequences, recorded so no future session re-litigates this:
 Under his own rule — *a metric drop is a design defect, not "the model is weak"* — the
 apparatus is the correct place to look next anyway. The ruling and the rule agree.
 
----
-
 ## 5. The new research axis this opens
 
 The post judges an agent by **teammate** criteria, not benchmark criteria. Turned
@@ -231,8 +219,6 @@ Note: the 976-loop engine (stopped 2026-08-08) was a literal instance of the bad
 teammate — 2,649 tasks, 375 blocked, 13 days of unobserved work. Its shutdown and
 the kanban wipe were the first application of this principle.
 
----
-
 ## 6. Standing constraints (do not violate)
 
 - **Provider:** deep philosophical synthesis → `claude-opus-5` via agentrouter.
@@ -244,8 +230,6 @@ the kanban wipe were the first application of this principle.
 - **Repo:** English artifacts + verbatim Karpathy quotes. Chat with Fares: Egyptian Arabic.
 - **Concurrency:** check `git status --short` + mtimes for a sibling session before editing.
 - **Never** fabricate a result. A blocked path reported honestly beats an invented number.
-
----
 
 ## 7. Decision log (append-only)
 
@@ -268,8 +252,6 @@ the kanban wipe were the first application of this principle.
 | 2026-08-08 | Survives all corrections: the **3 memory agents** (`semantic`, `working`, `episodic`) fired in NO real run, at any flag setting. Only non-test referrers are registry metadata + an importlib existence check | This is the capture-and-carry defect, located by two independent instruments |
 | 2026-08-08 | Remedy for inert ≠ remedy for unreachable: **inert ⇒ CONNECT**, unreachable ⇒ delete. A subagent's "10 removal candidates" list was NOT actioned — it would have deleted the memory tier | Independent re-measurement contradicted the subagent report |
 | 2026-08-08 | My own first pass (grep) was defective in both directions; corrected by AST + runtime counters. Recorded in `INERT-REGISTRY-FINDING.md` §3b | Two independent instruments disagreeing is what caught it |
-
----
 
 ## 8. Resume protocol
 

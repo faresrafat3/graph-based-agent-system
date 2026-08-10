@@ -5,8 +5,6 @@
 **Arms:** `baseline` (retrieval + one LLM call) vs `agent` (curate → validate → refine)
 **Raw data:** `benchmarks/results/local_arms.jsonl`
 
----
-
 ## Result: the arms are statistically indistinguishable
 
 | | baseline | agent |
@@ -28,8 +26,6 @@ Outcome distribution is nearly identical:
 | not_resolved | 18 (36%) | 17 (34%) |
 | no_apply | 7 (14%) | 7 (14%) |
 
----
-
 ## Why: the governance loop fires on 18% of instances
 
 | refinements | instances |
@@ -45,8 +41,6 @@ This is the finding that matters, and it reframes the null result. The measureme
 *not* say "governance does not work". It says **governance is mostly not invoked** under
 this workload. A layer active on 18% of cases cannot move an aggregate regardless of its
 quality — the experiment as designed had almost no room to detect an effect.
-
----
 
 ## Where the losses actually are
 
@@ -64,8 +58,6 @@ Measured ceilings:
 **2.4× larger** — completely untouched. That asymmetry, not the refine loop's quality, is
 the reason the arms tie.
 
----
-
 ## Infrastructure
 
 | | |
@@ -80,8 +72,6 @@ Infra failures are excluded from every capability claim above. Counting them wou
 manufactured an "advantage" for whichever arm got luckier: at one interim point the raw
 numbers read 9–7 for the agent, and **both** differing pairs were `infra → resolved`.
 That headline would have been network luck reported as architecture.
-
----
 
 ## What this licenses
 
@@ -98,8 +88,6 @@ That headline would have been network luck reported as architecture.
 - Extrapolation beyond django, or to the official Docker-graded SWE-bench Verified.
 - Any per-arm ranking: the CIs overlap almost completely.
 
----
-
 ## The actionable conclusion
 
 Two levers, in order of measured size:
@@ -109,8 +97,6 @@ Two levers, in order of measured size:
    back would address it; `validate_patch` structurally cannot.
 2. **Widen activation.** A layer that fires on 18% of cases cannot pay for 32% more
    tokens. Either trigger it more broadly or accept it as a narrow patch-repair utility.
-
----
 
 ## Method
 

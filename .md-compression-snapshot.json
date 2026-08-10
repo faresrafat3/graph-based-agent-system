@@ -8310,9 +8310,7 @@
    "wrapStreamSimple": 1,
    "{\"type\":\"response\",\"command\":...,\"success\":bool,\"error\":...}": 1
   },
-  "links": {
-   "?![\\uDC00-\\uDFFF]": 1
-  },
+  "links": {},
   "numbers": {
    "0": 1,
    "0.7": 1,

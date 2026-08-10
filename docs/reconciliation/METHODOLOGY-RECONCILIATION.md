@@ -7,8 +7,6 @@
 **Companion:** docs/reconciliation/VERSION-LEDGER.md
 **Live review:** opus-5 pressure-reviewed the P4 proposal (see §LIVE below)
 
----
-
 ## 0. Why this document exists
 
 The system is governed by **five distinct methodologies** that were added at different
@@ -23,8 +21,6 @@ The five methodologies:
 3. **Cynefin sense-making** (Clear / Complicated / Complex / Chaotic) → referenced by P3.
 4. **Reflexive loops** (AlphaCode sampling + Reflexion verbal-RL + debugger repair) → ULTIMATE-GRAPH-PLAN.
 5. **Distributed governance** (no supreme decision agent) → GOVERNANCE-SYSTEM.md.
-
----
 
 ## 1. The contradictions (C1–C5) and their rulings
 
@@ -77,8 +73,6 @@ The five methodologies:
   A principle without a ledger entry is *advisory only*, never enforced. (See Task D / v4.)
 - **Resolves:** Provenance becomes auditable; "distilled" means *ledger-recorded*.
 
----
-
 ## 2. The fallacies (F1–F3) and corrections
 
 ### F1 — "27 agents = comprehensive coverage"
@@ -103,8 +97,6 @@ The five methodologies:
 - **Action:** Embed the loop as `agents/systems_layer.py` (Task B / v2). The cron stays as
   a measurement runner, not the improver.
 
----
-
 ## 3. The reconciled authority model
 
 ```
@@ -125,8 +117,6 @@ The five methodologies:
 - **Provenance:** every principle in the systems layer traces to the distillation ledger.
 - **Observation:** every control survives only if P7-observed to catch a failure.
 
----
-
 ## 4. Open questions carried forward
 - Should the systems layer itself be subject to P7 (can it prune its own nodes)? → yes,
   but only after v2 lands and we observe it.
@@ -135,8 +125,6 @@ The five methodologies:
 - Is the measurer allowed to be measured? → No (Ashby): the observer must sit outside what
   it observes. The cron runner stays external; the in-graph layer observes the domain layer
   only.
-
----
 
 ## 5. LIVE opus-5 review (2026-08-05, deleg_ebfc3e6d) — P4 probe_budget
 
@@ -172,4 +160,3 @@ harness error. Covered by `tests/test_thrash_measure.py`.
 meta-loop will not auto-apply it (C1-rev1 default-deny); application requires an independent
 opt-in + a hardened thrash signal. This is the distillation loop working as designed:
 proposal → opus-5 review → hardened ruling → recorded provenance.
-

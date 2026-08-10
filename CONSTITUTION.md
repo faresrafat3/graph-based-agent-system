@@ -4,8 +4,6 @@
 
 We, the builders and operators of the **Graph-Based Agent System**, establish this Constitution to govern the design, development, and operation of our multi-agent system. This Constitution is based on **Karpathy's Agentic Engineering** principles and reflects our commitment to building reliable, transparent, and ethical AI systems.
 
----
-
 ## Article I: Core Principles
 
 ### Section 1: Karpathy's Four Principles
@@ -36,8 +34,6 @@ All agents and system components **MUST** adhere to Karpathy's Four Principles:
 - **Validation**: Agents MUST evaluate their outputs against success criteria
 - **Breach**: Agents that fail to meet goals MUST refine and retry
 
----
-
 ### Section 2: Permission Boundaries
 
 All agents **MUST** have explicit permission boundaries:
@@ -62,8 +58,6 @@ All agents **MUST** have explicit permission boundaries:
 - Agents MUST NOT proceed without human approval when required
 - Breach: Agents that bypass human checkpoints MUST be stopped
 
----
-
 ### Section 3: Failure Handling
 
 All agents **MUST** implement proper failure handling:
@@ -85,8 +79,6 @@ All agents **MUST** implement proper failure handling:
 - **Implementation**: Agents MUST validate all inputs and outputs
 - **Validation**: Validation MUST be explicit and logged
 - **Breach**: Agents that make assumptions MUST be corrected
-
----
 
 ## Article II: Agent Architecture
 
@@ -125,8 +117,6 @@ Propose → Execute → Evaluate → Commit → Refine
 - **Validation**: Refinement MUST be logged
 - **Breach**: Failed refinements MUST escalate after 3 retries
 
----
-
 ### Section 2: Agent Specialization
 
 All agents **MUST** be specialized:
@@ -149,8 +139,6 @@ All agents **MUST** be specialized:
 - **Validation**: Code reviews MUST check for tight coupling
 - **Breach**: Tightly coupled agents MUST be decoupled
 
----
-
 ### Section 3: Agent Communication
 
 All agents **MUST** communicate properly:
@@ -172,8 +160,6 @@ All agents **MUST** communicate properly:
 - **Implementation**: Agents MUST only modify their output state
 - **Validation**: Code reviews MUST check for side effects
 - **Breach**: Agents with side effects MUST be corrected
-
----
 
 ## Article III: System Architecture
 
@@ -199,8 +185,6 @@ The system **MUST** use LangGraph for orchestration:
 - **Validation**: Parallel execution MUST be tested
 - **Breach**: Failed parallel execution MUST be corrected
 
----
-
 ### Section 2: LLM Integration
 
 The system **MUST** use Stepfun as the only active LLM provider in the current production path:
@@ -223,8 +207,6 @@ The system **MUST** use Stepfun as the only active LLM provider in the current p
 - **Validation**: Rate limiting MUST be tested
 - **Breach**: Rate limit breaches MUST be fixed
 
----
-
 ### Section 3: Memory Management
 
 The system **MUST** implement custom memory:
@@ -246,8 +228,6 @@ The system **MUST** implement custom memory:
 - **Implementation**: Use Jaccard similarity
 - **Validation**: Similarity search MUST be tested
 - **Breach**: Inaccurate similarity MUST be corrected
-
----
 
 ## Article IV: Quality Assurance
 
@@ -273,8 +253,6 @@ All code **MUST** be tested:
 - **Validation**: Edge case tests MUST pass
 - **Breach**: Failed edge case tests MUST be fixed
 
----
-
 ### Section 2: Code Review
 
 All code **MUST** be reviewed:
@@ -297,8 +275,6 @@ All code **MUST** be reviewed:
 - **Validation**: Documentation MUST be reviewed
 - **Breach**: Undocumented code MUST NOT be merged
 
----
-
 ### Section 3: Continuous Integration
 
 All code **MUST** use CI/CD:
@@ -320,8 +296,6 @@ All code **MUST** use CI/CD:
 - **Implementation**: Use monitoring tools
 - **Validation**: Monitoring MUST be tested
 - **Breach**: Monitoring failures MUST be fixed
-
----
 
 ## Article V: Ethics and Responsibility
 
@@ -347,8 +321,6 @@ The system **MUST** be fair:
 - **Validation**: Transparency MUST be tested
 - **Breach**: Opaque decisions MUST be explained
 
----
-
 ### Section 2: Privacy and Security
 
 The system **MUST** protect privacy:
@@ -371,8 +343,6 @@ The system **MUST** protect privacy:
 - **Validation**: Encryption MUST be tested
 - **Breach**: Unencrypted data MUST be encrypted
 
----
-
 ### Section 3: Accountability
 
 The system **MUST** be accountable:
@@ -394,8 +364,6 @@ The system **MUST** be accountable:
 - **Implementation**: Document responsibilities
 - **Validation**: Responsibilities MUST be reviewed
 - **Breach**: Unclear responsibilities MUST be clarified
-
----
 
 ## Article VI (PROPOSED — not yet enforced): Systems-Governance Principles
 
@@ -475,8 +443,6 @@ loops, distributed governance).
 
 Move the Constitution's unit of authority from *permission to write* to *proof of effect* — "done" = a verified postcondition under a domain-appropriate control budget. This is a paradigm change (Meadows), not a rule tweak.
 
----
-
 ## Article VII: Amendments
 
 ### Section 1: Amendment Process
@@ -500,8 +466,6 @@ This Constitution **MAY** be amended:
 - **Implementation**: Update code and documentation
 - **Validation**: Implementation MUST be tested
 - **Breach**: Unimplemented amendments MUST be completed
-
----
 
 ## Article VII: Interpretation
 
@@ -527,8 +491,6 @@ This Constitution **SHALL** be interpreted:
 - **Validation**: Guidance MUST be followed
 - **Breach**: Ignored guidance MUST be addressed
 
----
-
 ## Ratification
 
 This Constitution is ratified by the builders and operators of the Graph-Based Agent System on **July 31, 2025**.
@@ -537,8 +499,6 @@ This Constitution is ratified by the builders and operators of the Graph-Based A
 - System Operators
 - System Builders
 - Community Members
-
----
 
 ## Appendix A: Glossary
 
@@ -571,8 +531,6 @@ Connection between agents in the graph.
 
 ### Node
 Agent in the graph.
-
----
 
 ## Appendix B: References
 

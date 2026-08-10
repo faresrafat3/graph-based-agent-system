@@ -3,8 +3,6 @@
 **ملاحظة:** ده سجل حي لكل شات / أوامر / ردود opus-5 / تجارب. الغرض: يكون قابل للرجوع
 فيه في أي وقت (Fares يهتم بيه جداً لقيمته المستقبلية — راجع FARES-RESEARCH-NOTES.md).
 
----
-
 ## المرحلة 1: التوفيق بين المنهجيات (Methodology Reconciliation)
 
 **الهدف:** جمع 5 منهجيات (Karpathy / opus-5 P1-P7 / Cynefin / reflexive loops / distributed governance) وتوحيدها.
@@ -52,8 +50,6 @@ write_file tests/test_metric_split.py  (3 tests, GREEN)
 
 **النتيجة:** 318 passed (من 281).
 
----
-
 ## المرحلة 2: opus-5 يشارك LIVE (C1 review)
 
 **الأمر:** `delegate_task` → model `agentrouter-org/claude-opus-5`، review ruling C1.
@@ -64,8 +60,6 @@ reversibility، (2) default-deny، (3) separate streams، (4) counter-proposal c
 
 **التنفيذ:** أضفت C1-rev1 في CONSTITUTION + حوّلت `apply_or_escalate_node` لـ default-deny +
 counter_proposals state + test_c1_rev1.py (4 tests).
-
----
 
 ## المرحلة 3: opus-5 يشارك LIVE (P4 review)
 
@@ -87,8 +81,6 @@ write_file scripts/record_opus5_p4_review.py  → records opus-5 reply in ledger
 
 **النتيجة:** 324 passed.
 
----
-
 ## المرحلة 4: تصلبي الـ thrash signal (opus-5 P4 fix مكتمل)
 
 **القرار (hy3):** أصلح الـ signal نفسه قبل أي control تاني — لأن أي control بيعتمد على قياس صح.
@@ -103,8 +95,6 @@ write_file tests/test_thrash_signal.py  (4 tests, GREEN)
 نفس النظرية بيطابق (false negative اتصلح)، ونظريات مختلفة مش بتتدمج (false positive اتصلح).
 
 **النتيجة:** 328 passed.
-
----
 
 ## ملخص الأوامر الكلية (للرجوع السريع)
 

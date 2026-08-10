@@ -11,8 +11,6 @@ Karpathy, verbatim (primary source, `karpathy-method-notes`):
 
 Here that becomes: **one loop, one artifact, one gate.**
 
----
-
 ## 0. Why a meta-loop at all
 
 The previous digest attempt produced `docs/prime-agent-study.md`, `DECISIONS.md`,
@@ -32,8 +30,6 @@ warned about — "أصغر حاجة هتبقي وحشة جدا في نهاية �
 
 The meta-loop's single job: **make a loop uncloseable until its gate is green.**
 
----
-
 ## 1. Meta-loop invariants (non-negotiable)
 
 | # | Invariant | Enforcement |
@@ -46,8 +42,6 @@ The meta-loop's single job: **make a loop uncloseable until its gate is green.**
 | I6 | **MIT attribution preserved** on any transferred logic. | `NOTICE` file + per-module header |
 | I7 | **Measure the apparatus before the system.** A harness fix ships only with its own test. | Rule from MEASUREMENT DISCIPLINE; benchmark arms compared vs STRONGEST baseline |
 | I8 | **English in artifacts, Arabic only in chat.** | review before commit |
-
----
 
 ## 2. The loop-of-loops (control flow)
 
@@ -74,8 +68,6 @@ The meta-loop's single job: **make a loop uncloseable until its gate is green.**
 
 **Escalation ladder inside `execute`** (self-escalating, no permission asked):
 L1 observe → L2 auto-fix → L3 research (web/primary source) → L4 delegate to subagents.
-
----
 
 ## 3. The loops (goals, in dependency order)
 
@@ -116,8 +108,6 @@ DISCIPLINE rule); no arm compared against a weak baseline.
 rollback possible.
 **Gate:** `CONSTITUTION.md` sha unchanged since `v0`; version-ledger row exists per change.
 
----
-
 ## 4. Per-loop task template
 
 Every task in every loop MUST carry:
@@ -132,8 +122,6 @@ TASK <loop>.<n> — <title>
 
 A task without an `acceptance` + `gate` is not a task; it is a wish.
 
----
-
 ## 5. Anti-residue policy (the user's hard requirement)
 
 > "متعملش اي مخلفات او اضرار لان اصغر حاجه هتبقي وحشه جدا في نهايه الطريق"
@@ -146,16 +134,12 @@ Concretely enforced at every gate:
 5. `git status` clean of unintended files before the ledger row is written.
 6. No dead code: anything added must be reachable from a test or an entrypoint.
 
----
-
 ## 6. Ledger & rollback
 
 - `docs/reconciliation/VERSION-LEDGER.md` — one row per visible change: `| ver | date | file | change | verdict |`.
 - `system/distillation_ledger.jsonl` — append-only; each distilled principle gets
   `ref/text/source/status/date`.
 - Rollback unit = one ledger version. Any `vN` can be reverted without touching `vN-1`.
-
----
 
 ## 7. Definition of DONE for the whole mandate
 

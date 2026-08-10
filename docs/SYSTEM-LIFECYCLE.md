@@ -14,8 +14,6 @@ Use this document for:
 - Agent integration planning
 - Onboarding new contributors
 
----
-
 ## System Identity
 
 | Field | Value |
@@ -29,8 +27,6 @@ Use this document for:
 | Current Execution Model | Sequential pipeline with deterministic DAG assignment output |
 | Future Execution Model | DAG fan-out/fan-in with quality gates and human checkpoints |
 
----
-
 ## System-Level Principles
 
 1. **Think before acting**: every pipeline stage prepares, validates, and routes before execution.
@@ -41,8 +37,6 @@ Use this document for:
 6. **No synthetic success**: production paths must not invent successful LLM outputs.
 7. **Security before autonomy**: generated-code execution is constrained and should move to container isolation before broad untrusted usage.
 8. **Everything testable**: each implemented agent has unit/integration tests.
-
----
 
 ## Current System Lifecycle
 
@@ -74,8 +68,6 @@ Final Pipeline Report
 Memory / Snapshot / Future Improvement
 ```
 
----
-
 ## Stage 0 — Environment and Configuration
 
 ### Inputs
@@ -106,8 +98,6 @@ Memory / Snapshot / Future Improvement
 | Placeholder Stepfun key | `StepfunConfigurationError` |
 | Network/API failure | `StepfunAPIError`, retry only for transient failures |
 | Unsupported provider marker | policy audit fails |
-
----
 
 ## Stage 1 — Context Curation
 
@@ -146,8 +136,6 @@ success: bool
 - Retry by truncating noisy context.
 - Escalate if context cannot be recovered.
 
----
-
 ## Stage 2 — Task Decomposition
 
 ### Agent
@@ -184,8 +172,6 @@ Task Decomposer local checks must pass enough for initial success, then strict v
 - Invalid JSON creates clarification failure.
 - Vague requirements create clarification requests.
 - Repeated failure triggers escalation.
-
----
 
 ## Stage 3 — Deterministic Validation
 
@@ -227,8 +213,6 @@ AND
 breaches == []
 ```
 
----
-
 ## Stage 4 — Surgical Refinement Loop
 
 ### Agent
@@ -260,8 +244,6 @@ Feedback must contain:
 ```text
 SURGICAL CORRECTION REQUIRED
 ```
-
----
 
 ## Stage 5 — Agent Assignment and DAG Planning
 
@@ -306,8 +288,6 @@ assignment.success == True
 }
 ```
 
----
-
 ## Stage 6 — Optional Graph Execution Orchestration
 
 ### Agent
@@ -323,8 +303,6 @@ Execute `execution_plan` groups through a deterministic graph lifecycle, coordin
 - Disabled by default: `orchestrate_graph=False`
 - Can be enabled with or without domain dispatch.
 - Produces `graph_execution` report in pipeline output.
-
----
 
 ## Stage 7 — Optional Code Generation
 
@@ -348,8 +326,6 @@ Generate Python source and pytest code for selected tasks.
 - Unsafe filename or invalid tests fail package validation
 - Surgical refinement attempts are bounded
 
----
-
 ## Stage 8 — Optional Test Execution
 
 ### Agent
@@ -363,8 +339,6 @@ Compile and run generated source/tests in a constrained local harness.
 ### Important Security Limitation
 
 The current harness is defensive, not a full kernel/container sandbox. Broad untrusted code execution should require a container or VM backend.
-
----
 
 ## Stage 9 — Optional Domain Dispatch
 
@@ -403,8 +377,6 @@ parsed domain outputs
 
 Add immediate code-package validation and Quality Reviewer gating after domain dispatch.
 
----
-
 ## Stage 10 — Memory and Session Handoff
 
 ### Components
@@ -424,8 +396,6 @@ Add immediate code-package validation and Quality Reviewer gating after domain d
 - Snapshot manifests.
 - Physical file checksum verification.
 - Improved similarity search.
-
----
 
 ## Stage 11 — Observability and CI
 
@@ -457,8 +427,6 @@ coverage >= 80
 Stepfun-only audit passed
 ```
 
----
-
 ## Current System Output Contract
 
 `run_karpathy_pipeline(...)` returns:
@@ -484,8 +452,6 @@ Stepfun-only audit passed
 }
 ```
 
----
-
 ## System Failure Taxonomy
 
 | Category | Example | Handling |
@@ -499,8 +465,6 @@ Stepfun-only audit passed
 | Code Package | invalid filename/test syntax | package failure |
 | Execution | pytest failure/timeout | execution failure report |
 | Security | env/network/subprocess attempt | preflight rejection |
-
----
 
 ## System Development Roadmap
 
@@ -523,8 +487,6 @@ Persistent memory and snapshot manifests.
 ### Next Orchestration Upgrade
 
 Execute `parallel_group` DAG stages through LangGraph fan-out/fan-in.
-
----
 
 ## System Definition of Done
 

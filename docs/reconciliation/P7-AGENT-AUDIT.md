@@ -8,8 +8,6 @@
 
 > **Scope warning, stated up front:** this audit establishes **reachability only**. Reachability is a *necessary* but *not sufficient* condition for an agent to be worth keeping. See [§6 What This Audit Cannot Prove](#6-what-this-audit-cannot-prove).
 
----
-
 ## 1. Counting note — "37 agents"
 
 `ls agents/*.py` returns **37 files**, but one of them is `agents/__init__.py` (1 line, a bare comment). This audit therefore classifies **36 real agent modules**. The 37th file is listed separately below and is excluded from all bucket counts.
@@ -19,8 +17,6 @@
 | Files matching `agents/*.py` | 37 |
 | `agents/__init__.py` (package marker, not an agent) | 1 |
 | **Real agent modules classified** | **36** |
-
----
 
 ## 2. Bucket definitions
 
@@ -32,8 +28,6 @@
 | **DEMO** | Reached only from a `*_demo.py` module or documentation, and that demo is itself not on a production path. |
 
 **Deliberate methodological choice:** `system/governance_checks.py` `importlib`-imports every module named in `system/agent_registry.py` (`system/governance_checks.py:88`, `:143`). That makes almost every registered agent *importable* during `make audit`, but importing a module is not calling its agent function. Counting that as LIVE would make the audit vacuous — it would mark all 28 registered agents LIVE regardless of whether any logic runs. **Registry import is therefore recorded as evidence but does not confer LIVE status.** This is called out explicitly because it is the single judgement call that most affects the counts.
-
----
 
 ## 3. Evidence table — all 36 agent modules
 
@@ -111,8 +105,6 @@ No production entry point reaches these. Where the repo's own registry claims ot
 |---|---|---|
 | `agents/__init__.py` | 1 | Package marker (`# agents/__init__.py`), contains no agent. |
 
----
-
 ## 4. `agents/forged/` — separate finding
 
 **`agents/forged/` contains zero `.py` files.**
@@ -137,8 +129,6 @@ agents/forged/
 **Interpretation:** the four `.pyc` files are residue from transient `forge_agent()` / `extend_registry()` test runs (cf. `tests/test_extend_registry_transactional.py`, `tests/test_forge_scale_demo.py`) whose `.py` sources were correctly cleaned up while the bytecode cache was not. Names `temp_probe_*` and `txn_agent*` match transactional-rollback test fixtures. This is consistent with the design intent recorded at `governance_checks.py:306-310` ("re-forged-per-task"): forged agents are **not** meant to persist on disk. The `.pyc` files are harmless but are untracked build residue.
 
 > Note: the `.pyc` files were left untouched, per the read-only constraint of this audit.
-
----
 
 ## 5. Governance discrepancies discovered
 
@@ -166,8 +156,6 @@ This is precisely the failure mode `benchmarks/governance_adversarial.py:11` alr
 
 28 of 36 agent modules are registered in `system/agent_registry.py`. **8 are not:** `agent_forge`, `context_system_view`, `cynefin_classifier`, `disk_saver`, `intelligence_forge_demo`, `prime_agent_adapter`, `sage_council`, `topology_assembler`. Unregistered agents bypass `check_entrypoints`, `check_permission_matrices`, and `check_entrypoints_reachable` entirely — so `cynefin_classifier` and `prime_agent_adapter` (461 LOC combined, both fully dead) are invisible to every existing governance check.
 
----
-
 ## 6. Summary counts per bucket
 
 | Bucket | Count | LOC |
@@ -184,8 +172,6 @@ This is precisely the failure mode `benchmarks/governance_adversarial.py:11` alr
 **Dead-weight share:** 10 of 36 modules (27.8%) and 2,023 of 9,172 LOC (22.1%) are unreachable from any production entry point. Including the LIVE-BUT-GATED subgraph, **2,721 LOC (29.7%) cannot execute in a default production run.**
 
 > **LOC drift note:** a sibling process modified `agents/systems_layer.py` and `scripts/audit_stepfun_policy.py` at 13:06/13:10 while this audit was running. LOC figures above were recomputed at 13:15 against the working tree. `systems_layer.py` is 289 LOC in the §3.1 table (read at audit start) and 291 in this total. No classification is affected.
-
----
 
 ## 7. Ranked removal candidates
 
@@ -233,8 +219,6 @@ Ranked by strength of the P7 case: no production reachability first, then LOC (l
 ### Not removal candidates, but flagged for justification
 
 `agent_forge` (237), `topology_assembler` (99), `context_system_view` (78) — 414 LOC that is structurally wired yet default-denied (§5.2). **The correct P7 action is a decision, not a deletion:** either expose `forge_agent_graph` as a production flag and measure it, or retire the subgraph. Leaving it reachable-but-inert is the state P7 exists to prevent.
-
----
 
 ## 8. What this audit CANNOT prove
 

@@ -4,16 +4,12 @@
 > ومصنّفة بوضوح بين: **[✓ كود]** = مؤكد من الملفات، **[≈ استنتاج]** = مرجّح من السياق، **[؟]** = يحتاج تحققاً إضافياً.
 > مهم: مستودع Prime Intellect `prime-agent` **ليس** Python RL harness — هو **منتج TypeScript RLM agent** مبني على `pi-mono`. أي تحليل يصفه كـ Python/RL‑training harness هو وهمي ولا يمت للكود بصلة.
 
----
-
 ## 0. خلاصة الحالة (حالة الجلب)
 
 - الرابط الأصلي `@url:...prime-agent.git` فشل في الاستخراج 5 مرات؛ تم التعافي بـ `git clone` فعلي.
 - اللغة: **TypeScript** (monorepo، `npm workspaces`) + حزمة Python صغيرة `prime-agent-runtime` (فقط طبقة `rlm` shim + harness state).
 - الترخيص: **MIT** (Copyright Mario Zechner 2025 + Prime Intellect 2026) — يسمح بالاقتباس/التعديل مع إبقاء الإشعار. [✓ code: LICENSE]
 - النجوم: ~2539. مبني على `pi` (pi‑mono) لـ Mario Zechner (badlogic) — مؤلف libGDX. [✓ code: README.md:104, package.json]
-
----
 
 ## 1. الهوية والغرض (ما المشكلة اللي بيحلها)
 
@@ -24,8 +20,6 @@ Prime Agent = **وكيل ترميز وبحث ذاتي التحسين** للأع�
 2. **Continual Harness**: يخزّن prompts إضافية وmemories ووصف skills وspecs لـ subagents كحالة دائمة، ويحسّنها عبر تحديثات صغيرة مبنية على أدلة (evidence‑backed) محلية للجلسة افتراضياً. [✓ code: README.md:34]
 
 > الفرق الفلسفي الجوهري عن مشروعنا: prime‑agent منتج **وكيل واحد** (جذر + أبناء متكررون)؛ مشروعنا إطار **حوكمة/تنسيق graph/DAG** لوكلاء bespoke مُحكمين. نقترض *آليات*، لا *شكل المنتج*.
-
----
 
 ## 2. المعمارية (مخطط المكوّنات — من الكود)
 
@@ -75,8 +69,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 > درس لمشروعنا: فصل "نقاط القرار" (stop/steer/continue/before‑after‑tool) في config واحد = قابلية تكوين عالية دون لمس الحلقة. نمط نرشّحه لطبقة الـ orchestration عندنا.
 
----
-
 ## 3. طبقة الأدوات وواجهة ACI (Agent–Computer Interface)
 
 الفلسفة: **"كل شيء برمجي"** — IPython الثابت هو الأداة المدمجة الوحيدة؛ القراءة/التعديل/الشل/الأدوات/subagents كلها عبر كود Python. [✓ code: README.md:38, rlm.md:31‑51]
@@ -88,8 +80,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 > contrast مع مشروعنا: نحن نفضّل **typed tools + MCP** لأسباب حوكمية (حدود صلاحيات READ/WRITE/NEVER/HUMAN_CHECKPOINT معمارية، لا prompt). الـ IPython‑كأداة‑شاملة أضعف في فرض الصلاحيات؛ لكن "context‑as‑variables" فكرة نقترضها لطبقة الذاكرة العاملة.
 
----
-
 ## 4. إدارة السياق والذاكرة (Context Engineering)
 
 - **Compaction تلقائي**: يلخّص الرسائل القديمة ويبقي الحديثة + حالة kernel؛ ليس إشارة إنهاء (لا يوقف goals/autonomous/heartbeats/children). [✓ code: long-running-agents.md:228‑239, session-format.md:233‑239]
@@ -98,8 +88,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 - صيغة الجلسة: **JSONL tree** (v3) بـ `id`/`parentId`، تفرّع موضعي (in‑place branching)، compaction/branch_summary entries. [✓ code: session-format.md:1‑40, 327‑353]
 
 > نقترض صيغة الـ JSONL tree + entries (compaction/branch/label) كـ schema لتسجيلنا (distillation_ledger / traces) بدل إعادة اختراعها.
-
----
 
 ## 5. Continual Harness — أهم مكوّن للاقتباس لمشروعنا
 
@@ -120,8 +108,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 > **هذا هو المحور الحقيقي للاستفادة**: مشروعنا عنده `CONSTITUTION.md` (immutable base) + `systems_layer`/`sage_council` + `distillation_ledger`. نمط Continual Harness = بالضبط الآلية اللي نحتاجها لإضافة "طبقة تكميلية قابلة للمراجعة والتطوير بالأدلة" فوق الدستور، مع rollback. (يتوافق مع توجيه Fares: "EXTEND existing governance، لا fork سلطة ثانية".)
 
----
-
 ## 6. Skills (قابلة للتنفيذ)
 
 - ينفّذ معيار **Agent Skills** + امتداد **Python‑backed skills** (حزمة Python تُثبّت في kernel venv). [✓ code: skills.md:7, 141‑170]
@@ -131,8 +117,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 > يقابلها عندنا: وكلاءنا bespoke = "skills قابلة للتنفيذ" بصلاحيات معماريّة. نمط `skill-creator` (يولّد مهارة من تكرار) يكافئ فكرة `distillation_ledger` عندنا.
 
----
-
 ## 7. العزل والأمان (Trust Boundary)
 
 - **تحذير صريح ومتكرر**: IPython ينفّذ Python المولّد من النموذج بصلاحيات OS الخاصة بـ worker — **ليس sandbox أمني**. استخدم sandbox خارجي للكود غير الموثوق. [✓ code: README.md:65‑66, rlm.md:141‑143, rlm-runtime.md:249‑252]
@@ -141,8 +125,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 > **توافق عميق مع مشروعنا**: حدود الصلاحيات عندنا (READ/WRITE/NEVER/HUMAN_CHECKPOINT) هي *طبقة معمارية* لا prompt‑jailbox — نفس روح "الـ host يملك الحالة والسياسات، والنموذج يطلب عبر واجهة مكتوبة". نحافظ عليها ونوسّعها، لا نستعير نواة IPython.
 
----
-
 ## 8. طبقة النموذج (Model Layer)
 
 - `packages/ai` يجرّد المزوّدات: Anthropic, OpenAI (completions + responses), Google (gemini + vertex), Azure, Bedrock, Mistral, Cloudflare, GitHub Copilot, Codex، و faux (للاختبار). [✓ code: packages/ai/src/providers/, AGENTS.md:135‑186]
@@ -150,8 +132,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 - **توليد النماذج من script** (`generate-models.ts`) لا تعديل يدوي للملف المولّد. [✓ code: AGENTS.md:21, 163‑173]
 
 > نحتاج interface موحّد مشابه (`ModelProvider`) عبر `llm/` عندنا، بعيداً عن ربط مزوّد واحد.
-
----
 
 ## 9. التشغيل الطويل والمستقل (Long‑Running)
 
@@ -164,8 +144,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 > يقابلها عندنا: `agents/` mode + persistent goals + `sage_council`. نقترض أوضاع التسليم `auto/steer/follow_up` ونمط "due‑tick claim" لتجنّب تكرار الـ prompts.
 
----
-
 ## 10. التقييم والجودة الهندسية
 
 - CI + build‑binaries workflows. [✓ code: README.md:22‑27]
@@ -174,8 +152,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 - قواعد git for parallel agents (لا `git add -A`، لا `reset --hard`). [✓ code: AGENTS.md:209‑259]
 
 > انضباط هندسي مرجعي. نحن نملك Makefile + pytest؛ نقترض "faux provider" pattern و regression‑first testing.
-
----
 
 ## 11. الأدبيات والفلسفة (مرتبطة بالكود فعلاً)
 
@@ -198,8 +174,6 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 
 **البُعد النقدي (Bitter Lesson vs السقالات)**: هل سقالاتهم (RLM/Harness) استثمار طويل الأمد أم عرضة للإهمال عند تغيّر النماذج؟ مشروعنا يتبنى نهج Fares: "ارفض model‑swap لسقف القدرة — فكّك إلى graph وكلاء متخصصين بـ feedback edges". نرى Continual Harness كـ *طبقة حوكمة* لا كـ prompt‑engineering، فتبقى قيمتها عبر أجيال النماذج.
 
----
-
 ## 12. مصفوفة "ناخد / نستلهم / نتجنب" (لمشروعنا)
 
 | المكوّن | الحكم | السبب | الإجراء |
@@ -214,16 +188,12 @@ Model providers  (streaming)   +   Session JSONL + artifacts (persistence)
 | Unified ModelProvider interface | **نستلهم** | فك الارتباط بمزوّد | وسّع `llm/` (Epic 7) |
 | Faux provider + regression tests | **نستلهم** | اختبار بلا مفاتيح/تكلفة | أضف لمشروعنا (Epic 8) |
 
----
-
 ## 13. مخاطر التبنّي
 
 - **Paradigm mismatch**: prime‑agent = وكيل واحد REPL؛ مشروعنا = graph مُحكم. لا تنسخ شكل المنتج. [✓ code: README.md:31]
 - **النضج/API churn**: إصدار `0.7.0`، واجهات قد تتغير؛ أخذ أفكار أأمن من أخذ كود. [✓ code: package.json]
 - **Lock‑in على pi‑mono**: الـ TUI/agent مبني على `pi`؛ لو اقتبسنا كود TS نرتبط به. (نحن Python — الاقتباس مفاهيمي فقط.) [✓ code: README.md:104]
 - **أمان**: kernel ليس sandbox؛ أي تنفيذ كود غير موثوق عندنا يجب في عزل حقيقي. [✓ code: rlm-runtime.md:251]
-
----
 
 ## 14. القرار النهائي (Recommendation)
 

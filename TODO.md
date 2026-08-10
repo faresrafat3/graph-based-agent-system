@@ -4,8 +4,6 @@
 > مصنّفة بوضوح: **[✓ كود]** = مؤكد من ملفات prime-agent، **[≈ استنتاج]** = مرجّح، **[مشروعنا]** = يحتاج بناءً في graph-based-agent-system.
 > ملاحظة نقدية: مستودع Reference 5 (gemini) وصف prime-agent كـ "Python RL harness" من خياله — هذا **وهمي**؛ prime-agent منتج TypeScript RLM مبني على pi‑mono. أي مهمة هنا لا تفترض خلاف ما في الكود.
 
----
-
 ## Milestones (نقاط التسليم الكبرى)
 
 - **M1 — فهم (Understanding)**: inventory + study + ADRs جاهزة. ✅ (تم: docs/prime-agent-study.md)
@@ -15,8 +13,6 @@
 أولوية عامة: **P0** = أساسي قبل أي دمج · **P1** = قوي · **P2** = توسع · **P3** = تحسين.
 حجم التقدير: **S** (<1ي) · **M** (1–3ي) · **L** (3–5ي) · **XL** (>5ي).
 
----
-
 ## E0 — Recon & Inventory (نصف يوم) ✅ جزئياً
 
 - [x] **E0.1** clone فعلي + API metadata + تحديد اللغة/اللايسنس. **[✓ كود]** → `docs/repository-inventory.md`
@@ -25,8 +21,6 @@
   - AC: كل ملف core ظاهر بـ path + LOC + الوظيفة.
 - [ ] **E0.4** خريطة الاعتماديات (npm workspaces + pi‑mono + zeromq + ipykernel + photon). **[✓ كود]**
   - AC: رسم Mermaid لـ dependency graph بين الحزم.
-
----
 
 ## E1 — Architecture Reverse-Engineering (2–3 يوم)
 
@@ -38,8 +32,6 @@
   - AC: جدول بكل hook + متى يُستدعى + القيمة المرجعة.
 - [ ] **E1.4** تحديد واجهات (interfaces) فعلية vs coupling. **[✓ كود: types.ts]**
   - AC: قائمة `AgentLoopConfig` hooks كـ "extensibility surface" لمشروعنا.
-
----
 
 ## E2 — Continual Harness (القرار الأهم) (3 يوم) 🔥 P0
 
@@ -56,8 +48,6 @@
 - [ ] **E2.5** دمج harness كبطبقة **تكميلية** فوق `CONSTITUTION.md` (immutable)، لا بديل. **[مشروعنا]**
   - AC: تغيير في harness لا يعدّل CONSTITUTION.md؛ rollback مسجّل.
 
----
-
 ## E3 — Agent-to-Agent Communication (2 يوم) 🔥 P1
 
 > يقابل `topology_assembler` / حواف الـ graph عندنا. (ADR‑0003)
@@ -70,8 +60,6 @@
   - AC: agent A يرسل لـ B بوضع `steer` ويُحقن في عمل B النشط.
 - [ ] **E3.4** due‑tick claim قبل التسليم (لا إعادة تشغيل prompt عند crash). **[✓ كود: long-running-agents.md:170]**
   - AC: scheduled prompt يُطالَب قبل الإرسال؛ miss → coalesce.
-
----
 
 ## E4 — Session/Trace Tree Schema (2 يوم) 🔥 P1
 
@@ -86,8 +74,6 @@
 - [ ] **E4.4** Custom entries (لا تدخل context) vs CustomMessage (تدخل). **[✓ كود: session-format.md:257-288]**
   - AC: توثيق أي بيانات sage_council تبقى خارج context.
 
----
-
 ## E5 — Host-Request Bridge (2 يوم) 🔥 P1
 
 > يفصل سطح تحكم النموذج عن الحالة الموثوقة (متوافق مع صلاحياتنا المعمارية).
@@ -98,8 +84,6 @@
   - AC: council يستقبل طلبات عبر واجهة مكتوبة؛ القرار موثّق؛ لا تعديل دستور من النموذج.
 - [ ] **E5.3** تحديد الـ "trusted surface" (مهارات = كود موثوق؛ تنفيذ كود غير موثوق = sandbox خارجي). **[✓ كود: rlm.md:141-143]**
   - AC: تحذير أمني في docs + فحص `tools/` قبل تنفيذ كود.
-
----
 
 ## E6 — Tool / ACI Strategy (3 يوم) ⚠️ P1 (لا ننسخ RLM)
 
@@ -112,8 +96,6 @@
 - [ ] **E6.4** before/after tool hooks (block/terminate/override) كـ extensibility. **[✓ كود: types.ts:257-277]**
   - AC: hook `beforeToolCall` يستطيع `block:true` للأدوات خارج الصلاحيات.
 
----
-
 ## E7 — Unified Model Provider (2 يوم) P1
 
 - [ ] **E7.1** interface موحّد `ModelProvider` (generate(messages, tools, config) → response). **[مشروعنا]** (مستوحى من `packages/ai/src/stream.ts`)
@@ -124,8 +106,6 @@
   - AC: تقرير تكلفة لكل run.
 - [ ] **E7.4** faux provider للاختبار بلا مفاتيح/تكلفة. **[✓ كود: AGENTS.md:32, packages/ai/src/providers/faux.ts]**
   - AC: suite اختبار كامل بلا مفاتيح حقيقية.
-
----
 
 ## E8 — Long-Running & Autonomous (2 يوم) P2
 
@@ -138,8 +118,6 @@
 - [ ] **E8.4** جدولة one‑time + cron مع persisted per session. **[✓ كود: long-running-agents.md:159-170**
   - AC: cron يعيش بعد انفصال الـ client.
 
----
-
 ## E9 — Context Engineering / Compaction (2 يوم) P1
 
 - [ ] **E9.1** سياسة compaction تلقائي (يلخّص القديم، يبقي الحديث + حالة kernel). **[✓ كود: long-running-agents.md:228-239]**
@@ -149,8 +127,6 @@
 - [ ] **E9.3** context budgeting + إنذار قرب الحد. **[مشروعنا]**
   - AC: قياس تكلفة الـ compaction بالتوكنات.
 
----
-
 ## E10 — Skill System (2 يوم) P2
 
 - [ ] **E10.1** معيار Agent Skills + Python‑backed skills. **[✓ كود: skills.md:141-170]**
@@ -159,8 +135,6 @@
   - AC: تقليل استهلاك context للوكلاء.
 - [ ] **E10.3** `skill-creator` يقابل `distillation_ledger` (مهارة تولد من تكرار). **[✓ كود: skills.md:201-227]**
   - AC: عند تكرار نمط → اقتراح مهارة/entry.
-
----
 
 ## E11 — Security & Trust Boundary (2 يوم) 🔥 P0
 
@@ -173,8 +147,6 @@
 - [ ] **E11.4** أسرار لا تُخزّن في state/traces. **[مشروعنا]**
   - AC: redaction قبل الكتابة في distillation_ledger.
 
----
-
 ## E12 — Roadmap & Decision Memo (1 يوم) P0
 
 - [ ] **E12.1** كتابة `DECISIONS.md` بالتوصية النهائية (استلهام انتقائي). **[مشروعنا]**
@@ -182,8 +154,6 @@
 - [ ] **E12.2** ROADMAP مرحلي M1→M3. **[مشروعنا]**
 - [ ] **E12.3** صيانة attribution/license (MIT) عند أي اقتباس كود. **[✓ كود: LICENSE]**
   - AC: إشعار MIT محفوظ في أي ملف منقول.
-
----
 
 ## مصفوفة الأولوية السريعة
 

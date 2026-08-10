@@ -4,8 +4,6 @@
 **Status:** ALL THREE VERIFIED, FIXED, AND THE FIXES VERIFIED
 **Consequence:** Every arm-to-arm comparison in `docs/AGENT-LOOP-EXPERIMENT.md` is void.
 
----
-
 ## 0. Summary
 
 Three independent defects — two in the harness/client, one in how the response was read —
@@ -19,8 +17,6 @@ and none is an architecture failure. All were verified directly, not inferred.
 | D3 | Only `message.content` was read; empty content returned as success | `llm_integration.py:408` | **The reasoning model's entire output was silently discarded.** | FIXED + verified |
 
 **D3 is the most important finding in this document** and is described in §2b.
-
----
 
 ## 2b. D3 — the model's reasoning was being thrown away
 
@@ -71,8 +67,6 @@ This model needs ~12.5k tokens to actually finish. `finish_reason="stop"` first 
 `StepfunAPIError` instead of returning `""`. Defaults set from the measurements:
 `max_tokens=16384`, `timeout=300`. Honors the project's own Fail-Loud principle — an empty
 answer is never silently reported as success.
-
----
 
 ## 1. D1 — the grader was iterating characters
 
@@ -149,8 +143,6 @@ budget; complex multi-step reasoning — precisely what the arms were built to m
 generates more tokens and is either killed (D2) or returned empty (D3). The instrument
 deleted exactly the cases carrying the signal.
 
----
-
 ## 3. Why this invalidates the arm comparison
 
 `AGENT-LOOP-EXPERIMENT.md` reports many "infra-fails" (5/8 in the loop arm, 4/8 in the graph
@@ -168,8 +160,6 @@ The published conclusions do not hold:
 This is the project's own lesson repeating: 4 parser defects previously misclassified sound
 cases as infrastructure failures, all biased toward flattering the system. Same pattern,
 larger blast radius.
-
----
 
 ## 4. Fixes applied and verified
 
@@ -192,8 +182,6 @@ Verification actually run:
 
 Note the Stepfun-only policy audit still passes: no provider routing was added, consistent
 with the standing ruling.
-
----
 
 ## 5. Required next step
 

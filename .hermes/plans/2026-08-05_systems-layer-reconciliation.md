@@ -10,8 +10,6 @@
 > وبيقرر = (hy3 في دوره) + (opus-5 في دوره كـ pressure-advisor مقطّر). إحنا (أنا+opus-5)
 > أقوى من الـ flash، فبنستخدم المنهج ده خارجياً لمراجعة وتوحيد، ونحط النتيجة جوه العظمه.
 
----
-
 ## 0. التحليل: التضارب والمغالطات (ناتج "النظام" hy3 + opus-5)
 
 ### تضارب (Contradictions)
@@ -39,8 +37,6 @@
 - **F3** — "الـ script = النظام بيتحسّن بنفسه". script بره = observer. عشان حقيقي لازم
   **nodes جوه الـ StateGraph** (زي ما المستخدم طلب: "جوه العظمه").
 
----
-
 ## 1. Goals (الأهداف الكبيرة)
 
 - **G1 — Reconcile:** توحيد المنهجيات الخمسة في وثيقة واحدة (CONSTITUTION موسّع) من غير تضارب.
@@ -50,8 +46,6 @@
 - **G4 — Distillation ledger:** ملف بيسجّل كل مبدأ + مصدره من opus-5 + إن كان مقطّر صح.
 - **G5 — Observe-then-act:** الـ Systems Layer يقترح بس، والتطبيق reversible/checkpointed (يحل C1).
 - **G6 — Honest metrics:** فصل "governance improvement" عن "resolve-rate improvement" في القياس (يحل F2).
-
----
 
 ## 2. Tasks (بالترتيب، مع TDD)
 
@@ -90,15 +84,11 @@
 - الـ benchmark suite يطلع الاتنين.
 - **Test:** `test_metric_split.py` — يتأكد إن governance_score و success_rate مستقلين.
 
----
-
 ## 3. Notes
 - كل ده بيتبني **بالتدريج**، على flash كـ إثبات، والمراجعة بتتم **أنا+opus-5 بالنظام**.
 - السيشن التانية لسه ممكن تلمس debugger/reflexion — بنبني nodes جديدة (systems_layer،
   cynefin_classifier) من غير ما نلمس ملفاتهم.
 - الـ cron (gbas-improvement-cycle) يفضل شغال ويقيس؛ لما الـ Systems Layer يخلص هنربطه بيها.
-
----
 
 ## 4. التنفيذ (يتم تعبئته أثناء العمل)
 - [ ] Task A: Reconciliation doc + CONSTITUTION update

@@ -4,8 +4,6 @@
 **Harness:** `benchmarks/run_local_arms.py` · **Verified set:** `swebench_local_verified.json` (74 instances)
 **Arms:** `baseline` (retrieval + one LLM call) vs `agent` (curate → validate → refine)
 
----
-
 ## Headline: the arms are indistinguishable on capability
 
 | set | baseline | agent |
@@ -17,8 +15,6 @@
 
 **Three discordant pairs out of 29 is a tie.** The governance arm spends ~33% more tokens
 and lands one extra instance — well inside noise.
-
----
 
 ## Why: the governance loop barely engages
 
@@ -38,8 +34,6 @@ This reframes the finding: the measurement is not "governance doesn't help", it 
 "validate → refine only triggers on malformed patches, and malformed patches are the
 smaller failure class."
 
----
-
 ## Where the losses actually are
 
 | outcome | agent | meaning |
@@ -56,8 +50,6 @@ The governance layer targets the 14% (patch validity). The 34% — patches that 
 perfectly and still fail the gold test — is **more than twice as large** and is untouched
 by validate/refine, because `validate_patch` asks git whether the patch is well-formed,
 never whether the change is correct. That is the honest next lever.
-
----
 
 ## The trap this run walked into, and how it was caught
 
@@ -79,8 +71,6 @@ This is the same failure mode the triage tool had four times over: **a measureme
 that flatters the system**. The fix is the same discipline — classify infra separately,
 exclude it from capability claims, and report both denominators.
 
----
-
 ## What this does and does not license
 
 **Supported by the data:**
@@ -96,8 +86,6 @@ exclude it from capability claims, and report both denominators.
 - Any extrapolation to the full 74-instance set, or to non-django repositories.
 - Any comparison to published SWE-bench numbers: this uses local `runtests.py` judgement
   on a filtered subset, not the official Docker harness on SWE-bench Verified.
-
----
 
 ## Method notes
 

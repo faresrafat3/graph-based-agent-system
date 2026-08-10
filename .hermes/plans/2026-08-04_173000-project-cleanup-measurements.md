@@ -22,8 +22,6 @@
 4. نربط VERIFY node + Cynefin بقياس أثر فعلي (postcondition pass-rate).
 5. نكتب وثيقة مقارنة SOTA صادقة تحدد مين السقف (موديل ولا أرشيتكتشير).
 
----
-
 ## المهام (بالترتيب)
 
 ### Task 1 — إصلاح `scenario_4` security breach في benchmark
@@ -83,8 +81,6 @@
 3. update README SWE-bench section بالأرقام الجديدة.
 **تحقق:** `make test` green؛ README متسق مع الأرقام.
 
----
-
 ## 🧪 التحقق النهائي
 - `make test` → كله أخضر (281+ tests)
 - `python scripts/run_benchmarks.py` → defense 100%, health ≥ 80
@@ -100,8 +96,6 @@
 ## ❓ أسئلة مفتوحة
 1. نجرب موديل أقوى (مثلاً coding-tuned) كـ controlled experiment ولا نكمل على `step-3.7-flash`؟
 2. نوسّع عيّنة SWE-bench لـ 50+ instance عشان قياس إحصائي ولا نكتفي بـ 8؟
-
----
 
 ## ✅ التنفيذ (2026-08-04) — الجزء الآمن اتعمل
 

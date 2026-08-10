@@ -4,8 +4,6 @@
 **Status:** Implemented (`system/self_improvement.py`) + driver (`scripts/run_improvement_cycle.py`)
 **Derivation:** Distilled from the Karpathy method + opus-5 philosophical audit (CONSTITUTION Article VI, P1–P7) + the empirical loops run on SWE-bench Verified and the benchmark suite.
 
----
-
 ## 0. Thesis
 
 The graph-based agent system should not be hand-tuned by a human. It should **measure
@@ -20,8 +18,6 @@ This file is the **system** that automates the reasoning we already did manually
 - We distilled opus-5's philosophy into frozen Laws/Constitution, never letting it author live code.
 
 The META-SYSTEM makes that a **repeatable, autonomous loop**.
-
----
 
 ## 1. The Loop (5 stages, zero-LLM control plane)
 
@@ -72,8 +68,6 @@ The META-SYSTEM makes that a **repeatable, autonomous loop**.
 3. No control is added that cannot be observed catching a failure.
 4. opus-5 output is distilled to a principle and frozen; it never edits code directly.
 
----
-
 ## 2. Lessons distilled (the judgment we earned)
 
 | # | Lesson | Source | Now encoded as |
@@ -85,8 +79,6 @@ The META-SYSTEM makes that a **repeatable, autonomous loop**.
 | L5 | Distill opus-5, don't let it author | CONSTITUTION Article VI | `distill_opus5()` returns principle text only |
 | L6 | Silent breaches are the dangerous class | scenario_4 fix (Task 1) | `measure()` asserts breaches are non-empty on block |
 | L7 | Sibling sessions own live paths; avoid them | cleanup pass 2026-08-04 | `run_improvement_cycle.py --safe-only` flag |
-
----
 
 ## 3. How this reflects onto the graph
 
@@ -100,8 +92,6 @@ That is P7 applied to the graph itself. When the system can answer that with evi
 the graph has become **self-governing** — not by a supreme decision agent, but by the
 measurement loop. This is the distributed-governance thesis from GOVERNANCE-SYSTEM.md,
 operationalized.
-
----
 
 ## 4. Usage
 
@@ -125,8 +115,6 @@ python system/self_pruning.py
 Output: `system/measurements/measurements.jsonl` (append-only) + `system/measurements/deltas.jsonl`.
 
 **Make targets:** `make improve`, `make improve-safe`, `make prune`.
-
----
 
 ## 5. Open questions (feed back into the loop)
 
