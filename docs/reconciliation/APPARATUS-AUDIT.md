@@ -10,8 +10,6 @@ re-run; no repo file was modified except this report.
 progression `applies 3 → 4 → 5 → 7` and `resolve stuck at 1/8` are both artifacts of the
 measurement apparatus, not properties of the arms.
 
----
-
 ## 0. The one-paragraph answer
 
 Every published "X/8" is a different fraction with a different denominator, and three
@@ -28,8 +26,6 @@ The `4/8 single-shot` baseline is real and traceable (§5) — but it is **not c
 the other arms, because it is the *best of two* runs of an arm whose *other* run of the same
 8 instances graded `1/8`. Every "improvement" in the document is measured against a
 cherry-picked high-water mark.
-
----
 
 ## 1. Severity-ranked findings
 
@@ -50,8 +46,6 @@ cherry-picked high-water mark.
 | F13 | **MEDIUM** | The arms are not configuration-matched: `solve_agent` allows `max_refinements=2`, `solve_agent_loop` allows `4`, `solve_agent_graph_full` allows `max_rounds=3` plus 2 apply-refinements. Arms differ in **compute budget** as well as architecture, so any delta is confounded. | `:443`, `:494`, `:819`, `:864` |
 | F14 | **MEDIUM** | `skip_ptp=True` is the default in the local ranker, so `ptp_total=0` and the `local_resolved` condition `ptp_pass == ptp_total` is **trivially true** (0 == 0). Local "resolved" ignores regressions entirely — while the real grader shows PASS_TO_PASS failures up to 133. | `:1058`, condition at `:1099`, defaults at `:494`, `:819` |
 | F15 | **LOW** | `patch_apply_rate_percent` is emitted as a headline percentage over a denominator that already excludes infrastructure rows, inviting exactly the misreading the adjacent `note` warns against. | `:1240-1246`, `:1304` |
-
----
 
 ## 2. The normalized comparison table
 
@@ -97,8 +91,6 @@ denominator of 8**. `attempted` = 8 for every arm by construction.
   It was a malformed diff, not "context dilution across dimensions." The stated root cause
   of the repair is not supported by the evidence.
 
----
-
 ## 3. `applies` vs `resolved` — where each is decided
 
 **`applies`** — local, in `validate_patch` (`:341-417`). Structural checks first
@@ -135,8 +127,6 @@ A separate consequence: `run_tests_in_worktree` uses `git apply --check`/`git ap
 So a patch can be `applies=True` yet fail to apply inside the local grader, returning
 `applied: False, score: -1` (`:1011-1014`) — scored as a capability failure.
 
----
-
 ## 4. Determinism — the arm differences are inside the noise
 
 **No seed is passed anywhere.** `llm/llm_integration.py` fixes `temperature=0.0`
@@ -165,8 +155,6 @@ a single run per arm, and no confidence intervals, **none of the arm-to-arm delt
 distinguishable from noise.** The repo already owns the correct tool for this —
 `benchmarks/run_local_arms.py:269-308` implements paired McNemar — but it was **not used
 for any of the five arms** in `AGENT-LOOP-EXPERIMENT.md`.
-
----
 
 ## 5. Provenance of the `4/8 single-shot (claimed)` baseline
 
@@ -209,8 +197,6 @@ its second attempt. On the *reproducible* single-shot number (1/8), **no arm imp
 baseline and none regressed**: every arm scored 0/8 or 1/8. The entire reported arc is one
 resolved instance (1142) appearing or not appearing.
 
----
-
 ## 6. Quietly swallowed errors
 
 | Location | Construct | What it can hide |
@@ -230,8 +216,6 @@ resolved instance (1142) appearing or not appearing.
 | `run_local_arms.py:232-236` | `except Exception` → `outcome: "error"` | Worker crash becomes a scored outcome |
 | `llm/llm_integration.py:267`, `:278` | `except Exception` → `logger.debug` | Error-body and `Retry-After` parse failures visible only at debug level |
 
----
-
 ## 7. What would have to be true for the comparison to be valid
 
 1. Parse `FAIL_TO_PASS` / `PASS_TO_PASS` with `json.loads` when they are strings
@@ -250,8 +234,6 @@ resolved instance (1142) appearing or not appearing.
 7. Compare against the **reproducible** single-shot number (1/8), or re-run the baseline the
    same number of times as the treatment arms.
 8. Use the paired McNemar machinery already present at `run_local_arms.py:269-308`.
-
----
 
 ## 8. Verdict
 

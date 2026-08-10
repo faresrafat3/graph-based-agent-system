@@ -53,8 +53,6 @@ The Software Builder Agents system is a **multi-agent system** that implements K
 └─────────────────────────────────────────────────────────────┘
 ```
 
----
-
 ## Agent Architecture
 
 ### Karpathy Loop
@@ -116,8 +114,6 @@ workflow.add_edge("task_decomposer", "agent_assigner")
 
 # State is automatically passed between agents
 ```
-
----
 
 ## Task Decomposer Agent (Detailed)
 
@@ -293,8 +289,6 @@ def evaluate(state):
     }
 ```
 
----
-
 ## Memory Architecture
 
 ### Short-Term Memory
@@ -348,8 +342,6 @@ class LongTermMemory:
         return similar[:limit]
 ```
 **Use Case**: Past decompositions for reference
-
----
 
 ## MCP Tools Architecture
 
@@ -417,8 +409,6 @@ def dependency_analyzer(tasks: List[dict]) -> dict:
     }
 ```
 
----
-
 ## Error Handling
 
 ### Retry Mechanism
@@ -449,8 +439,6 @@ workflow.add_conditional_edges(
 )
 ```
 
----
-
 ## Performance Considerations
 
 ### Parallel Execution
@@ -478,8 +466,6 @@ Tasks can be batched for efficiency:
 for task in tasks:
     kanban.create_task(task)
 ```
-
----
 
 ## Security Considerations
 
@@ -514,8 +500,6 @@ def validate_tasks(tasks: List[dict]):
         if "title" not in task:
             raise ValueError("Task missing title")
 ```
-
----
 
 ## Scalability
 
@@ -553,8 +537,6 @@ class MCPTools:
         return result
 ```
 
----
-
 ## Monitoring and Observability
 
 ### Logging
@@ -581,8 +563,6 @@ metrics = {
 }
 ```
 
----
-
 ## Future Enhancements
 
 ### Planned Features
@@ -597,8 +577,6 @@ metrics = {
 - **Multi-Modal**: Support for images, audio, video
 - **Collaborative Agents**: Agents that can negotiate
 - **Self-Improving Agents**: Agents that improve their own prompts
-
----
 
 ## References
 

@@ -5,8 +5,6 @@
 **Scope:** Full repository (source, tests, docs, governance, benchmarks)
 **Method:** Read every core module, ran the full pytest suite, ran governance audit scripts, cross-checked LAWS/CONSTITUTION/README against actual code, reviewed benchmark harnesses.
 
----
-
 ## 0. TL;DR — Verdict
 
 This is a **real, wired, well-engineered system**, not a stub. The architectural thesis (LLM-as-CPU, zero-LLM control plane, execution-grounded grading) is genuinely implemented and enforced in code. **201/201 tests pass.** The governance audit passes. The benchmark reports are unusually honest.
@@ -24,8 +22,6 @@ But the project has **governance-document drift**, **one dead parallel pipeline 
 | Doc/code consistency | 🔴 Weak | Law gap 14/15/16, stale `allow_mock` warning, version drift |
 | CI quality gate | 🟡 Weak | `--cov` without `--cov-fail-under`; no coverage threshold enforced |
 
----
-
 ## 1. What the system actually is (verified)
 
 - **27 registered agents** across 5 layers (kernel, governance, execution, verification, domain squads). All registry modules exist on disk ✅.
@@ -34,8 +30,6 @@ But the project has **governance-document drift**, **one dead parallel pipeline 
 - **LLM:** `llm/llm_integration.py` — Stepfun-only native REST, no provider fallback. Includes an 11-account key pool with per-key 429 cooldown (smart infra fix). `fail loudly` on missing creds.
 - **Verification:** `agents/test_runner_agent.py` physically runs `py_compile` + `pytest` in a temp dir with `python -I` (isolated), secret-env purge, path-traversal guard, and Unix resource limits. **Genuine sandbox.**
 - **Governance-as-code:** `system/governance_checks.py` runs 5 deterministic checks (registry shape, lifecycle artifacts, entrypoints, permission matrices, no-LLM-in-`evaluate`). All pass for 27 items.
-
----
 
 ## 2. Critical findings (fix first)
 
@@ -75,8 +69,6 @@ The first 9 are in the **memory + reflexion + working-memory** agents and silent
 
 **Fix:** Either (a) wire `karpathy_pipeline` through `DispatchKernel.route()` and delete the inline linear calls, or (b) mark `dispatch_kernel` clearly as a reference/experimental implementation and stop citing it as the production topology. Don't ship a router whose `run()` ignores its own `ROUTING_TABLE`.
 
----
-
 ## 3. Medium findings (fix soon)
 
 ### 🟡 F4 — Documentation/code drift
@@ -104,8 +96,6 @@ The first 9 are in the **memory + reflexion + working-memory** agents and silent
 
 **Fix:** Normalize + tokenize, or use the same `NEVER` matrix style as `code_executor` (regex on canonical phrases).
 
----
-
 ## 4. Strengths (keep doing this)
 
 - 🟢 **Zero-LLM control plane** is real and auditable. Routing/validation/grading contain no model calls.
@@ -116,8 +106,6 @@ The first 9 are in the **memory + reflexion + working-memory** agents and silent
 - 🟢 **Honest benchmarking** — reports publish both raw and infra-adjusted numbers, split capability vs infrastructure failures, and explicitly state HumanEval can't validate the thesis. Rare intellectual honesty.
 - 🟢 **201/201 tests pass**; governance audit passes; 27/27 registry items have lifecycle docs + test files.
 - 🟢 `.gitignore` correctly excludes `.env`, `.venv/`, `logs/`, `*.jsonl`, benchmark datasets.
-
----
 
 ## 5. Prioritized action list
 
@@ -133,8 +121,6 @@ The first 9 are in the **memory + reflexion + working-memory** agents and silent
 | 8 | 🟡 Low | Harden Law 20 boundaries beyond substring match | M |
 
 S = <1h, M = half-day, L = multi-day.
-
----
 
 ## 6. Metrics at a glance
 
@@ -168,8 +154,6 @@ All 11 replaced with `except Exception as exc:` + `logger.warning(...)` (memory/
 ### 🟡 F4 — Doc drift → RESOLVED
 `BENCHMARK-REPORT.md` `allow_mock` warning corrected (the mock path no longer exists — `call_llm` has no fallback). `README.md` LangGraph version updated to 1.2.x.
 
----
-
 ## 8. Hard re-analysis addendum (2026-08-03, second pass)
 
 A deeper re-read of the **live production path** (`main.py` → `run_karpathy_pipeline`) surfaced findings the first pass under-weighted. The headline correction: **the first pass fixed the silent `tasks[:3]` truncation in the DEAD `dispatch_kernel`, not in the live pipeline.** The live `karpathy_pipeline.py:159` still had `for task in tasks[:3]` with **zero test coverage**.
@@ -199,8 +183,6 @@ A deeper transitive reachability analysis (static AST walk from `run_karpathy_pi
 - The repo has **multiple concurrent workers** (sibling subagents + pushed commits on `main`). During this session, an external commit (`fb0b7d7 "Fix: harness passed a dead allow_mock kwarg"`) reverted an earlier `audit_stepfun_policy.py` edit of mine; `make audit` began failing again until I re-applied the `SKIP_FILES` correction.
 - **Implication:** any fix to shared governance files (`scripts/audit_*`, `Makefile`, `ci.yml`, `LAWS.md`, `agent_registry.py`) must be committed/pushed promptly, because a fast follow-up push can silently revert it. Prefer small, self-contained PRs over long-lived local edits on `main`.
 
----
-
 ## 9. Third-pass addendum — F7 corrected & closed (2026-08-03)
 
 ### 🔴 F7 — Domain-squad output was parsed but NOT execution-grounded (verified, fixed)
@@ -209,8 +191,6 @@ The second-pass note called Layer-4 squads "raw LLM strings never parsed/execute
 - **Verification lesson (again):** the squad-grounding test initially failed because my fake decomposition used `type:"api"`, which `DeterministicValidatorEngine.VALID_TYPES` rejects (`{feature,architecture,requirements,testing,bugfix,refactor}`); domain routing is by keyword detection, not `type`. Correct fixture = `type:"feature"` + api-rich description. This is the same "verify claims against real code" discipline that caught the false F10.
 
 *Third-pass addendum. F7 closed (squad code now execution-grounded). Remaining open thread: **F8 (Law 20 boundary keyword bypass by paraphrase)** — a design limitation of substring matching, lower priority.*
-
----
 
 ## 10. Recheck (2026-08-04) — most critical/medium findings already resolved
 

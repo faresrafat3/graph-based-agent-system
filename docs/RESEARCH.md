@@ -4,8 +4,6 @@
 
 This document provides the research foundation for the Software Builder Agents system, including key papers, frameworks, and methodologies that informed our design decisions.
 
----
-
 ## 1. Karpathy's Agentic Engineering
 
 ### Source
@@ -76,8 +74,6 @@ This document provides the research foundation for the Software Builder Agents s
 - Humans can override agent decisions
 - System provides transparency into agent decisions
 
----
-
 ## 2. Multi-Agent Systems Research
 
 ### 2.1 MAAD Framework
@@ -143,8 +139,6 @@ This document provides the research foundation for the Software Builder Agents s
 - We support parallel execution
 - We manage agents through LangGraph
 
----
-
 ## 3. LangGraph and Stepfun
 
 ### 3.1 LangGraph
@@ -191,8 +185,6 @@ This document provides the research foundation for the Software Builder Agents s
 - We use Stepfun for all production LLM calls
 - Tests monkeypatch the HTTP boundary or imported `call_llm` symbol explicitly
 - We implement custom memory and custom tools for full control
-
----
 
 ## 4. Software Engineering Methodologies
 
@@ -243,8 +235,6 @@ This document provides the research foundation for the Software Builder Agents s
 - We segregate interfaces (each agent has clear interface)
 - We enforce single responsibility (each agent does one thing)
 
----
-
 ## 5. AI and Machine Learning
 
 ### 5.1 Large Language Models
@@ -290,8 +280,6 @@ This document provides the research foundation for the Software Builder Agents s
 - Agents could optimize their prompts
 - Agents could improve over time
 
----
-
 ## 6. Software Quality
 
 ### 6.1 Test-Driven Development
@@ -335,8 +323,6 @@ This document provides the research foundation for the Software Builder Agents s
 - We implement automated testing
 - We could implement automated deployment
 - We provide continuous feedback
-
----
 
 ## 7. Decision Making
 
@@ -399,8 +385,6 @@ We chose 8 agents because:
 - Covers all major roles in software development
 - Manageable complexity
 
----
-
 ## 8. Limitations and Future Work
 
 ### 8.1 Current Limitations
@@ -420,8 +404,6 @@ We chose 8 agents because:
 5. **Distributed Execution**: Run agents on multiple machines
 6. **Collaborative Agents**: Agents that can negotiate and collaborate
 7. **Self-Improving Agents**: Agents that improve their own prompts
-
----
 
 ## 9. Ethical Considerations
 
@@ -465,8 +447,6 @@ AI systems can expose sensitive information.
 - We validate all inputs and outputs
 - We don't store sensitive information
 
----
-
 ## 10. Conclusion
 
 The Software Builder Agents system is built on a solid research foundation, including:
@@ -484,8 +464,6 @@ Our design decisions are informed by this research and optimized for:
 - **Reliability** - Fault-tolerant and robust
 - **Transparency** - Clear visibility into agent decisions
 - **Scalability** - Can handle complex requirements
-
----
 
 ## References
 

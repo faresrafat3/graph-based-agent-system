@@ -11,8 +11,6 @@
 > content filters (see the DELEGATION FAILURE note at the end), so provider-layer
 > mechanisms are deliberately absent rather than guessed.
 
----
-
 ### M1 — Branch-version invalidation for background work
 - **source**: `packages/coding-agent/src/core/agent-session.ts:2556`, `:2569`
 - **what**: A plan computed in the background re-checks `branchVersion !== this._autoRefineBranchVersion`
@@ -332,8 +330,6 @@
   on disk, keyed by `requestId`. Post-mortems otherwise depend on logs that were never kept.
 - **transfer note**: Our ledger should carry the provider `requestId` for every failed agent
   call — without it, a failure cannot be traced back to the provider's own record.
-
----
 
 ## Rejected on purpose
 

@@ -14,8 +14,6 @@ This document is the canonical lifecycle reference for every agent in the Graph-
 
 The core rule is simple: **an agent is not complete unless its lifecycle is explicit, testable, deterministic where possible, and governed by the Constitution and Laws.**
 
----
-
 ## Global Agent Lifecycle Standard
 
 Every agent SHOULD be documented and implemented according to this lifecycle model.
@@ -70,8 +68,6 @@ Observability + Tests + Future Improvement
 7. **Permission boundaries before action**: NEVER/HUMAN_CHECKPOINT rules must be checked before execution.
 8. **Tests are lifecycle artifacts**: each implemented lifecycle must have tests.
 
----
-
 ## Agent Inventory
 
 ### Implemented Agents and Engines
@@ -105,11 +101,7 @@ Observability + Tests + Future Improvement
 | Resource & Priority Agent | Implemented | Manage token budgets, rate limits, and execution priority |
 | Human Escalation Agent | Implemented | Present critical decisions to humans and resume safely |
 
----
-
 # Implemented Agent Lifecycles
-
----
 
 ## 1. Context Curator Agent
 
@@ -225,8 +217,6 @@ result = curate_context(
 - Structured context sections with priorities.
 - Domain-aware context sanitation.
 - Redaction of high-risk secrets before logging or LLM routing.
-
----
 
 ## 2. Task Decomposer Agent
 
@@ -364,8 +354,6 @@ result = decompose_requirements(
 - Move JSON extraction into a shared parser utility.
 - Use structured validation report feedback during refinement.
 
----
-
 ## 3. Deterministic Validator Agent
 
 ### Identity
@@ -479,8 +467,6 @@ report = validate_output(task_payload, required_keys=["tasks", "metadata"])
 - Add machine-readable breach codes.
 - Add schema versioning.
 
----
-
 ## 4. Surgical Refiner Agent
 
 ### Identity
@@ -573,8 +559,6 @@ feedback = generate_refinement_feedback([
 - Accept structured validation breaches.
 - Preserve and reference exact JSON paths.
 - Generate patch-style correction instructions.
-
----
 
 ## 5. Agent Assigner Agent
 
@@ -718,8 +702,6 @@ print(result["execution_plan"])
 - Add human checkpoint for ambiguous multi-domain tasks.
 - Add direct LangGraph fan-out from `parallel_group` levels.
 
----
-
 ## 6. Code Executor Agent
 
 ### Identity
@@ -823,8 +805,6 @@ result = execute_task(task, project_context="Python service")
 - Add import allowlist.
 - Add richer static security scanner.
 - Add support for non-Python package validation through pluggable validators.
-
----
 
 ## 7. Test Runner Agent
 
@@ -932,8 +912,6 @@ result = run_code_and_tests(
 - Import allowlist.
 - Structured execution duration metrics.
 
----
-
 ## 8. Domain Context Managers
 
 ### Identity
@@ -998,8 +976,6 @@ domain_specific_data: str = ""
 - Structured context sections.
 - Tokenizer-backed budget enforcement.
 - Shared secret redaction.
-
----
 
 ## 9. Domain Squad Agents
 
@@ -1078,8 +1054,6 @@ domain_specific_data: str = ""
 - Validate generated code packages before returning success.
 - Add squad-specific deterministic validators.
 - Integrate dispatcher into execution plan processing.
-
----
 
 ## 10. Karpathy Pipeline
 
@@ -1160,13 +1134,9 @@ If code execution is enabled, executed modules include their own test execution 
 - Add Human Escalation checkpoints.
 - Convert optional code execution into a graph branch with explicit approval.
 
----
-
 # Governance Agent Lifecycle Specifications
 
 The following governance agents now have deterministic implementations. Their standalone lifecycle documents remain the source of truth for continued development.
-
----
 
 ## 11. Progress Monitor Agent (Planned)
 
@@ -1209,8 +1179,6 @@ timeouts: dict
 - deadlock detected
 - retry budget exceeded
 
----
-
 ## 12. Quality Reviewer Agent (Planned)
 
 ### Intended Responsibility
@@ -1251,8 +1219,6 @@ acceptance_criteria: list[str]
 - failing tests block approval
 - missing acceptance evidence blocks approval
 
----
-
 ## 13. Integration Agent (Planned)
 
 ### Intended Responsibility
@@ -1284,8 +1250,6 @@ module_exports: dict
 - **Commit**: emit unified bundle manifest.
 - **Refine**: request targeted artifact rename/fix.
 - **Escalate**: human checkpoint for major integration conflict.
-
----
 
 ## 14. Decision & Conflict Agent (Planned)
 
@@ -1320,8 +1284,6 @@ tradeoff_logs: list[dict]
 - **Refine**: request missing evidence.
 - **Escalate**: unresolved architectural dispute.
 
----
-
 ## 15. Resource & Priority Agent (Planned)
 
 ### Intended Responsibility
@@ -1355,8 +1317,6 @@ queue: list[dict]
 - **Refine**: reduce scope or defer low-priority work.
 - **Escalate**: token or request budget exhaustion.
 
----
-
 ## 16. Human Escalation Agent (Planned)
 
 ### Intended Responsibility
@@ -1389,8 +1349,6 @@ available_options: list[str]
 - **Commit**: persist decision log.
 - **Refine**: request clarification.
 - **Escalate**: remains active until valid response.
-
----
 
 # Development Checklist for New Agents
 
@@ -1432,8 +1390,6 @@ A new agent is not ready unless all items below are complete.
 - [ ] No production fallback response path.
 - [ ] No LLM call inside `evaluate`.
 
----
-
 # Operational Runbook
 
 ## Standard Local Verification
@@ -1469,8 +1425,6 @@ pytest --cov=. --cov-report=term-missing --cov-fail-under=80
 4. If permission boundary failed, do not retry automatically.
 5. If human checkpoint is required, stop automation.
 
----
-
 # Current Next Best Improvements
 
 1. Validate domain-dispatched code packages immediately after JSON parsing.
@@ -1478,8 +1432,6 @@ pytest --cov=. --cov-report=term-missing --cov-fail-under=80
 3. Add a real container-backed execution backend for untrusted code.
 4. Convert validation breach strings into structured breach objects.
 5. Upgrade Graph Execution Orchestrator from group-loop execution to true runtime-parallel fan-out/fan-in.
-
----
 
 # Individual Agent Documents
 

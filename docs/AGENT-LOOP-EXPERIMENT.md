@@ -4,8 +4,6 @@
 **Author:** Fares (with Hermes Agent)
 **Context:** graph-based-agent-system SWE-bench Verified harness
 
----
-
 ## 0. The observation that started this
 
 We measured the AlphaCode arm (best-of-N) on `psf/requests` (8 instances, Docker-graded):
@@ -33,8 +31,6 @@ This is exactly the failure mode a single agent hits when a task is "too big for
 agent." The system's whole thesis is: when one agent can't finish, decompose the task
 into a graph of specialized agents with feedback edges — not one agent doing everything.
 
----
-
 ## 1. Hypothesis (to be tested empirically)
 
 > **H:** The model can *reason about* the fix but cannot *execute* a multi-step fix alone.
@@ -44,8 +40,6 @@ into a graph of specialized agents with feedback edges — not one agent doing e
 If H holds → the ceiling is loop/graph depth, and the next lever is the multi-agent graph.
 If H fails → the ceiling is raw model capability, and no loop/graph will help without a
 stronger model.
-
----
 
 ## 2. The probe: `solve_agent_loop` (agent-level feedback loop)
 
@@ -66,8 +60,6 @@ Why this is the right *first* probe (not jumping straight to the graph):
 - If it works, we *know* the graph is worth building (and we know what each agent's job
   is: the loop's "generate → test → diagnose → correct" is literally the graph's shape).
 
----
-
 ## 3. How to read the result
 
 After Docker-grading the `--mode loop` predictions, compare:
@@ -82,8 +74,6 @@ If `loop` resolves any of {1724, 1766, 1921, 2317, 2931} that single-shot/alphac
 → H confirmed → build the graph next.
 If `loop` == single-shot on these → H rejected → the model needs to be swapped, not looped.
 
----
-
 ## 4. Philosophical note (why this matters beyond the number)
 
 Karpathy's method: *small strong readable core, grow by accumulation not bloat.* The
@@ -96,8 +86,6 @@ natural generalization *only if* the loop shows signal. Building the graph first
 have been bloat — we would not have known which agent boundaries matter. The loop is the
 empirical crucible; the graph is its scaled conclusion.
 
----
-
 ## 5. Status
 
 - [x] `solve_agent_loop` implemented (`--mode loop`), wired into `process_instance` + CLI
@@ -106,8 +94,6 @@ empirical crucible; the graph is its scaled conclusion.
 - [x] Docker-grade the loop predictions (RUN 5: 0/3 resolved)
 - [x] Record the comparison table (§6) — hypothesis H REJECTED
 - [x] Decision: model-swap (graph deferred)
-
----
 
 ## 6. Final measurement (RUN 5, 2026-08-04 — DECISIVE)
 
@@ -164,8 +150,6 @@ The graph was therefore built and measured (§7) — it is the methodology, not 
 | **graph (RUN 1)** | ✅ | ✗ | ❌ | ✗ | ❌ | ❌ | ✗ | ✗ | **1/5 graded** (see §7) |
 
 (✗ = infra-fail / no patch; ? = not measured this session.)
-
----
 
 ## 7. Graph arm measurement (RUN 1, 2026-08-04 — DECISIVE, per Fares's directive)
 
@@ -226,8 +210,6 @@ The graph matches alphacode's resolve rate (1/8) with better patch applicability
 the loop on applicability. All arms converge on the same ceiling: `step-3.7-flash` cannot
 complete multi-step fixes for these instances. The methodology (decompose → graph) is validated
 as the correct structure; the model is the gate.
-
----
 
 ## 8. FULL multi-dimensional graph arm (RUN 1, 2026-08-04 — DECISIVE, the complete framework)
 
@@ -302,8 +284,6 @@ feedback edges (correct structure, extracted latent power on applicability), and
 gap is generator capability — which a stronger model addresses inside the same framework, not
 a different architecture. This is precisely Fares's standing thesis, now empirically confirmed
 across five progressively-sophisticated arms.
-
----
 
 ## 9. Broken dimensions found & repaired (RUN 2, 2026-08-04 — the methodology self-corrects)
 

@@ -4,8 +4,6 @@
 **Method:** AST import analysis + runtime counters + direct reading. No inference from names.
 **Question asked by the architect:** rebuild from scratch, or continue?
 
----
-
 ## 0. The measured shape of the repo
 
 | Quantity | Value |
@@ -17,8 +15,6 @@
 | Tests | 1184 passing |
 
 Docs-to-code ≈ **1 : 2**. That alone is not damning. What follows is.
-
----
 
 ## 1. Only 7 of 37 "agents" ever talk to a model
 
@@ -40,8 +36,6 @@ system. The registry advertises 28 agents; the population that can actually reas
 `2 classes / 7 functions` shape). AST comparison found **no two files with an identical
 function-name set**. They were written individually, not stamped out. Recorded because it
 would have been an easy and wrong thing to assert.
-
----
 
 ## 2. The load-bearing finding: the kernel and the router are not connected
 
@@ -78,8 +72,6 @@ strings, resolved only by `governance_checks.py` via `importlib` to confirm the 
 
 **So the "graph" is a description of a graph, not a graph.**
 
----
-
 ## 3. Ten modules are tested but never imported by production
 
 | Module | Imported by production? | Imported by tests? |
@@ -110,8 +102,6 @@ Summary of `agents/` (36 modules, excluding `__init__`):
 | imported only by sibling agents | 12 |
 | never imported by production (tests only) | 10 |
 
----
-
 ## 4. Verdict on "rebuild or continue"
 
 **Neither extreme is supported by the evidence.**
@@ -139,8 +129,6 @@ correct move is neither to discard the parts nor to defend the assembly — it i
 small real execution core and connect the parts to it one at a time, each connection
 justified by a measurement.
 
----
-
 ## 5. Why this happened (relevant to preventing a repeat)
 
 Every defect found today shared one shape: **an accounting surface that reports success
@@ -162,8 +150,6 @@ literally produced and then read from the wrong field.
 **Design rule for whatever comes next:** no component counts as present until an execution
 trace shows it ran and changed an output. Registration, conformance, and green tests are
 necessary but never sufficient.
-
----
 
 ## 6. What this does NOT claim
 

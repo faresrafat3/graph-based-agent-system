@@ -9,8 +9,6 @@
 > Every number below comes from physically executing generated code against an official
 > test suite in an isolated subprocess. Nothing is self-reported by the model.
 
----
-
 ## 1. Executive Summary
 
 | Metric | Result |
@@ -28,8 +26,6 @@ scaffold — it is a property of the benchmark. HumanEval is a saturated, single
 completion task with no multi-step decomposition, no cross-file state, and no failure
 recovery pressure. There is nothing for a Curator / Validator / Refiner loop to grip.
 The scaffold's actual value showed up elsewhere in this run, and it was substantial (§5).
-
----
 
 ## 2. What This System Actually Is
 
@@ -109,8 +105,6 @@ cp .env.example .env        # set STEPFUN_API_KEY
 `PYTHONPATH`, `pip` sees the host site-packages and silently under-installs
 (`pydantic`, `httpx`, `requests` get skipped). Always `export PYTHONPATH=` first.
 
----
-
 ## 3. HumanEval — Methodology
 
 **Dataset:** OpenAI HumanEval, 164 hand-written Python problems, downloaded from the
@@ -134,8 +128,6 @@ The model's own opinion is never consulted.
 classified as `capability` (model produced wrong code) or `infrastructure` (429 /
 timeout — the request never reached the model). Reporting these together understates
 the score; reporting only the adjusted number overstates it. **Both are published.**
-
----
 
 ## 4. Results
 
@@ -212,8 +204,6 @@ the number is real, but the task doesn't exercise the machinery.
 and cannot validate its core thesis.** For that, SWE-bench Verified is the correct
 instrument (see §7).
 
----
-
 ## 5. Internal Governance Benchmark
 
 `benchmarks/benchmark_suite.py` — 4 adversarial scenarios probing the governance layer:
@@ -228,8 +218,6 @@ instrument (see §7).
 **Result: 100% (4/4).** Notably the injection attempt was neutralised deterministically —
 the Context Curator's regex sanitation and the Code Executor's `NEVER` permission matrix
 are zero-LLM, so there is no prompt to argue with.
-
----
 
 ## 6. Bugs Found and Fixed During This Run
 
@@ -271,8 +259,6 @@ problems (5, 38, 50) failed for a harness reason, not a model reason. Fixed by r
 everything before the target `def`. **This was our bug penalising the system, and it is why
 the pre-fix and post-fix numbers differ.**
 
----
-
 ## 7. Honest Assessment
 
 ### Genuine strengths
@@ -296,8 +282,6 @@ the pre-fix and post-fix numbers differ.**
 3. **Adversarial injection suite** — expand beyond 1 scenario; test paraphrase attacks against Law 20.
 4. **End-to-end squad execution** — parse squad JSON output and run it through the Test Runner. Close the Layer 4 gap.
 5. **Global retry/latency budget** at the kernel level.
-
----
 
 ## 7.5 New Specialized Agents (Phase 1+2 arena merge) — 2026-08-02
 
@@ -345,8 +329,6 @@ single-shot ceiling but with more headroom on the harder problems. The AlphaCode
 AlphaCode run is pending (throughput ~22s/problem → ~60 min at workers=8, blocked only by
 wall-clock, not quota, now that the key pool exists).
 
----
-
 ## 8. Reproducing These Numbers
 
 ```bash
@@ -370,8 +352,6 @@ Raw artifacts, per-problem, with tracebacks:
 - `benchmarks/results/humaneval_agent_full.json`
 - `benchmarks/results/humaneval_baseline_full.json`
 - `benchmarks/results/humaneval_agent_round1.json` (pre-retry, preserved for audit)
-
----
 
 ## 9. Verdict
 

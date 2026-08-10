@@ -9,15 +9,11 @@ precision, and theorized this separation ITSELF is a latent LLM power worth a pe
 **Method:** Same 4-question pressure-review posed to 3 models via agentrouter-org:
 `claude-opus-5`, `gpt-5.6-sol`, `claude-opus-4-8`. Plus hy3's independent analysis.
 
----
-
 ## The 4 questions
 1. Is "Philosopher/Executor separation" genuine emergent property or role-play/selection bias?
 2. Does pure-philosophical reasoning produce HIGHER quality, or do we just notice deep ones?
 3. What is the failure mode / trap?
 4. How formalize as a constitutional principle (concrete)?
-
----
 
 ## Model responses (verbatim core)
 
@@ -64,8 +60,6 @@ precision, and theorized this separation ITSELF is a latent LLM power worth a pe
   Mandatory **Reconciler** diffs intent↔output before commit." Separate budgets; score each
   on its own axis. **Gated by complexity threshold, not universal.**
 
----
-
 ## Synthesis (hy3)
 
 | Angle | Consensus across 3 models |
@@ -101,8 +95,6 @@ execution goes through a Reconciler + falsification hook.
 → The architecture already implements the convergent recommendation. No new code strictly
   required; may add a COMPLEXITY_GATE constant to skip CIR for trivial tasks (Task I).
 
----
-
 ## A/B Empirical Result (2026-08-05, appended)
 
 **Run:** `scripts/ab_cir_study.py --scenarios 8` (FUSED vs CIR on Karpathy decompose).
@@ -126,8 +118,6 @@ absolute law — exactly the convergent verdict.
 **Remaining gap:** n=4 is too small + scenarios are architecture (not code) tasks. A proper A/B
 needs (a) larger n with resilient retries, (b) code-level tasks (SWE-bench style) where CIR's
 framing may actually help. Logged as open; not claimed as proven.
-
----
 
 ## Open questions carried forward
 - Run a controlled A/B (CIR vs fused) on a LARGER n + code-level (SWE-bench style) tasks.

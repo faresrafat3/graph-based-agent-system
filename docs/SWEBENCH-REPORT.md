@@ -5,8 +5,6 @@
 **Harness:** `benchmarks/swebench_harness.py` (drives the real pipeline, not a mock)
 **Grader:** `swebench.harness.run_evaluation` v4.1.0 (official Docker evaluation)
 
----
-
 ## TL;DR
 
 | Metric | Result |
@@ -52,8 +50,6 @@ HTTP 429 exhaustion that no retry/backoff could outrun within a practical window
 This is the same lesson HumanEval taught, restated at higher stakes: **on SWE-bench,
 the bottleneck was infrastructure, and measuring it honestly requires admitting that
 up front.** The key pool fixes the infrastructure half of the problem.
-
----
 
 ## The Big Picture — what this whole session proved (read this first)
 
@@ -117,8 +113,6 @@ gap is generator capability. Dropping a stronger coding model into the *same* `-
 documented; the next session swaps the model, not the design.
 
 Full honest record: `docs/AGENT-LOOP-EXPERIMENT.md` (§1–§9). Reproduce commands at the bottom.
-
----
 
 ## What SWE-bench measures (and HumanEval could not)
 
@@ -231,8 +225,6 @@ the underlying model's patch quality, exactly as the single-shot runs showed. To
 number, the next lever is a stronger generator (e.g. a larger/coding-tuned model), not
 more samples.
 
----
-
 ## Results
 
 ### Run 1 — psf/requests, 8 instances (`gbas_smoke`, docker-graded)
@@ -264,8 +256,6 @@ instances precisely because of this. Our two docker grades on the *same* 8 insta
 **4/8 and 1/8** — a 4× swing from LLM nondeterminism alone. The AlphaCode arm
 (best-of-N sampling, measured at 100% on HumanEval) is the direct remedy.
 
----
-
 ## Three real bugs found (all Law-3 / governance failures)
 
 ### Bug 1 — Corrupt hunk counts rejected correct patches
@@ -287,8 +277,6 @@ the fix: 4 parallel calls paced at exactly the configured interval, no deadlock.
 `git worktree remove` silently failed when a failed apply left modified files, so
 worktrees accumulated (13+ at one point) and git operations stalled. Fixed with
 `--force` + `shutil.rmtree` fallback.
-
----
 
 ## Why the full 500-instance run is not (yet) feasible
 
@@ -334,8 +322,6 @@ the top-k candidates is the next suggested improvement.
 > (~5–30s/instance × 500 = 40–250 min). Both are now *scheduling* problems, not hard
 > blockers. A full 500-instance run is recommended as the next real measurement.
 
----
-
 ## How this compares to the leaderboard
 
 Published SWE-bench Verified (June 2026):
@@ -354,8 +340,6 @@ through a rate-limited API. The honest statement is: *the system demonstrates re
 bug-fixing capability on a 500k-line repo benchmark, but cannot yet be ranked against
 the leaderboard because the evaluation itself is gated by API quota.*
 
----
-
 ## What would make this decisive
 
 1. **Run on a model with quota headroom** (or raise the StepFun tier) so 50-100
@@ -366,8 +350,6 @@ the leaderboard because the evaluation itself is gated by API quota.*
    solved no matter how good the patch is. A two-stage retriever (BM25 + embedding, or
    a cheap LLM re-ranker) is the highest-leverage improvement — it lifts the entire
    pipeline's ceiling, not just the patch quality.
-
----
 
 ## Reproduce
 
@@ -393,8 +375,6 @@ export PYTHONPATH=                       # mandatory
 - `gbas-agent.gbas_smoke.json`, `gbas-agent.gbas_agent_requests.json` — official grades
 - `llm/llm_integration.py` — global rate limiter (Bug 2 fix)
 - `agents/test_runner_agent.py` — hunk-count repair logic (shared with SWE-bench validator)
-
----
 
 ## Multi-agent graph experiment (2026-08-04) — the complete arc
 

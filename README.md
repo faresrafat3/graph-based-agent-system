@@ -4,8 +4,6 @@
 
 A production-ready, graph-based multi-agent orchestration system that implements **Andrej Karpathy's Agentic Engineering** principles for building reliable, transparent, and ethical AI systems.
 
----
-
 ## 🎯 Vision
 
 ### Problem Statement
@@ -45,8 +43,6 @@ Unlike traditional multi-agent systems that use message-passing or shared state,
 - **Stateful checkpoints** - Resume from any point, debug any step
 - **Parallel execution** - Run independent agents concurrently
 - **Human-in-the-loop** - Pause and resume with human approval
-
----
 
 ## 🏛️ Governance
 
@@ -90,8 +86,6 @@ The system operates under **20 Laws** ([LAWS.md](LAWS.md)) that govern all imple
 - Breaches are detected through code reviews, testing, and monitoring
 - Penalties: Warning → Code review rejection → Temporary suspension
 - Appeals: Offenders may appeal to system operators
-
----
 
 ## 🏗️ Architecture
 
@@ -163,8 +157,6 @@ The system operates under **20 Laws** ([LAWS.md](LAWS.md)) that govern all imple
 - **Tools**: Custom MCP tools (requirements parser, dependency analyzer)
 - **Governance**: Constitution + Laws (enforced through code reviews)
 - **No External Dependencies**: No Hermes Agent, no AutoGen, no CrewAI
-
----
 
 ## 🚀 Quick Start
 

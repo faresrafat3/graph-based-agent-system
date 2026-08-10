@@ -4,8 +4,6 @@
 **Author:** hy3 (with Fares's direction + opus-5 / gpt-5.6-sol pressure-check + opus-5 FINAL review)
 **Status:** DRAFT v2 (post opus-5 review) — Q1-Q3 DECIDED by design-council (2026-08-05, hy3). Build unblocked; proceed Task 1→4.
 
----
-
 ## 0. What Fares actually said (verified against 2 models + final review)
 
 Faithful core (confirmed by opus-5 + gpt-5.6-sol):
@@ -43,8 +41,6 @@ Faithful core (confirmed by opus-5 + gpt-5.6-sol):
 - **Q1 blocks Task 2.** "Defined intelligence = P1-P7+CIR or a stricter new set?" MUST be answered
   before any governance code.
 
----
-
 ## 1. Design principles (the "DNA" we embed)
 
 - **P-EMBED:** The defined intelligence is an ENFORCED, AUDITABLE layer in the architecture,
@@ -56,8 +52,6 @@ Faithful core (confirmed by opus-5 + gpt-5.6-sol):
 - **P-FOCUS:** Topology assigns each agent a focused task via its structural position.
 - **P-AUDIT:** Every governance decision is recorded + replayable (extends existing ledger).
 - **P-NO-FORK:** Never create a 2nd governance authority. EXTEND `governance_checks.py` etc.
-
----
 
 ## 2. Architecture (REVISED — extends existing infra, no fork)
 
@@ -85,8 +79,6 @@ The governance layer is NOT a prompt around the LLM. It is:
 - **Structural:** who an agent may message, what claim it may emit (typed edges) — via topology_assembler.
 - **Enforced:** existing validators reject violations (auditable) — extended, not replaced.
 - **Embedded:** compiled into the graph, runs on weak models without us present.
-
----
 
 ## 3. Build sequence (smallest coherent pieces, one at a time) — REVISED
 
@@ -135,8 +127,6 @@ The governance layer is NOT a prompt around the LLM. It is:
   (P-NO-FORK) — no second governor created.
 - Tests: `tests/test_meta_monitor_backbone.py` (2 tests).
 
----
-
 ## 4. What we explicitly do NOT build (per model warnings)
 - No constitution-prompt wrapper around the LLM.
 - No "self-repair meta-loop" claimed as Fares's spec (extension only).
@@ -144,8 +134,6 @@ The governance layer is NOT a prompt around the LLM. It is:
 - No 2nd governance authority (P-NO-FORK: extend existing).
 - No assumption we "step away" — we build the enforced layer, then it runs; our presence is
   not required for runtime, but that is a consequence, not a feature we assert.
-
----
 
 ## 5. Open questions — DECIDED (design council, 2026-08-05)
 - **Q1 — DECIDED: EXISTING constitution (P1-P7 + CIR).** C5 makes any new principle without a

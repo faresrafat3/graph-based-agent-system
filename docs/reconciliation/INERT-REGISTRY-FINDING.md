@@ -4,8 +4,6 @@
 **Measured by:** orchestrator (Hermes), verified directly against source at HEAD
 **Status:** VERIFIED — reproducible by the script in §4
 
----
-
 ## 0. Why this file exists
 
 Fares's diagnosis, which this measurement was built to test:
@@ -16,8 +14,6 @@ Fares's diagnosis, which this measurement was built to test:
 He rejected the framing "either the architecture was never the bottleneck, or the generator
 is the ceiling" as a false dilemma. This document reports what was found when the repo was
 measured for **transport of reasoning** instead of resolve rate.
-
----
 
 ## 1. Headline
 
@@ -64,8 +60,6 @@ The finding that survives verification:
 call sites, so any per-node check calls it healthy. Every one of those calls originates in
 `domain_squads`, which nothing invokes.
 
----
-
 ## 2. The mechanism — why this was invisible
 
 The registry stores agents as **metadata strings**, not callable references
@@ -94,8 +88,6 @@ So the agent is simultaneously:
 Every accounting surface reports health while nothing flows. This is the precise sense in
 which "wiring is not flowing."
 
----
-
 ## 3. Why this matters more than the 1/8 resolve rate
 
 The arms all measured *output quality* of one path. This measures *whether the other paths
@@ -112,8 +104,6 @@ exist at runtime at all*. Consequences:
 3. **Test coverage actively concealed it.** 3 modules have tests and zero production callers
    (`prime_agent_adapter` 327 LOC / 6 test refs; `cynefin_classifier` 134 / 2;
    `intelligence_forge_demo` 89 / 1). A green suite was evidence of nothing.
-
----
 
 ## 3b. Method correction — the first pass was itself defective
 
@@ -245,8 +235,6 @@ for m in sorted(inert):
     print("  ", m, "(direct)" if not prod[m] else "(transitive)")
 ```
 
----
-
 ## 5. Correction to a subagent's report
 
 `P7-AGENT-AUDIT.md` (written by a delegated subagent) lists 10 "removal candidates"
@@ -262,8 +250,6 @@ The distinction changes the remedy completely:
 Deleting the memory tier would destroy exactly the machinery needed to carry reasoning
 forward. That subagent report must not be actioned as written. (Recorded per the standing
 rule that a subagent summary is a self-report, not evidence.)
-
----
 
 ## 6. What this does NOT prove
 

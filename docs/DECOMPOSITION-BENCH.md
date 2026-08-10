@@ -4,8 +4,6 @@
 **Arms:** `flat` (one LLM call: "list the steps") vs `graph` (`decompose_requirements`)
 **Grading:** programmatic set/index arithmetic. No LLM judges anything.
 
----
-
 ## Why this suite exists
 
 SWE-bench emits one end-to-end number. When an arm loses there, the result cannot say
@@ -17,8 +15,6 @@ That matters here because the local SWE-bench run found the arms **statistically
 indistinguishable** (10/21 vs 11/21, McNemar p=1.0). A null result on a composite metric
 is not evidence that decomposition is worthless — it is evidence that the metric cannot
 see it. So decomposition gets measured directly.
-
----
 
 ## Result
 
@@ -44,8 +40,6 @@ Per fixture (composite):
 **Mean delta +0.021 — graph wins 2, loses 3, ties 1.** At n=6 fixtures this is a wash,
 not a win. The interesting content is in the per-metric split, not the headline.
 
----
-
 ## What the split actually says
 
 The two arms fail in **opposite** directions, which a composite average hides:
@@ -62,8 +56,6 @@ the kind of finding a single resolve-rate number cannot produce.
 `flat`'s granularity of 0.293 is the mirror image: it routinely dumps a compound task into
 too few units. On `single-unit-control` (an atomic bug fix) both arms score 1.0, so
 neither over-decomposes a task that needs no structure.
-
----
 
 ## A scorer bug this run exposed
 
@@ -90,8 +82,6 @@ inversion still fails.
 This is the fifth measurement bug found this session. Every one of them distorted results
 before any conclusion was drawn from them — which is the argument for testing the
 instrument before trusting its output.
-
----
 
 ## Limits
 

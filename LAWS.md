@@ -4,8 +4,6 @@
 
 These Laws govern the implementation and operation of the Graph-Based Agent System. All code, documentation, and operations **MUST** comply with these Laws. Breaches **MUST** be corrected immediately.
 
----
-
 ## Law 1: The Law of Specialization
 
 ### Statement
@@ -53,8 +51,6 @@ class GeneralAgent:
 - First breach: Warning and required refactoring
 - Second breach: Code review rejection
 - Third breach: Temporary suspension from contributing
-
----
 
 ## Law 2: The Law of Permission Boundaries
 
@@ -104,8 +100,6 @@ class TaskDecomposerAgent:
 - First breach: Warning and required fix
 - Second breach: Code review rejection
 - Third breach: Agent disabled
-
----
 
 ## Law 3: The Law of Failure Handling
 
@@ -160,8 +154,6 @@ class TaskDecomposerAgent:
 - First breach: Warning and required fix
 - Second breach: Code review rejection
 - Third breach: Agent disabled
-
----
 
 ## Law 4: The Law of the Karpathy Loop
 
@@ -235,8 +227,6 @@ class TaskDecomposerAgent:
 - Second breach: Code review rejection
 - Third breach: Agent disabled
 
----
-
 ## Law 5: The Law of Testing
 
 ### Statement
@@ -282,8 +272,6 @@ def test_task_decomposer():
 - First breach: Warning and required tests
 - Second breach: Code review rejection
 - Third breach: Temporary suspension from contributing
-
----
 
 ## Law 6: The Law of Documentation
 
@@ -365,8 +353,6 @@ class TaskDecomposerAgent:
 - Second breach: Code review rejection
 - Third breach: Temporary suspension from contributing
 
----
-
 ## Law 7: The Law of Simplicity
 
 ### Statement
@@ -413,8 +399,6 @@ def add(a: int, b: int) -> int:
 - First breach: Warning and required simplification
 - Second breach: Code review rejection
 - Third breach: Temporary suspension from contributing
-
----
 
 ## Law 8: The Law of Transparency
 
@@ -464,8 +448,6 @@ class TaskDecomposerAgent:
 - Second breach: Code review rejection
 - Third breach: Temporary suspension from contributing
 
----
-
 ## Law 9: The Law of Human Oversight
 
 ### Statement
@@ -509,8 +491,6 @@ class TaskDecomposerAgent:
 - First breach: Warning and required oversight
 - Second breach: Code review rejection
 - Third breach: Agent disabled
-
----
 
 ## Law 10: The Law of Continuous Improvement
 
@@ -573,8 +553,6 @@ class System:
 - Second breach: System review rejection
 - Third breach: System deprecated
 
----
-
 ## Enforcement
 
 ### Enforcement Authority
@@ -592,8 +570,6 @@ Offenders may appeal penalties to the system operators.
 
 ### Amendments
 These Laws may be amended through the process defined in the Constitution.
-
----
 
 ## Law 11: The Law of Execution Grounding
 
@@ -635,8 +611,6 @@ def evaluate(state):
 - Second breach: Agent disabled until fixed
 - Third breach: Agent removed from the system
 
----
-
 ## Law 12: The Law of Context Sanitation
 
 ### Statement
@@ -675,8 +649,6 @@ response = call_llm(raw_prompt + "\n" + full_history + "\n" + error_logs)
 - First breach: Mandatory Context Curator integration
 - Second breach: Code review rejection
 - Third breach: Agent disabled until pipeline compliance is verified
-
----
 
 ## Law 13: The Law of Surgical Refinement
 
@@ -746,8 +718,6 @@ def route(self, signal: AgentSignal) -> str:
 - Second breach: Code review rejection.
 - Third breach: Router disabled until compliant.
 
----
-
 ## Law 15: The Law of Latency Budget
 
 ### Statement
@@ -781,8 +751,6 @@ def _acquire_rate_token():
 - First breach: Mandatory integration with the global limiter.
 - Second breach: Code review rejection.
 
----
-
 ## Law 16: The Law of Reproducible Evidence
 
 ### Statement
@@ -811,8 +779,6 @@ score = run_tests_in_worktree(patch, instance)  # pytest FTP/PTP, same signal as
 - First breach: Mandatory re-run with physical execution.
 - Second breach: Report rejected.
 
----
-
 ## Law 17: The Law of Subsystem Context Isolation
 
 ### Statement
@@ -820,8 +786,6 @@ score = run_tests_in_worktree(patch, instance)  # pytest FTP/PTP, same signal as
 
 ### Rationale
 Context Rot and token dilution occur when unrelated subsystem details (such as HTML/CSS styling or database indexes) are fed into specialized backend or authentication prompts. Subsystem isolation preserves maximum reasoning capability.
-
----
 
 ## Law 18: The Law of Architectural Blueprint Precedence
 
@@ -831,8 +795,6 @@ Context Rot and token dilution occur when unrelated subsystem details (such as H
 ### Rationale
 Generating isolated code modules without an overarching architectural blueprint leads to disjointed code, conflicting function signatures, and integration failures.
 
----
-
 ## Law 19: The Law of Session Handoff Grounding
 
 ### Statement
@@ -841,8 +803,6 @@ Generating isolated code modules without an overarching architectural blueprint 
 ### Rationale
 LLM summaries of past session states introduce cumulative hallucination across long development sessions. Only cryptographic SHA-256 code hashes and AST structural summaries provide empirical Ground Truth.
 
----
-
 ## Law 20: The Law of Squad Specialization
 
 ### Statement
@@ -850,8 +810,6 @@ LLM summaries of past session states introduce cumulative hallucination across l
 
 ### Rationale
 Strict permission boundaries prevent agent scope creep and enforce single-responsibility governance across the hierarchical architecture.
-
----
 
 ## Enforcement
 
@@ -878,4 +836,3 @@ These Laws may be amended through the process defined in the Constitution.
 **Version**: 2.0
 
 **Status**: Ratified
-

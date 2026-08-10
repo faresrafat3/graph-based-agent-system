@@ -4,8 +4,6 @@
 **Author:** Hermes Agent (with Fares)
 **Scope:** Honest placement of this system on the SWE-bench Verified leaderboard, and the decision it forces.
 
----
-
 ## 0. TL;DR — the uncomfortable number
 
 | System | SWE-bench Verified resolve rate | Notes |
@@ -27,8 +25,6 @@ any sample.
 
 > "We measured the AlphaCode arm on `psf/requests` (8 instances): 1/8 — same as the
 > worst single-shot run, far below the best (4/8)." — `docs/AGENT-LOOP-EXPERIMENT.md`
-
----
 
 ## 1. What the numbers actually mean
 
@@ -57,8 +53,6 @@ numbers here and to any single leaderboard snapshot.
   instances regardless of N. Best-of-N only helps when ≥1 sample in the pool resolves;
   on 5/6 generated instances none of 3 samples cleared FAIL_TO_PASS.
 
----
-
 ## 2. The decision the data forces (decision #3 ladder)
 
 ```
@@ -82,8 +76,6 @@ from this table.
 row before any graph investment. (Deferred in this cleanup pass: the sibling session
 owns `benchmarks/swebench_harness.py` and is mid-edit on the loop wiring.)
 
----
-
 ## 3. SOTA comparison (caveated)
 
 | Dimension | Orchard-SWE | Frontier (Opus 5 class) | This system |
@@ -105,8 +97,6 @@ owns `benchmarks/swebench_harness.py` and is mid-edit on the loop wiring.)
 > 8-instance number is only good enough to locate the order of magnitude of the gap
 > and to decide model-swap vs graph.
 
----
-
 ## 4. Recommended next experiment (controlled, cheap)
 
 Before building the ultimate graph, run a **controlled generator-swap**:
@@ -121,8 +111,6 @@ Before building the ultimate graph, run a **controlled generator-swap**:
 This is the smallest honest step that distinguishes "model ceiling" from
 "architecture ceiling" — exactly the Karpathy method: *small strong readable core,
 grow by accumulation not bloat.*
-
----
 
 ## 5. Status / open items
 

@@ -4,8 +4,6 @@
 
 The **Software Agents** are the specialized agents that perform the actual software development work. They work under the supervision of the **Karpathy Agents** (meta-agents) that manage the system.
 
----
-
 ## Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -19,8 +17,6 @@ The **Software Agents** are the specialized agents that perform the actual softw
 │ DevOps, Security                                            │
 └─────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## The 7 Software Agents
 
@@ -111,8 +107,6 @@ PERMISSIONS = {
 - Receives tasks from Task Decomposer
 - Outputs go to Architect and Agent Assigner
 
----
-
 ### 2. Architect Agent
 
 **Role:** Designs system architecture
@@ -196,8 +190,6 @@ PERMISSIONS = {
 **Integration with Karpathy Agents:**
 - Receives user stories from Product Manager
 - Outputs go to Developer and Agent Assigner
-
----
 
 ### 3. Developer Agent
 
@@ -291,8 +283,6 @@ PERMISSIONS = {
 - Receives architecture from Architect
 - Outputs go to Reviewer, Tester, and Agent Assigner
 
----
-
 ### 4. Reviewer Agent
 
 **Role:** Reviews code
@@ -376,8 +366,6 @@ PERMISSIONS = {
 **Integration with Karpathy Agents:**
 - Receives code from Developer
 - Outputs go to Developer (for fixes) or Quality Reviewer
-
----
 
 ### 5. Tester Agent
 
@@ -474,8 +462,6 @@ PERMISSIONS = {
 - Receives code from Developer
 - Outputs go to Developer (for fixes) or Quality Reviewer
 
----
-
 ### 6. DevOps Agent
 
 **Role:** Manages deployment
@@ -564,8 +550,6 @@ PERMISSIONS = {
 - Receives approved code from Reviewer
 - Outputs go to Progress Monitor
 
----
-
 ### 7. Security Agent
 
 **Role:** Ensures system security
@@ -653,8 +637,6 @@ PERMISSIONS = {
 **Integration with Karpathy Agents:**
 - Receives code from Developer and Reviewer
 - Outputs go to Developer (for fixes) or DevOps (for deployment)
-
----
 
 ## Integration with Karpathy Agents
 
@@ -751,8 +733,6 @@ def test_architect():
 
 # Similar tests for Developer, Reviewer, Tester, DevOps, Security
 ```
-
----
 
 ## Summary
 
