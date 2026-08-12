@@ -1,6 +1,6 @@
 # Directed Survey — Inert Agents & Measurement Honesty
 
-> generated_at: 20260812_083617  |  live_entrypoint: `run_karpathy_pipeline`
+> generated_at: 20260811_183235  |  live_entrypoint: `run_karpathy_pipeline`
 > Mode: **propose-only** (C1 default-deny) — no source mutated.
 
 ## Governance Score (F2): `0.5`
