@@ -7,8 +7,7 @@ execution evidence into one approval/rejection decision without LLM calls.
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 
 QUALITY_REVIEWER_PERMISSIONS = {
@@ -133,15 +132,7 @@ class QualityReviewerEngine:
         }
 
 
-# Karpathy Loop
-
-def propose(state: QualityReviewerState) -> dict:
-    """Step 1: Propose - ensure quality evidence containers are valid."""
-    for key in ("validation_reports", "execution_results", "acceptance_criteria", "security_reports"):
-        if not isinstance(state.get(key, []), list):
-            return {"rejection_reasons": [f"{key} must be a list."], "success": False, "approved": False}
-    return {"rejection_reasons": [], "success": True}
-
+# Karpathy Loop (shared factory; standard nodes, approval-driven evaluate)
 
 def execute(state: QualityReviewerState) -> dict:
     """Step 2: Execute - compute deterministic quality decision."""
@@ -160,38 +151,12 @@ def evaluate(state: QualityReviewerState) -> dict:
     return {"success": bool(state.get("approved", False))}
 
 
-def commit(state: QualityReviewerState) -> dict:
-    """Step 4: Commit - quality report is final."""
-    return {"committed": True}
-
-
-def refine(state: QualityReviewerState) -> dict:
-    """Step 5: Refine - reviewer reports reasons but does not repair artifacts."""
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: QualityReviewerState) -> str:
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(QualityReviewerState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-quality_reviewer_graph = workflow.compile(checkpointer=MemorySaver())
+quality_reviewer_graph = build_karpathy_loop(
+    QualityReviewerState,
+    execute_fn=execute,
+    evaluate_fn=evaluate,
+    list_input_keys=("validation_reports", "execution_results", "acceptance_criteria", "security_reports"),
+)
 
 
 def review_quality(

@@ -3,10 +3,9 @@ Surgical Refiner Agent - Meta-Agent for Targeted Refinement & Surgical Correctio
 Implements Karpathy's 3rd Engineering Pillar: Surgical Changes & Pinpoint Self-Correction.
 """
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List, Any
 
+from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 from system.bounded_probe import enforce_bounded_probe
 
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)
@@ -110,51 +109,21 @@ def commit(state: SurgicalRefinerState) -> dict:
 
 def refine(state: SurgicalRefinerState) -> dict:
     """Step 5: Refine - Escalate if refinement loop exceeds retry budget"""
-    retry_count = state.get("retry_count", 0) + 1
-    return {
-        "retry_count": retry_count,
-        "success": False
-    }
+    return standard_refine(state)
 
 
 def should_continue(state: SurgicalRefinerState) -> str:
     """Determine next step in Karpathy Loop"""
-    if state.get("success", False):
-        return "commit"
-    elif state.get("retry_count", 0) >= 3:
-        return "escalate"
-    else:
-        return "refine"
+    return standard_should_continue(state, retry_cap=3)
 
 
-# Build LangGraph Workflow
-workflow = StateGraph(SurgicalRefinerState)
-
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-
-workflow.add_conditional_edges(
-    "evaluate",
-    should_continue,
-    {
-        "commit": "commit",
-        "refine": "refine",
-        "escalate": END
-    }
+surgical_refiner_graph = build_karpathy_loop(
+    SurgicalRefinerState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    retry_cap=3,
 )
-
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-checkpointer = MemorySaver()
-surgical_refiner_graph = workflow.compile(checkpointer=checkpointer)
 
 
 def generate_refinement_feedback(

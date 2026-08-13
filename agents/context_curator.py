@@ -3,10 +3,10 @@ Context Curator Agent - Meta-Agent for Context Hygiene, Sanitation, and RAM Mana
 Implements Karpathy's 2nd Engineering Pillar: Context Engineering & Window Sanitation.
 """
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List
 import re
+
+from kernel.karpathy_loop import build_karpathy_loop
 
 # Permission Boundaries (Law 2 & Constitution Article I, Section 2)
 CONTEXT_CURATOR_PERMISSIONS = {
@@ -118,11 +118,6 @@ def evaluate(state: ContextCuratorState) -> dict:
     return {"success": success}
 
 
-def commit(state: ContextCuratorState) -> dict:
-    """Step 4: Commit - Confirm sanitized context is ready for next agent invocation"""
-    return {"committed": True}
-
-
 def refine(state: ContextCuratorState) -> dict:
     """Step 5: Refine - Truncate context if budget exceeded"""
     retry_count = state.get("retry_count", 0) + 1
@@ -137,44 +132,14 @@ def refine(state: ContextCuratorState) -> dict:
     }
 
 
-def should_continue(state: ContextCuratorState) -> str:
-    """Determine next step in Karpathy Loop"""
-    if state.get("success", False):
-        return "commit"
-    elif state.get("retry_count", 0) >= 3:
-        return "escalate"
-    else:
-        return "refine"
-
-
-# Build LangGraph Workflow for Context Curator Agent
-workflow = StateGraph(ContextCuratorState)
-
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-
-workflow.add_conditional_edges(
-    "evaluate",
-    should_continue,
-    {
-        "commit": "commit",
-        "refine": "refine",
-        "escalate": END
-    }
+context_curator_graph = build_karpathy_loop(
+    ContextCuratorState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    refine_fn=refine,
+    retry_cap=3,
 )
-
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-checkpointer = MemorySaver()
-context_curator_graph = workflow.compile(checkpointer=checkpointer)
 
 
 def curate_context(

@@ -2,11 +2,11 @@
 Task Decomposer Agent - First of 8 Karpathy Agents
 """
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List
 import json
 from datetime import datetime
+
+from kernel.karpathy_loop import build_karpathy_loop, standard_should_continue
 
 # Import dependencies
 import sys
@@ -396,55 +396,18 @@ def refine(state: TaskDecomposerState) -> dict:
 
 def should_continue(state: TaskDecomposerState) -> str:
     """Determine next step in Karpathy Loop"""
-    
-    success = state.get("success", False)
-    retry_count = state.get("retry_count", 0)
-    
-    if success:
-        return "commit"
-    elif retry_count >= 3:
-        return "escalate"
-    else:
-        return "refine"
+    return standard_should_continue(state, retry_cap=3)
 
 
-# Build LangGraph Workflow
-workflow = StateGraph(TaskDecomposerState)
-
-# Add nodes (Karpathy Loop steps)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-# Set entry point
-workflow.set_entry_point("propose")
-
-# Add edges
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-
-# Conditional routing
-workflow.add_conditional_edges(
-    "evaluate",
-    should_continue,
-    {
-        "commit": "commit",
-        "refine": "refine",
-        "escalate": END
-    }
+task_decomposer_graph = build_karpathy_loop(
+    TaskDecomposerState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    commit_fn=commit,
+    refine_fn=refine,
+    retry_cap=3,
 )
-
-# Loop back from refine to propose
-workflow.add_edge("refine", "propose")
-
-# End after commit
-workflow.add_edge("commit", END)
-
-# Compile with Checkpointer (State Persistence - Article III, Section 1)
-checkpointer = MemorySaver()
-task_decomposer_graph = workflow.compile(checkpointer=checkpointer)
 
 
 # Main function

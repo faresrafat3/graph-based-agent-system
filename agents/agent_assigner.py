@@ -10,8 +10,7 @@ and Law 20 (Squad Specialization).
 from collections import defaultdict, deque
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 from agents.deterministic_validator import DeterministicValidatorEngine
 from agents.domain_squads import SQUAD_PERMISSIONS
@@ -271,7 +270,7 @@ class AgentAssignerEngine:
         return breaches
 
 
-# Karpathy Loop Implementation
+# Karpathy Loop (shared factory; custom propose/evaluate, standard rest)
 
 def propose(state: AgentAssignerState) -> dict:
     """Step 1: Propose - validate task structure before routing."""
@@ -306,45 +305,12 @@ def evaluate(state: AgentAssignerState) -> dict:
     return {"breaches": breaches, "success": len(breaches) == 0}
 
 
-def commit(state: AgentAssignerState) -> dict:
-    """Step 4: Commit - assignment plan is ready for downstream orchestration."""
-    return {"committed": True}
-
-
-def refine(state: AgentAssignerState) -> dict:
-    """Step 5: Refine - deterministic assignment has no self-healing mutation."""
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: AgentAssignerState) -> str:
-    """Determine next step in Karpathy Loop."""
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(AgentAssignerState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges(
-    "evaluate",
-    should_continue,
-    {"commit": "commit", "refine": "refine", "escalate": END},
+agent_assigner_graph = build_karpathy_loop(
+    AgentAssignerState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
 )
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-checkpointer = MemorySaver()
-agent_assigner_graph = workflow.compile(checkpointer=checkpointer)
 
 
 def assign_tasks(tasks: list[dict], thread_id: str = "assigner_session") -> dict[str, Any]:

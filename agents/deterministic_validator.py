@@ -11,9 +11,9 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from typing import TypedDict, List, Any
+
+from kernel.karpathy_loop import build_karpathy_loop
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +285,7 @@ class DeterministicValidatorEngine:
         return round(max(0.0, 1.0 - penalty), 2)
 
 
-# Karpathy Loop Implementation
+# Karpathy Loop (shared factory; custom propose/evaluate, standard rest)
 
 def propose(state: DeterministicValidatorState) -> dict:
     """Step 1: Propose - Inspect target output and verify permission invariants."""
@@ -338,58 +338,13 @@ def evaluate(state: DeterministicValidatorState) -> dict:
     return {"success": success}
 
 
-def commit(state: DeterministicValidatorState) -> dict:
-    """Step 4: Commit - Save validation report."""
-    return {"committed": True}
-
-
-def refine(state: DeterministicValidatorState) -> dict:
-    """Step 5: Refine - Re-evaluate after correction attempt."""
-    retry_count = state.get("retry_count", 0) + 1
-    return {
-        "retry_count": retry_count,
-        "success": False
-    }
-
-
-def should_continue(state: DeterministicValidatorState) -> str:
-    """Determine next step in Karpathy Loop."""
-    if state.get("success", False):
-        return "commit"
-    elif state.get("retry_count", 0) >= 3:
-        return "escalate"
-    else:
-        return "refine"
-
-
-# Build LangGraph Workflow
-workflow = StateGraph(DeterministicValidatorState)
-
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-
-workflow.add_conditional_edges(
-    "evaluate",
-    should_continue,
-    {
-        "commit": "commit",
-        "refine": "refine",
-        "escalate": END
-    }
+deterministic_validator_graph = build_karpathy_loop(
+    DeterministicValidatorState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    retry_cap=3,
 )
-
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-checkpointer = MemorySaver()
-deterministic_validator_graph = workflow.compile(checkpointer=checkpointer)
 
 
 def validate_output(
