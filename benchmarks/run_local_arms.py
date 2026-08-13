@@ -50,7 +50,6 @@ import time
 from collections import Counter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
 
 from benchmarks.swebench_harness import (  # noqa: E402
     checkout_worktree,

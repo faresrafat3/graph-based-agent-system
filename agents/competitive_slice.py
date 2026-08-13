@@ -15,10 +15,6 @@ This slice is selected by DispatchKernel when task_type == "humaneval" or "compe
 """
 
 from typing import Dict, Any
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.context_curator import curate_context
 from agents.sampling_agent import sample_candidates

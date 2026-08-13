@@ -18,6 +18,11 @@ import argparse
 import sys
 from pathlib import Path
 
+# NOTE: this sys.path bootstrap MUST stay. benchmarks/governance_adversarial.py
+# copies the repo into a sandbox and runs this script there with PYTHONPATH cleared;
+# the bootstrap is what makes first-party imports resolve to the SANDBOX copy (mutated
+# files included) instead of the installed package or the host tree. Removing it would
+# silently audit the host code, turning every adversarial mutation into a false pass.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))

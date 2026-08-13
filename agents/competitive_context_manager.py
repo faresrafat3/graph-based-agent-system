@@ -7,11 +7,8 @@ Not a replacement for existing Auth/DB/API/UI managers, but an addition for comp
 Reuses BaseDomainContextManager and follows same pattern as existing managers.
 """
 
-import sys
 import re
 from typing import Dict, Any
-
-sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 
 from agents.domain_context_managers import BaseDomainContextManager
 

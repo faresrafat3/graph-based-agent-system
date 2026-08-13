@@ -1,6 +1,5 @@
-import sys, os, json, tempfile
+import os, json, tempfile
 from pathlib import Path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from benchmarks.report_generator import save_benchmark_report
 

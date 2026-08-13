@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graph-based-agent-system"
+version = "0.1.0"
+description = "Graph-based multi-agent orchestration system implementing Karpathy's Agentic Engineering"
+readme = "README.md"
+requires-python = ">=3.10"
+# Runtime dependencies live in requirements.txt; this project is installed as
+# editable (`-e .`) so first-party modules resolve from anywhere, not just cwd.
+dependencies = []
+
+[tool.setuptools]
+# Explicit package list (not `find`): tests/ is intentionally excluded, and the
+# dev tooling in scripts/ and benchmarks/ is importable as a regular package.
+packages = [
+    "agents",
+    "benchmarks",
+    "kernel",
+    "llm",
+    "memory",
+    "scripts",
+    "system",
+    "tools",
+    "tools.invocation_counter",
+]
+py-modules = ["main"]
+
+[tool.coverage.run]
+# Live-run tooling only: the benchmark harnesses and scripts/ utilities execute
+# against LLM endpoints / repo sandboxes and are exercised by their own runners,
+# not by the pytest suite. Keeping them out of the coverage gate keeps the gate
+# measuring the application code it guards (agents/system/kernel/llm/memory/
+# tools), which is what it measured before these dirs became importable packages.
+omit = ["benchmarks/*", "scripts/*"]

@@ -13,12 +13,8 @@ Role: Takes a failing code + test failure traceback and produces a fixed version
 This was the missing piece that prevented HumanEval from reaching 100% (task 116, 76, 145).
 """
 
-import os
-import sys
 import re
 from typing import TypedDict, List
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 

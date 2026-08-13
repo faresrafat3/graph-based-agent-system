@@ -4,13 +4,10 @@ Deterministically merges state snapshots across execution sessions using AST has
 """
 
 import os
-import sys
 import json
 import hashlib
 import ast
 from datetime import datetime
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class SessionStateMerger:

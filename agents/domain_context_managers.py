@@ -4,11 +4,7 @@ Provides isolated, noise-filtered context windows for specialized domain agent s
 Prevents Cross-Domain Context Pollution and Context Rot.
 """
 
-import os
-import sys
 import re
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.context_curator import ContextCuratorEngine
 

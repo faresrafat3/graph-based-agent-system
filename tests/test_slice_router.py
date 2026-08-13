@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from kernel.slice_router import detect_task_type, build_slice_graph, get_slice_for_requirements, SLICE_REGISTRY
 
 def test_registry_has_all_slices():

@@ -5,8 +5,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, "/home/fares/Projects/graph-based-agent-system/scripts")
-from verify_md_compression import ROOT, SNAPSHOT, fingerprint  # noqa: E402
+from scripts.verify_md_compression import ROOT, SNAPSHOT, fingerprint
 
 KINDS = ("numbers", "code", "cells", "anchors", "idents", "links")
 

@@ -17,13 +17,9 @@ AlphaCode insight adapted:
 - Suitable for HumanEval + general code generation where diversity matters
 """
 
-import os
-import sys
 import re
 import hashlib
 from typing import TypedDict, List, Dict, Any
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 

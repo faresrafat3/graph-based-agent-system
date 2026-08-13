@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.semantic_memory_agent import SemanticEngine, SEMANTIC_MEMORY_PERMISSIONS, extract_semantic_rule, get_semantic_rules
 from memory.custom_memory import memory
 import agents.semantic_memory_agent as semantic_module

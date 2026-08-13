@@ -11,13 +11,10 @@ This is what turns experience into knowledge.
 Law 2,4,11 compliant. Evaluate ZERO-LLM.
 """
 
-import sys
 import logging
 from typing import TypedDict, List, Dict
 
 logger = logging.getLogger(__name__)
-
-sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 
 from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 

@@ -9,10 +9,6 @@ from datetime import datetime
 from kernel.karpathy_loop import build_karpathy_loop, standard_should_continue
 
 # Import dependencies
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from llm.llm_integration import call_llm
 from memory.custom_memory import memory
 from tools.mcp_tools import mcp_tools

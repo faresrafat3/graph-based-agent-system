@@ -32,7 +32,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from collections import Counter
@@ -40,8 +39,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from dotenv import load_dotenv
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.context_curator import ContextCuratorEngine
 from llm.llm_integration import call_llm

@@ -4,20 +4,16 @@ Additive and removable — imports main.py and runs it unchanged, with the agent
 invocation counter installed first so every registry entrypoint that executes on
 the real path is recorded.
 
-Usage:
-    AGENT_COUNTER_OUT=/tmp/real.json PYTHONPATH=tools/invocation_counter:. \
+Usage (project installed as a package, e.g. ``pip install -e .``):
+    AGENT_COUNTER_OUT=/tmp/real.json \
       python tools/invocation_counter/run_real.py -- --requirements "..."
 """
 
 from __future__ import annotations
 
-import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.getcwd())
-
-import counter  # noqa: E402
+from tools.invocation_counter import counter
 
 counter.install()
 

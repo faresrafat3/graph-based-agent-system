@@ -6,13 +6,9 @@ do not burn quota re-running the 157 problems that already passed.
 """
 
 import json
-import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from humaneval_harness import load_problems, evaluate_problem
+from benchmarks.humaneval_harness import load_problems, evaluate_problem
 
 
 def rerun(path: str, mode: str) -> dict:

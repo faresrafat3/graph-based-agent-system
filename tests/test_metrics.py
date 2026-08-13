@@ -1,7 +1,3 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from benchmarks.metrics import compute_full_metrics, calculate_latency_metrics
 
 def fake_result():

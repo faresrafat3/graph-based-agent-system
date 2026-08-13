@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.competitive_slice import run_competitive_slice
 import agents.competitive_slice as slice_module
 

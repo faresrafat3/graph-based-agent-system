@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.sampling_agent import SamplingEngine, SAMPLING_PERMISSIONS, sample_candidates
 import agents.sampling_agent as sampling_module
 

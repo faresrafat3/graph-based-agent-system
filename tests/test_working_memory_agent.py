@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.working_memory_agent import WorkingEngine, WORKING_MEMORY_PERMISSIONS, assemble_working_memory
 from memory.custom_memory import memory
 

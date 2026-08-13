@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.competitive_context_manager import CompetitiveContextManager
 
 def test_filter_competitive_basic():
