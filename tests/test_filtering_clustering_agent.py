@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.filtering_clustering_agent import FilteringEngine, FILTERING_CLUSTERING_PERMISSIONS, filter_and_cluster
 
 def test_permissions():

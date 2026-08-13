@@ -36,13 +36,10 @@ from __future__ import annotations
 
 import ast
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Allow running from repo root or scripts/.
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
 from system.agent_registry import AGENT_REGISTRY
 from system.governance_checks import (

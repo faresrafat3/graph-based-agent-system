@@ -4,14 +4,10 @@ Reads AgentSignals from a FIFO queue and dispatches to the correct agent
 based on a deterministic routing table. Zero-LLM at the control plane.
 """
 
-import os
-import sys
 import logging
 from collections import deque
 
 logger = logging.getLogger(__name__)
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kernel.signal_protocol import AgentSignal
 from agents.context_curator import curate_context

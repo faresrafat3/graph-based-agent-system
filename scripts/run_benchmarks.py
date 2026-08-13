@@ -16,8 +16,6 @@ import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmarks.benchmark_suite import run_benchmarks as run_base_benchmarks, BENCHMARK_SCENARIOS
 from benchmarks.report_generator import save_benchmark_report, ensure_reports_dir

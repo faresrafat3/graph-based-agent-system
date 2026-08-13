@@ -11,7 +11,6 @@ a probe budget (P4) is warranted.
 Run: export PYTHONPATH= && source .env && python scripts/measure_thrashing.py
 """
 import os
-import sys
 
 # Load project .env if present (does not print keys)
 env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
@@ -19,8 +18,6 @@ if os.path.exists(env_path):
     from dotenv import dotenv_values
     for k, v in dotenv_values(env_path).items():
         os.environ.setdefault(k, v)
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.debugger_agent import (
     DebuggerState,

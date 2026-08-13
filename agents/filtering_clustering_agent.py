@@ -18,11 +18,8 @@ This agent is the second half of AlphaCode after SamplingAgent.
 Constitution compliant: Evaluate ZERO-LLM, permission matrix.
 """
 
-import sys
 import hashlib
 from typing import TypedDict, List, Dict, Any
-
-sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 
 from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 

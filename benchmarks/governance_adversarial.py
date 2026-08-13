@@ -51,7 +51,6 @@ import time
 from dataclasses import dataclass, field
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
 
 RESULTS = os.path.join(ROOT, "benchmarks", "results")
 AUDIT = os.path.join("scripts", "audit_governance.py")

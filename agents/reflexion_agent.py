@@ -18,15 +18,11 @@ Previous: AST failure -> fix, but test failure -> discarded
 Now: Test failure -> reflection -> memory -> next attempt guided by reflection
 """
 
-import os
-import sys
 import re
 import logging
 from typing import TypedDict, List, Dict, Any
 
 logger = logging.getLogger(__name__)
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 

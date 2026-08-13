@@ -6,11 +6,9 @@ keep passing as agents are connected/deleted (per AGENTS.md: no change-detectors
 """
 
 import importlib.util
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
 SPEC = ROOT / "scripts" / "directed_survey_inert.py"
 spec = importlib.util.spec_from_file_location("directed_survey_inert", SPEC)

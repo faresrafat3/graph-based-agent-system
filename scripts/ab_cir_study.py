@@ -28,9 +28,6 @@ from agents.karpathy_pipeline import decompose_requirements, validate_output
 from benchmarks.benchmark_suite import BENCHMARK_SCENARIOS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-import sys
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from system.opus5_consult import consult_opus5  # agent-driven opus-5 channel
 

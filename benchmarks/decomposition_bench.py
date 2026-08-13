@@ -51,7 +51,6 @@ import time
 from statistics import mean
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
 
 RESULTS = os.path.join(ROOT, "benchmarks", "results")
 

@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.reflexion_agent import ReflexionEngine, REFLEXION_PERMISSIONS, generate_reflection
 import agents.reflexion_agent as reflexion_module
 

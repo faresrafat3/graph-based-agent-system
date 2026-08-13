@@ -18,7 +18,6 @@ from pathlib import Path
 
 # Make the repo importable when run as a script.
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
 from agents.agent_forge import forge_agent, assert_distinct  # noqa: E402
 from agents.topology_assembler import assemble_topology  # noqa: E402

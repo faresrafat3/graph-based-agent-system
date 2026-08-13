@@ -1,6 +1,3 @@
-import sys
-sys.path.append('.')
-
 from agents.episodic_memory_agent import EpisodicEngine, EPISODIC_MEMORY_PERMISSIONS, store_episode, retrieve_episodes
 from memory.custom_memory import memory
 

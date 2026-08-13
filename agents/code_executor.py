@@ -6,16 +6,12 @@ The LLM is sandboxed as CPU — it generates code.
 All validation is deterministic (AST parsing, syntax checks, import verification).
 """
 
-import os
-import sys
 import ast
 import re
 import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from llm.llm_integration import call_llm
 from tools.json_output_parser import parse_json_object_response

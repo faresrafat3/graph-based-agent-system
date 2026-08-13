@@ -12,21 +12,14 @@ backoff in place the same code on the same model scored 98.17% — a 58.5-point 
 unrelated to model capability.
 """
 
-import os
-import sys
 import urllib.error
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from agents.test_runner_agent import run_code_and_tests
+from benchmarks.swebench_harness import repair_hunk_counts
 from llm import llm_integration
 from llm.llm_integration import StepfunAPIError, _RETRYABLE_HTTP_STATUS
-
-_BENCHMARKS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "benchmarks")
-if _BENCHMARKS not in sys.path:
-    sys.path.insert(0, _BENCHMARKS)
 
 
 def _http_error(code: str, status: int) -> urllib.error.HTTPError:
@@ -220,8 +213,6 @@ def test_repair_hunk_counts_fixes_declared_count():
         ctx, ctx, ctx, del, add, ctx, ctx, ctx
     -> old = 7 (all except the single addition), new = 7 (all except the single deletion)
     """
-    from swebench_harness import repair_hunk_counts
-
     bad_patch = (
         "--- a/requests/sessions.py\n"
         "+++ b/requests/sessions.py\n"
@@ -241,8 +232,6 @@ def test_repair_hunk_counts_fixes_declared_count():
 
 
 def test_repair_hunk_counts_leaves_correct_patch_unchanged():
-    from swebench_harness import repair_hunk_counts
-
     good = (
         "--- a/x.py\n+++ b/x.py\n"
         "@@ -1,3 +1,3 @@ def f():\n"
