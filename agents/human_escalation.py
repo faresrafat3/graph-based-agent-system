@@ -7,8 +7,7 @@ collect UI input directly; callers pass the human decision explicitly.
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 
 HUMAN_ESCALATION_PERMISSIONS = {
@@ -84,7 +83,7 @@ class HumanEscalationEngine:
         }
 
 
-# Karpathy Loop
+# Karpathy Loop (shared factory; no refine edge — checkpoint either commits or escalates)
 
 def propose(state: HumanEscalationState) -> dict:
     return {"requires_human": True, "breaches": [], "success": False}
@@ -103,33 +102,20 @@ def evaluate(state: HumanEscalationState) -> dict:
     return {"success": bool(state.get("success", False)) and not state.get("requires_human", True)}
 
 
-def commit(state: HumanEscalationState) -> dict:
-    return {"committed": True}
-
-
-def refine(state: HumanEscalationState) -> dict:
-    return {"retry_count": state.get("retry_count", 0) + 1}
-
-
 def should_continue(state: HumanEscalationState) -> str:
     if state.get("success", False) and not state.get("requires_human", True):
         return "commit"
     return "escalate"
 
 
-workflow = StateGraph(HumanEscalationState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "escalate": END})
-workflow.add_edge("commit", END)
-
-human_escalation_graph = workflow.compile(checkpointer=MemorySaver())
+human_escalation_graph = build_karpathy_loop(
+    HumanEscalationState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    should_continue_fn=should_continue,
+    include_refine=False,
+)
 
 
 def handle_escalation(

@@ -7,8 +7,7 @@ and escalates unresolved disputes. It performs no LLM calls.
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 
 DECISION_CONFLICT_PERMISSIONS = {
@@ -100,52 +99,17 @@ class DecisionConflictEngine:
         }
 
 
-# Karpathy Loop
-
-def propose(state: DecisionConflictState) -> dict:
-    if not isinstance(state.get("disputes", []), list):
-        return {"breaches": ["disputes must be a list."], "success": False}
-    return {"breaches": [], "success": True}
-
+# Karpathy Loop (shared factory; standard nodes)
 
 def execute(state: DecisionConflictState) -> dict:
     return DecisionConflictEngine.resolve(state.get("disputes", []))
 
 
-def evaluate(state: DecisionConflictState) -> dict:
-    return {"success": len(state.get("breaches", [])) == 0}
-
-
-def commit(state: DecisionConflictState) -> dict:
-    return {"committed": True}
-
-
-def refine(state: DecisionConflictState) -> dict:
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: DecisionConflictState) -> str:
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(DecisionConflictState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-decision_conflict_graph = workflow.compile(checkpointer=MemorySaver())
+decision_conflict_graph = build_karpathy_loop(
+    DecisionConflictState,
+    execute_fn=execute,
+    list_input_keys=("disputes",),
+)
 
 
 def resolve_conflicts(

@@ -7,8 +7,7 @@ rejects filename/export conflicts without LLM calls.
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 from agents.deterministic_validator import (
     DeterministicValidatorEngine,
@@ -96,52 +95,18 @@ class IntegrationAgentEngine:
         return {"integration_manifest": manifest, "conflicts": conflicts, "success": len(conflicts) == 0}
 
 
-# Karpathy Loop
-
-def propose(state: IntegrationAgentState) -> dict:
-    if not isinstance(state.get("artifacts", []), list):
-        return {"conflicts": ["artifacts must be a list."], "success": False}
-    return {"conflicts": [], "success": True}
-
+# Karpathy Loop (shared factory; standard nodes, failures keyed on ``conflicts``)
 
 def execute(state: IntegrationAgentState) -> dict:
     return IntegrationAgentEngine.build_manifest(state.get("artifacts", []))
 
 
-def evaluate(state: IntegrationAgentState) -> dict:
-    return {"success": len(state.get("conflicts", [])) == 0}
-
-
-def commit(state: IntegrationAgentState) -> dict:
-    return {"committed": True}
-
-
-def refine(state: IntegrationAgentState) -> dict:
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: IntegrationAgentState) -> str:
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(IntegrationAgentState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-integration_agent_graph = workflow.compile(checkpointer=MemorySaver())
+integration_agent_graph = build_karpathy_loop(
+    IntegrationAgentState,
+    execute_fn=execute,
+    list_input_keys=("artifacts",),
+    evaluate_fail_keys=("conflicts",),
+)
 
 
 def integrate_artifacts(

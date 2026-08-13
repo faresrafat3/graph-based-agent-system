@@ -7,8 +7,7 @@ blocks work when request/token budgets are exhausted. No LLM calls.
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 
 RESOURCE_PRIORITY_PERMISSIONS = {
@@ -101,13 +100,7 @@ class ResourcePriorityEngine:
         }
 
 
-# Karpathy Loop
-
-def propose(state: ResourcePriorityState) -> dict:
-    if not isinstance(state.get("queue", []), list):
-        return {"breaches": ["queue must be a list."], "success": False}
-    return {"breaches": [], "success": True}
-
+# Karpathy Loop (shared factory; standard nodes)
 
 def execute(state: ResourcePriorityState) -> dict:
     return ResourcePriorityEngine.prioritize(
@@ -118,40 +111,11 @@ def execute(state: ResourcePriorityState) -> dict:
     )
 
 
-def evaluate(state: ResourcePriorityState) -> dict:
-    return {"success": len(state.get("breaches", [])) == 0}
-
-
-def commit(state: ResourcePriorityState) -> dict:
-    return {"committed": True}
-
-
-def refine(state: ResourcePriorityState) -> dict:
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: ResourcePriorityState) -> str:
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(ResourcePriorityState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-resource_priority_graph = workflow.compile(checkpointer=MemorySaver())
+resource_priority_graph = build_karpathy_loop(
+    ResourcePriorityState,
+    execute_fn=execute,
+    list_input_keys=("queue",),
+)
 
 
 def prioritize_resources(

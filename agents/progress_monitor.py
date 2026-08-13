@@ -7,8 +7,7 @@ stalls from execution-plan items and agent logs. It performs no LLM calls.
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 
 PROGRESS_MONITOR_PERMISSIONS = {
@@ -121,15 +120,7 @@ class ProgressMonitorEngine:
         }
 
 
-# Karpathy Loop
-
-def propose(state: ProgressMonitorState) -> dict:
-    """Step 1: Propose - verify there is an execution plan to monitor."""
-    plan = state.get("execution_plan", [])
-    if not isinstance(plan, list):
-        return {"breaches": ["execution_plan must be a list."], "success": False}
-    return {"breaches": [], "success": True}
-
+# Karpathy Loop (shared factory; standard nodes)
 
 def execute(state: ProgressMonitorState) -> dict:
     """Step 2: Execute - compute deterministic progress metrics."""
@@ -140,44 +131,11 @@ def execute(state: ProgressMonitorState) -> dict:
     )
 
 
-def evaluate(state: ProgressMonitorState) -> dict:
-    """Step 3: Evaluate - fail on stalls, failures, or unknown log references."""
-    return {"success": len(state.get("breaches", [])) == 0}
-
-
-def commit(state: ProgressMonitorState) -> dict:
-    """Step 4: Commit - health report is ready."""
-    return {"committed": True}
-
-
-def refine(state: ProgressMonitorState) -> dict:
-    """Step 5: Refine - deterministic monitor has no automatic repair."""
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: ProgressMonitorState) -> str:
-    """Route monitor lifecycle."""
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(ProgressMonitorState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-progress_monitor_graph = workflow.compile(checkpointer=MemorySaver())
+progress_monitor_graph = build_karpathy_loop(
+    ProgressMonitorState,
+    execute_fn=execute,
+    list_input_keys=("execution_plan",),
+)
 
 
 def monitor_progress(

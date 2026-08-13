@@ -11,8 +11,7 @@ squads when domain dispatch is explicitly enabled.
 from collections import defaultdict
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
+from kernel.karpathy_loop import build_karpathy_loop
 
 from agents.domain_dispatcher import dispatch_domain_tasks
 from agents.integration_agent import integrate_artifacts
@@ -261,16 +260,7 @@ class GraphExecutionOrchestratorEngine:
         return report
 
 
-# Karpathy Loop
-
-def propose(state: GraphExecutionOrchestratorState) -> dict:
-    """Step 1: Propose - verify execution-plan readiness."""
-    if not isinstance(state.get("execution_plan", []), list):
-        return {"breaches": ["execution_plan must be a list."], "success": False}
-    if not isinstance(state.get("tasks", []), list):
-        return {"breaches": ["tasks must be a list."], "success": False}
-    return {"breaches": [], "success": True}
-
+# Karpathy Loop (shared factory; standard nodes, success-and-no-breaches evaluate)
 
 def execute(state: GraphExecutionOrchestratorState) -> dict:
     """Step 2: Execute - process DAG groups and fan-in reports."""
@@ -301,38 +291,12 @@ def evaluate(state: GraphExecutionOrchestratorState) -> dict:
     return {"success": bool(state.get("success", False)) and not state.get("breaches", [])}
 
 
-def commit(state: GraphExecutionOrchestratorState) -> dict:
-    """Step 4: Commit - graph execution report is final."""
-    return {"committed": True}
-
-
-def refine(state: GraphExecutionOrchestratorState) -> dict:
-    """Step 5: Refine - deterministic orchestrator does not auto-repair graph failures."""
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
-
-
-def should_continue(state: GraphExecutionOrchestratorState) -> str:
-    if state.get("success", False):
-        return "commit"
-    if state.get("retry_count", 0) >= 1:
-        return "escalate"
-    return "refine"
-
-
-workflow = StateGraph(GraphExecutionOrchestratorState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-graph_execution_orchestrator_graph = workflow.compile(checkpointer=MemorySaver())
+graph_execution_orchestrator_graph = build_karpathy_loop(
+    GraphExecutionOrchestratorState,
+    execute_fn=execute,
+    evaluate_fn=evaluate,
+    list_input_keys=("execution_plan", "tasks"),
+)
 
 
 def orchestrate_graph_execution(

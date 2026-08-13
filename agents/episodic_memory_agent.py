@@ -20,8 +20,7 @@ from datetime import datetime
 
 sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
+from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 
 from memory.custom_memory import memory as global_memory
 from agents.deterministic_validator import (
@@ -167,34 +166,21 @@ def commit(state: EpisodicState) -> dict:
 
 
 def refine(state: EpisodicState) -> dict:
-    return {"retry_count": state.get("retry_count", 0) + 1, "success": False}
+    return standard_refine(state)
 
 
 def should_continue(state: EpisodicState) -> str:
-    if state.get("success"):
-        return "commit"
-    elif state.get("retry_count", 0) >= 2:
-        return "escalate"
-    else:
-        return "refine"
+    return standard_should_continue(state, retry_cap=2)
 
 
-workflow = StateGraph(EpisodicState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-checkpointer = MemorySaver()
-episodic_graph = workflow.compile(checkpointer=checkpointer)
+episodic_graph = build_karpathy_loop(
+    EpisodicState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    commit_fn=commit,
+    retry_cap=2,
+)
 
 
 def store_episode(

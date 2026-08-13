@@ -20,8 +20,7 @@ from typing import TypedDict, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
+from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_should_continue
 
 from llm.llm_integration import call_llm
 from agents.code_executor import validate_python_syntax
@@ -264,41 +263,21 @@ def evaluate(state: DebuggerState) -> dict:
         )
     }
 
-
-def commit(state: DebuggerState) -> dict:
-    return {"committed": True}
-
-
 def refine(state: DebuggerState) -> dict:
-    retry = state.get("retry_count", 0) + 1
-    return {"retry_count": retry, "success": False}
+    return standard_refine(state)
 
 
 def should_continue(state: DebuggerState) -> str:
-    if state.get("success"):
-        return "commit"
-    elif state.get("retry_count", 0) >= 3:
-        return "escalate"
-    else:
-        return "refine"
+    return standard_should_continue(state, retry_cap=3)
 
 
-workflow = StateGraph(DebuggerState)
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-workflow.set_entry_point("propose")
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-workflow.add_conditional_edges("evaluate", should_continue, {"commit": "commit", "refine": "refine", "escalate": END})
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
-
-checkpointer = MemorySaver()
-debugger_graph = workflow.compile(checkpointer=checkpointer)
+debugger_graph = build_karpathy_loop(
+    DebuggerState,
+    execute_fn=execute,
+    propose_fn=propose,
+    evaluate_fn=evaluate,
+    retry_cap=3,
+)
 
 
 def debug_code(
