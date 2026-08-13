@@ -20,10 +20,8 @@ from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_
 
 from memory.custom_memory import memory as global_memory
 from agents.deterministic_validator import (
-    DeterministicValidatorEngine,
-    apply_verify_verdict,
-    record_effect,
     verified_closure_enabled,
+    with_verified_closure,
 )
 
 
@@ -237,12 +235,10 @@ def assemble_working_memory(
     # hard-codes success=True, which is exactly the self-report P2 forbids: the
     # budget report is recorded as a real effect and verified with zero LLM.
     if verified_closure_enabled() and output["success"]:
-        postcondition["path"] = record_effect("working_memory_agent", {
+        output = with_verified_closure("working_memory_agent", output, postcondition, {
             "budget_report": output["budget_report"],
             "entries_included": len(output["working_memory"]),
             "assembled_chars": len(output["assembled_context"]),
         })
-        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
-        output = apply_verify_verdict(output, postcondition, verify_breaches)
 
     return output

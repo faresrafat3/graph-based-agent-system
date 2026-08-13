@@ -68,6 +68,46 @@ Observability + Tests + Future Improvement
 7. **Permission boundaries before action**: NEVER/HUMAN_CHECKPOINT rules must be checked before execution.
 8. **Tests are lifecycle artifacts**: each implemented lifecycle must have tests.
 
+### Shared Karpathy Loop factory
+
+The five-node lifecycle above is implemented **once** in `kernel/karpathy_loop.py`
+and shared by every agent: the graph wiring, the compile step, and the standard
+node implementations (`standard_propose`, `standard_evaluate`, `standard_commit`,
+`standard_refine`, `standard_should_continue`). An agent module defines its state,
+permission matrix, and `execute` node, then builds its graph with
+`build_karpathy_loop(...)`, overriding a node only when its lifecycle differs:
+
+```python
+from kernel.karpathy_loop import build_karpathy_loop
+
+agent_graph = build_karpathy_loop(
+    AgentState,
+    execute_fn=execute,                       # required — the lifecycle's primary work
+    propose_fn=propose,                       # override input validation / permission checks
+    evaluate_fn=evaluate,                     # override the deterministic success criteria
+    commit_fn=commit,                         # override side effects (e.g. memory writes)
+    refine_fn=refine,                         # override the retry mutation
+    retry_cap=3,                              # escalate after N failed refinements
+    list_input_keys=("items",),              # default propose validates these as lists
+    evaluate_fail_keys=("breaches",),        # default evaluate fails when these are non-empty
+)
+```
+
+| Lifecycle phase | Default (shared) | Typical per-agent override |
+|---|---|---|
+| Propose | `standard_propose` — validate `list_input_keys`, seed breaches | permission checks (raise on NEVER), cache reads, input extraction |
+| Execute | (required argument) | the agent's real work |
+| Evaluate | `standard_evaluate` — success iff no `evaluate_fail_keys` non-empty | custom quality gates (actionable reflection, score threshold, AST validity) |
+| Commit | `standard_commit` — return `{"committed": True}` | persist to long-term memory, surface write errors |
+| Refine | `standard_refine` — `retry_count += 1`, success False | reset state between attempts (e.g. clear cached output, truncate context) |
+| Route | `standard_should_continue(state, retry_cap)` — commit / escalate / refine | agents with no refine edge pass `include_refine=False` (`human_escalation`) |
+
+Node functions that tests or tooling import directly (e.g. `refine`,
+`should_continue`) remain as one-line module-level wrappers delegating to the
+shared implementations, so the public per-agent surface is unchanged. The
+project is installed as a package (`pyproject.toml`, `pip install -e .`), so
+agent modules import each other without `sys.path` hacks.
+
 ## Agent Inventory
 
 ### Implemented Agents and Engines

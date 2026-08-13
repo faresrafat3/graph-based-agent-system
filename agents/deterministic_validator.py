@@ -467,3 +467,25 @@ def apply_verify_verdict(result: dict, postcondition: dict, verify_breaches: Lis
         result["breaches"] = (list(existing) if isinstance(existing, list) else []) + list(verify_breaches)
     return result
 
+
+def with_verified_closure(
+    agent: str,
+    output: dict,
+    postcondition: dict,
+    effect: dict | None = None,
+    *,
+    path: str | None = None,
+) -> dict:
+    """Close a P2 write edge: record the effect, VERIFY it, attach the verdict.
+
+    Standard VERIFY-node block shared by every write agent. The write edge is closed
+    by materialising the effect as a real file (`record_effect`) and pointing the
+    postcondition at it, then letting the zero-LLM verifier decide — never the
+    agent's own report. When the write produced a real artifact (`path` given, e.g.
+    code_executor's output_dir), that file is verified directly instead of recording
+    a new effect. Returns `output` with the verdict attached (one-way demotion).
+    """
+    postcondition["path"] = path if path is not None else record_effect(agent, effect or {})
+    verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
+    return apply_verify_verdict(output, postcondition, verify_breaches)
+

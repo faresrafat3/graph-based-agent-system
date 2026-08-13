@@ -31,7 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SNAPSHOT = ROOT / ".md-compression-snapshot.json"
 
-SKIP_PARTS = (".venv", ".git", "node_modules", "__pycache__")
+SKIP_PARTS = (".venv", ".git", "node_modules", "__pycache__", ".pytest_cache")
 
 NUM_RE = re.compile(r"\d+(?:\.\d+)?%?")
 CODE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.S)

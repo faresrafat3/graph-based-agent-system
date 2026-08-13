@@ -677,7 +677,10 @@ def check_counter_proposals_operational(registry: list[dict] | None = None) -> G
 # entrypoint does not terminate in a
 # DeterministicValidatorEngine.verify_execution_postcondition call is a HARD breach.
 
-VERIFY_CALL = "verify_execution_postcondition"
+# A VERIFY node is either the raw engine call or the shared closure helper
+# (deterministic_validator.with_verified_closure), which records the effect and
+# invokes the engine itself. Both terminate the write edge in a VERIFY node.
+VERIFY_CALLS = {"verify_execution_postcondition", "with_verified_closure"}
 POSTCONDITION_NAME = "postcondition"
 
 # Registered WRITE-path entrypoints -> what their write edge actually changes.
@@ -718,6 +721,7 @@ VERIFIED_CLOSURE_PENDING: dict[str, str] = {}
 _WRITE_CALL_MARKERS = {
     "add_to_long_term",
     "record_effect",
+    "with_verified_closure",
     "write_text",
     "write_bytes",
     "writelines",
@@ -790,9 +794,11 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
     HARD invariant, enforced over the real AST (architecture, not a prompt):
 
     1. Every registered write agent (``WRITE_PATH_ENTRYPOINTS``, or an entry flagged
-       ``write_path``) MUST call ``verify_execution_postcondition`` inside its
-       entrypoint, and that call MUST precede the entrypoint's final ``return`` —
-       the write edge terminates in VERIFY, it does not self-report.
+       ``write_path``) MUST terminate its entrypoint in a VERIFY node — a call to
+       ``verify_execution_postcondition`` or the shared closure helper
+       ``with_verified_closure`` (which records the effect and invokes the engine) —
+       and that call MUST precede the entrypoint's final ``return``: the write edge
+       terminates in VERIFY, it does not self-report.
     2. The postcondition MUST be declared before the verify call (``postcondition = ...``),
        i.e. at propose time, so the agent cannot pick a convenient assertion afterwards.
     3. Discovery guard: any registered module that writes state but is neither a declared
@@ -831,20 +837,21 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
                 continue
             verify_lines = [
                 child.lineno for child in ast.walk(function)
-                if isinstance(child, ast.Call) and _called_name(child) == VERIFY_CALL
+                if isinstance(child, ast.Call) and _called_name(child) in VERIFY_CALLS
             ]
             if not verify_lines:
                 breaches.append(
                     f"P2 breach: {name} ({module_name}.{entrypoint}) writes state but never calls "
-                    f"{VERIFY_CALL}. A WRITE agent may not return on its own report "
-                    f"(CONSTITUTION Article VI, P2)."
+                    f"a VERIFY node ({sorted(VERIFY_CALLS)}). A WRITE agent may not return on "
+                    f"its own report (CONSTITUTION Article VI, P2)."
                 )
                 continue
             returns = [child.lineno for child in ast.walk(function) if isinstance(child, ast.Return)]
             if returns and min(verify_lines) > max(returns):
                 breaches.append(
-                    f"P2 breach: {name} ({module_name}.{entrypoint}) calls {VERIFY_CALL} after its "
-                    f"final return — the write edge does not terminate in a VERIFY node."
+                    f"P2 breach: {name} ({module_name}.{entrypoint}) calls a VERIFY node "
+                    f"({sorted(VERIFY_CALLS)}) after its final return — the write edge does "
+                    f"not terminate in a VERIFY node."
                 )
                 continue
             # A postcondition must be SUBSTANTIVE, not merely present. Checking only that
@@ -892,8 +899,8 @@ def check_verified_closure(registry: list[dict] | None = None) -> GovernanceChec
         if _module_writes_state(tree):
             breaches.append(
                 f"P2 breach: {name} ({module_name}) writes state but is not a declared write agent. "
-                f"Wire its entrypoint into a {VERIFY_CALL} closure and add it to "
-                f"WRITE_PATH_ENTRYPOINTS, or declare it in VERIFIED_CLOSURE_EXEMPT / "
+                f"Wire its entrypoint into a VERIFY closure ({sorted(VERIFY_CALLS)}) and add it "
+                f"to WRITE_PATH_ENTRYPOINTS, or declare it in VERIFIED_CLOSURE_EXEMPT / "
                 f"VERIFIED_CLOSURE_PENDING with a reason."
             )
 

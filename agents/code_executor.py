@@ -16,11 +16,9 @@ logger = logging.getLogger(__name__)
 from llm.llm_integration import call_llm
 from tools.json_output_parser import parse_json_object_response
 from agents.deterministic_validator import (
-    DeterministicValidatorEngine,
-    apply_verify_verdict,
     digest,
-    record_effect,
     verified_closure_enabled,
+    with_verified_closure,
 )
 
 
@@ -357,9 +355,12 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
         if output_dir:
             written = _write_code_artifacts(output_dir, extracted)
             result["artifact_paths"] = written
-            postcondition["path"] = written.get("source_path", str(Path(output_dir) / extracted["filename"]))
+            result = with_verified_closure(
+                "code_executor", result, postcondition,
+                path=written.get("source_path", str(Path(output_dir) / extracted["filename"])),
+            )
         else:
-            postcondition["path"] = record_effect("code_executor", {
+            result = with_verified_closure("code_executor", result, postcondition, {
                 "task_title": task.get("title", ""),
                 "filename": extracted["filename"],
                 "code_sha256": digest(code_text),
@@ -367,7 +368,5 @@ Generate complete, production-grade Python code for this task. Output ONLY valid
                 "test_filename": extracted["test_filename"],
                 "test_bytes": len(test_code.encode("utf-8")),
             })
-        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
-        result = apply_verify_verdict(result, postcondition, verify_breaches)
 
     return result
