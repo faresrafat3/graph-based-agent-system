@@ -21,10 +21,8 @@ from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_
 from memory.custom_memory import memory as global_memory
 from llm.llm_integration import call_llm
 from agents.deterministic_validator import (
-    DeterministicValidatorEngine,
-    apply_verify_verdict,
-    record_effect,
     verified_closure_enabled,
+    with_verified_closure,
 )
 
 
@@ -252,13 +250,11 @@ def extract_semantic_rule(
     if verified_closure_enabled() and output["success"]:
         write_error = result.get("memory_write_error", "")
         output["memory_write_error"] = write_error
-        postcondition["path"] = record_effect("semantic_memory_agent", {
+        output = with_verified_closure("semantic_memory_agent", output, postcondition, {
             "rule": rule[:500],
             "supporting_episodes": output["supporting_episodes"],
             "memory_write_error": write_error,
         })
-        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
-        output = apply_verify_verdict(output, postcondition, verify_breaches)
 
     return output
 

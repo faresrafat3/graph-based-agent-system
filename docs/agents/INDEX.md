@@ -36,5 +36,14 @@ This directory contains one lifecycle document per agent/component.
 ## Related System Docs
 
 - [System Lifecycle](../SYSTEM-LIFECYCLE.md)
-- [Combined Agent Lifecycle Reference](../AGENT-LIFECYCLE.md)
+- [Combined Agent Lifecycle Reference](../AGENT-LIFECYCLE.md) — includes the shared `build_karpathy_loop` factory contract
+- [Architecture](../ARCHITECTURE.md) — Karpathy Loop factory + installed-package layout
 - [Quality Audit Plan](../QUALITY-AUDIT-PLAN.md)
+
+## Shared Agent Structure
+
+All agents build their Karpathy Loop graph through the shared factory in
+`kernel/karpathy_loop.py` (`build_karpathy_loop`), supplying their `execute` node
+and overriding only the nodes their lifecycle specialises. See the
+[Global Agent Lifecycle Standard](../AGENT-LIFECYCLE.md) for the factory contract
+and the per-node defaults.

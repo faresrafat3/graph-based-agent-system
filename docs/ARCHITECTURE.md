@@ -53,6 +53,22 @@ The Software Builder Agents system is a **multi-agent system** that implements K
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Package Layout (Installed Project)
+The project installs as a package (`pyproject.toml`, `pip install -e .`), so every module imports by its real package path — no `sys.path` hacks, no cwd requirement. `main.py` is a top-level module, so `import main` resolves from anywhere.
+
+| Package | Contents |
+|---|---|
+| `agents` | Karpathy meta-agents, memory agents, squads, pipeline |
+| `kernel` | Shared machinery — `karpathy_loop` factory, `dispatch_kernel`, `slice_router`, `signal_protocol` |
+| `llm` | Stepfun-only LLM integration |
+| `memory` | Short-term / long-term memory + session state merger |
+| `system` | Registry, governance checks, self-improvement, verified-closure toolkit |
+| `tools` | MCP tools, JSON output parser, invocation counter |
+| `benchmarks` | Benchmark harnesses (SWE-bench, HumanEval, governance adversarial) |
+| `scripts` | Dev tooling (audits, benchmark runners, meta-loop) |
+
+Requirements are declared in `requirements.txt` (which includes `-e .` for CI), and `scripts/audit_governance.py` keeps a guarded `PYTHONPATH` bootstrap because the adversarial sandbox runs it with the path cleared.
+
 ## Agent Architecture
 
 ### Karpathy Loop
@@ -81,6 +97,21 @@ Each agent implements the **Karpathy Loop** pattern:
                             ↓
                      (Back to Propose)
 ```
+
+All agents share this scaffold — **propose → execute → evaluate → commit/refine → (back to propose or escalate)** — wired once by the shared factory in `kernel/karpathy_loop.py`:
+
+```python
+from kernel.karpathy_loop import build_karpathy_loop
+
+task_decomposer_graph = build_karpathy_loop(
+    TaskDecomposerState,
+    execute_fn=execute,
+    retry_cap=3,                    # retries before escalating to human
+    list_input_keys=["tasks", "metadata", "clarifications_needed"],
+)
+```
+
+`build_karpathy_loop` supplies the standard `propose`, `evaluate`, `commit`, `refine`, and `should_continue` implementations and wires the graph once (entry point, edges, conditional routing, `MemorySaver` checkpointer). An agent that needs custom behavior passes its own node functions instead — e.g. `task_decomposer` keeps a cache-aware `refine`, memory agents keep memory-writing `commit` steps — and agents without a refine edge pass `include_refine=False` (e.g. `human_escalation`).
 
 ### Agent State
 
@@ -144,38 +175,19 @@ class TaskDecomposerState(TypedDict):
 ```
 
 ### Workflow
+Instead of hand-wiring the graph, agents use the shared factory:
 ```python
-workflow = StateGraph(TaskDecomposerState)
+from kernel.karpathy_loop import build_karpathy_loop
 
-# Add nodes
-workflow.add_node("propose", propose)
-workflow.add_node("execute", execute)
-workflow.add_node("evaluate", evaluate)
-workflow.add_node("commit", commit)
-workflow.add_node("refine", refine)
-
-# Set entry point
-workflow.set_entry_point("propose")
-
-# Add edges
-workflow.add_edge("propose", "execute")
-workflow.add_edge("execute", "evaluate")
-
-# Conditional routing
-workflow.add_conditional_edges(
-    "evaluate",
-    should_continue,
-    {
-        "commit": "commit",
-        "refine": "refine",
-        "escalate": END
-    }
+task_decomposer_graph = build_karpathy_loop(
+    TaskDecomposerState,
+    execute_fn=execute,
+    refine_fn=refine,           # cache-aware, custom
+    retry_cap=3,
+    list_input_keys=["tasks", "metadata", "clarifications_needed"],
 )
-
-# Loop back
-workflow.add_edge("refine", "propose")
-workflow.add_edge("commit", END)
 ```
+The factory wires the standard nodes (`propose`, `evaluate`, `commit`, `refine`, `should_continue`), sets the entry point, and compiles with a `MemorySaver` checkpointer.
 
 ### Propose Step
 ```python
@@ -412,17 +424,17 @@ def dependency_analyzer(tasks: List[dict]) -> dict:
 ## Error Handling
 
 ### Retry Mechanism
+Routing is handled by the standard implementation; agents can wrap it to pin a specific retry cap:
 ```python
+from kernel.karpathy_loop import standard_should_continue
+
+# Equivalent to the factory's default routing for retry_cap=3:
 def should_continue(state):
-    success = state.get("success", False)
-    retry_count = state.get("retry_count", 0)
-    
-    if success:
-        return "commit"
-    elif retry_count >= 3:
-        return "escalate"  # Escalate to human
-    else:
-        return "refine"    # Retry
+    return standard_should_continue(state, retry_cap=3)
+
+# success               -> "commit"
+# retry_count >= retry_cap -> "escalate"  # Escalate to human
+# otherwise             -> "refine"      # Retry
 ```
 
 ### Escalation
@@ -506,23 +518,30 @@ def validate_tasks(tasks: List[dict]):
 ### Adding New Agents
 To add a new agent:
 1. Define agent state
-2. Implement Karpathy Loop
-3. Add to workflow
-4. Connect to other agents
+2. Implement the `execute` step
+3. Call the shared factory to wire the Karpathy Loop
+4. Register the graph in the registry / connect to other agents
 
 ```python
 # Example: Adding a new agent
+from typing import TypedDict, Any
+from kernel.karpathy_loop import build_karpathy_loop
+
 class NewAgentState(TypedDict):
     input: Any
     output: Any
 
-def new_agent(state):
+def execute(state):
     # Implement agent logic
     return {"output": result}
 
-workflow.add_node("new_agent", new_agent)
-workflow.add_edge("previous_agent", "new_agent")
+new_agent_graph = build_karpathy_loop(
+    NewAgentState,
+    execute_fn=execute,
+    retry_cap=1,
+)
 ```
+The factory handles `propose`, `evaluate`, `commit`, `refine`, retry routing, and escalation — the only required node is `execute`.
 
 ### Adding New Tools
 To add a new tool:

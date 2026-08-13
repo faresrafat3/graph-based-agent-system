@@ -29,10 +29,8 @@ from kernel.karpathy_loop import build_karpathy_loop, standard_refine, standard_
 from llm.llm_integration import call_llm
 from memory.custom_memory import memory as global_memory
 from agents.deterministic_validator import (
-    DeterministicValidatorEngine,
-    apply_verify_verdict,
-    record_effect,
     verified_closure_enabled,
+    with_verified_closure,
 )
 
 
@@ -283,13 +281,11 @@ def generate_reflection(
     # then re-read by later attempts as guidance, so an unverified write here
     # propagates. Recorded as a real effect and verified with zero LLM.
     if verified_closure_enabled() and output["success"]:
-        postcondition["path"] = record_effect("reflexion_agent", {
+        output = with_verified_closure("reflexion_agent", output, postcondition, {
             "reflection_chars": len(output["verbal_reflection"]),
             "summary_chars": len(output["reflection_summary"]),
             "history_depth": len(execution_history or []),
         })
-        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
-        output = apply_verify_verdict(output, postcondition, verify_breaches)
 
     return output
 

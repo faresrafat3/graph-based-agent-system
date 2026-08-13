@@ -1,6 +1,6 @@
 {
  "baseline_rc": 0,
- "strict": true,
+ "strict": false,
  "working_tree_dirty_at_start": true,
  "counts": {
   "total": 6,
@@ -24,8 +24,8 @@
    "detail": "audit failed on the mutated tree",
    "audit_rc": 1,
    "syntax_ok": true,
-   "audit_tail": "Distributed governance checks failed:\n[no_silent_except]\n- agents/task_decomposer.py:315: 'except Exception:' without 'as' binding swallows failures silently.\n",
-   "seconds": 1.1
+   "audit_tail": "Distributed governance checks failed:\n[no_silent_except]\n- agents/task_decomposer.py:309: 'except Exception:' without 'as' binding swallows failures silently.\n",
+   "seconds": 0.8
   },
   {
    "id": "llm-call-inside-evaluate",
@@ -41,7 +41,7 @@
    "audit_rc": 1,
    "syntax_ok": true,
    "audit_tail": "Distributed governance checks failed:\n[no_llm_in_evaluate]\n- agents/task_decomposer.py: evaluate() must not call call_llm.\n",
-   "seconds": 1.1
+   "seconds": 0.8
   },
   {
    "id": "entrypoint-deleted",
@@ -56,8 +56,8 @@
    "detail": "audit failed on the mutated tree",
    "audit_rc": 1,
    "syntax_ok": true,
-   "audit_tail": "Distributed governance checks failed:\n[entrypoints]\n- Task Decomposer missing entrypoint: decompose_requirements.\n- Karpathy Pipeline module import failed: cannot import name 'decompose_requirements' from 'agents.task_decomposer' (/tmp/gov_adv__ms2hw_a/repo/agents/task_decomposer.py).\n[verified_closure]\n- Task Decomposer: write-agent entrypoint 'decompose_requirements' not found in agents/task_decomposer.py.\n",
-   "seconds": 1.0
+   "audit_tail": "Distributed governance checks failed:\n[entrypoints]\n- Task Decomposer missing entrypoint: decompose_requirements.\n- Karpathy Pipeline module import failed: cannot import name 'decompose_requirements' from 'agents.task_decomposer' (/tmp/gov_adv_bs7byuhh/repo/agents/task_decomposer.py).\n[verified_closure]\n- Task Decomposer: write-agent entrypoint 'decompose_requirements' not found in agents/task_decomposer.py.\n",
+   "seconds": 0.9
   },
   {
    "id": "postcondition-removed",
@@ -72,8 +72,8 @@
    "detail": "audit failed on the mutated tree",
    "audit_rc": 1,
    "syntax_ok": true,
-   "audit_tail": "Distributed governance checks failed:\n[verified_closure]\n- P2 breach: Task Decomposer (agents.task_decomposer.decompose_requirements) declares 'postcondition' as an empty/None value at line 472 \u2014 an assertion that asserts nothing is not a postcondition. VERIFY must have something falsifiable to check (CONSTITUTION Article VI, P2).\n",
-   "seconds": 1.1
+   "audit_tail": "Distributed governance checks failed:\n[verified_closure]\n- P2 breach: Task Decomposer (agents.task_decomposer.decompose_requirements) declares 'postcondition' as an empty/None value at line 429 \u2014 an assertion that asserts nothing is not a postcondition. VERIFY must have something falsifiable to check (CONSTITUTION Article VI, P2).\n",
+   "seconds": 0.9
   },
   {
    "id": "never-list-emptied",
@@ -90,7 +90,7 @@
    "audit_rc": 1,
    "syntax_ok": true,
    "audit_tail": "Distributed governance checks failed:\n[permission_matrices]\n- Context Curator removed ['source_code_edit'] from its NEVER list. The forbidden set may be widened by an explicit constitutional amendment, not by editing the matrix.\n",
-   "seconds": 1.1
+   "seconds": 0.8
   },
   {
    "id": "never-entry-promoted-to-write",
@@ -107,7 +107,7 @@
    "audit_rc": 1,
    "syntax_ok": true,
    "audit_tail": "Distributed governance checks failed:\n[permission_matrices]\n- Context Curator permission matrix escalates privilege: ['source_code_edit'] appears in both NEVER and READ/WRITE. A forbidden capability may not also be a granted one.\n",
-   "seconds": 1.1
+   "seconds": 0.8
   }
  ]
 }

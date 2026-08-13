@@ -10,10 +10,8 @@ from typing import Any, TypedDict
 from kernel.karpathy_loop import build_karpathy_loop
 
 from agents.deterministic_validator import (
-    DeterministicValidatorEngine,
-    apply_verify_verdict,
-    record_effect,
     verified_closure_enabled,
+    with_verified_closure,
 )
 
 
@@ -137,15 +135,13 @@ def integrate_artifacts(
     # === VERIFY node (P2) === the manifest write is graph-state only, so it is
     # first recorded as a real effect and then checked by the zero-LLM verifier.
     if verified_closure_enabled() and output["success"]:
-        postcondition["path"] = record_effect("integration_agent", {
+        output = with_verified_closure("integration_agent", output, postcondition, {
             "artifact_count": manifest.get("artifact_count", 0),
             "modules": manifest.get("modules", []),
             "tests": manifest.get("tests", []),
             "exports": manifest.get("exports", {}),
         })
-        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
-        output = apply_verify_verdict(output, postcondition, verify_breaches)
-        if verify_breaches:
-            output["conflicts"] = list(output.get("conflicts", [])) + verify_breaches
+        if output.get("verify_breaches"):
+            output["conflicts"] = list(output.get("conflicts", [])) + output["verify_breaches"]
 
     return output

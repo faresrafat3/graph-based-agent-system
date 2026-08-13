@@ -13,10 +13,8 @@ from llm.llm_integration import call_llm
 from memory.custom_memory import memory
 from tools.mcp_tools import mcp_tools
 from agents.deterministic_validator import (
-    DeterministicValidatorEngine,
-    apply_verify_verdict,
-    record_effect,
     verified_closure_enabled,
+    with_verified_closure,
 )
 
 
@@ -461,13 +459,11 @@ def decompose_requirements(
     # what P2 forbids: the write edge is closed here by recording the effect and
     # verifying it with zero LLM involvement.
     if verified_closure_enabled() and output["success"]:
-        postcondition["path"] = record_effect("task_decomposer", {
+        output = with_verified_closure("task_decomposer", output, postcondition, {
             "task_count": len(output["tasks"]),
             "metadata_keys": sorted(output["metadata"].keys()),
             "clarifications": len(output["clarifications_needed"]),
         })
-        verify_breaches = DeterministicValidatorEngine.verify_execution_postcondition(postcondition)
-        output = apply_verify_verdict(output, postcondition, verify_breaches)
 
     return output
 
