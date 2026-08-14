@@ -1,6 +1,6 @@
 {
   "survey": "directed-survey-inert",
-  "generated_at": "20260814_044440",
+  "generated_at": "20260813_190115",
   "live_entrypoint": "run_karpathy_pipeline",
   "falsifiers": {
     "name_graph_reachable": "count(from _transitive_reachable) must be >= call_site_reachable; if equal AND external set empty, no gap (fails loud otherwise).",
